@@ -16,6 +16,7 @@ import { createWorkout } from "@/lib/workout";
 import { useAuth } from "@/hooks/useAuth";
 import { useAIAssistant } from "@/hooks/useAIAssistant";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface AIWorkoutRecommendationsProps {
   onCreateWorkout: (value: boolean) => void;
@@ -25,6 +26,7 @@ export default function AIWorkoutRecommendations({ onCreateWorkout }: AIWorkoutR
   const { user } = useAuth();
   const { toast } = useToast();
   const { generateWorkoutRecommendations, isLoading } = useAIAssistant();
+  const router = useRouter();
   
   const [difficultyLevel, setDifficultyLevel] = useState<number>(1);
   const [duration, setDuration] = useState<number>(30);
@@ -177,15 +179,21 @@ export default function AIWorkoutRecommendations({ onCreateWorkout }: AIWorkoutR
       });
       
       // Llamar a la función de creación de workout
-      await createWorkout(newWorkout, exercisesData as WorkoutExerciseInsert[]);
+      const result = await createWorkout(newWorkout, exercisesData as WorkoutExerciseInsert[]);
+      
+      // Casting para TypeScript
+      const typedResult = result as unknown as { id: string; name: string };
       
       toast({
         title: "Éxito",
         description: "Entrenamiento creado a partir de la recomendación",
       });
       
-      // Redirigir a la lista de entrenamientos
+      // Cerrar el diálogo de recomendaciones
       onCreateWorkout(false);
+      
+      // Redireccionar al detalle del nuevo entrenamiento
+      router.push(`/dashboard/workout/${typedResult.id}`);
     } catch (error) {
       console.error("Error creating workout from recommendation:", error);
       toast({
