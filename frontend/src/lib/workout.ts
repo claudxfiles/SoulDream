@@ -736,7 +736,7 @@ export async function createSampleWorkoutTemplates(userId: string): Promise<void
       name: 'Abs de Acero',
       description: 'Rutina intensiva para fortalecer el core',
       estimated_duration_minutes: 35,
-      workout_type: 'strength',
+      workout_type: 'Fuerza',
       difficulty_level: 'intermediate',
       is_public: true,
       muscle_groups: ['abs', 'obliques']
@@ -746,7 +746,7 @@ export async function createSampleWorkoutTemplates(userId: string): Promise<void
       name: 'Brazos Definidos',
       description: 'Rutina para tonificar y definir los brazos',
       estimated_duration_minutes: 40,
-      workout_type: 'strength',
+      workout_type: 'Fuerza',
       difficulty_level: 'beginner',
       is_public: true,
       muscle_groups: ['biceps', 'triceps', 'forearms']
@@ -756,7 +756,7 @@ export async function createSampleWorkoutTemplates(userId: string): Promise<void
       name: 'Cardio Quemagrasa',
       description: 'Entrenamiento cardiovascular para quemar calorías',
       estimated_duration_minutes: 35,
-      workout_type: 'cardio',
+      workout_type: 'Cardio',
       difficulty_level: 'intermediate',
       is_public: true,
       muscle_groups: ['cardio', 'full_body']
@@ -766,7 +766,7 @@ export async function createSampleWorkoutTemplates(userId: string): Promise<void
       name: 'Crossfit WOD',
       description: 'Entrenamiento del día estilo crossfit',
       estimated_duration_minutes: 40,
-      workout_type: 'crossfit',
+      workout_type: 'Crossfit',
       difficulty_level: 'advanced',
       is_public: true,
       muscle_groups: ['full_body', 'cardio']

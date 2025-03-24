@@ -262,7 +262,7 @@ async def generate_workout_recommendations_mock(
   {{
     "name": "Entrenamiento {difficulty} de {', '.join(muscle_groups)} - Plan A",
     "description": "Rutina personalizada para trabajar {', '.join(muscle_groups)} con nivel {difficulty}",
-    "workoutType": "Strength",
+    "workoutType": "Fuerza",
     "difficultyLevel": "{difficulty}",
     "estimatedDuration": {request.duration},
     "muscleGroups": {json.dumps(muscle_groups)},
@@ -326,7 +326,7 @@ async def generate_workout_recommendations_mock(
   {{
     "name": "Entrenamiento {difficulty} de {', '.join(muscle_groups)} - Plan C",
     "description": "Rutina enfocada en resistencia para {', '.join(muscle_groups)} con nivel {difficulty}",
-    "workoutType": "Endurance",
+    "workoutType": "Cardio",
     "difficultyLevel": "{difficulty}",
     "estimatedDuration": {request.duration},
     "muscleGroups": {json.dumps(muscle_groups)},

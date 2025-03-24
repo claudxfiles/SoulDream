@@ -7,14 +7,14 @@
 
 // Enums para opciones predefinidas
 export enum WorkoutType {
-  STRENGTH = 'strength',
-  CARDIO = 'cardio',
-  FLEXIBILITY = 'flexibility',
-  HIIT = 'hiit',
-  YOGA = 'yoga',
-  PILATES = 'pilates',
-  CROSSFIT = 'crossfit',
-  CUSTOM = 'custom'
+  STRENGTH = 'Fuerza',
+  CARDIO = 'Cardio',
+  FLEXIBILITY = 'Flexibilidad',
+  HIIT = 'HIIT',
+  YOGA = 'Yoga',
+  PILATES = 'Pilates',
+  CROSSFIT = 'Crossfit',
+  CUSTOM = 'Personalizado'
 }
 
 export enum MuscleGroup {
