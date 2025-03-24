@@ -5,82 +5,52 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeftIcon, PlayIcon, ClockIcon, CalendarIcon } from "lucide-react";
+import { ArrowLeftIcon, PlayIcon, ClockIcon, DumbbellIcon } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
-import { getWorkoutById } from "@/lib/workout";
-import { WorkoutWithExercises } from "@/types/workout";
+import { getWorkoutTemplateWithExercises } from "@/lib/workout";
+import { WorkoutTemplateWithExercises } from "@/types/workout";
 import { PageHeader } from "@/components/ui/page-header";
 
-interface WorkoutDetailPageProps {
+interface WorkoutTemplateDetailPageProps {
   params: {
     id: string;
   };
 }
 
-export default function WorkoutDetailPage({ params }: WorkoutDetailPageProps) {
+export default function WorkoutTemplateDetailPage({ params }: WorkoutTemplateDetailPageProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [workout, setWorkout] = useState<WorkoutWithExercises | null>(null);
+  const [template, setTemplate] = useState<WorkoutTemplateWithExercises | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadWorkout = async () => {
-      if (!params.id) {
-        toast({
-          title: "Error",
-          description: "ID de entrenamiento no válido",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
+    const loadTemplate = async () => {
       try {
-        const data = await getWorkoutById(params.id);
-        setWorkout(data);
-      } catch (error: any) {
-        console.error(`Error loading workout ${params.id}:`, error);
+        const data = await getWorkoutTemplateWithExercises(params.id);
+        setTemplate(data);
+      } catch (error) {
+        console.error("Error loading workout template:", error);
         toast({
           title: "Error",
-          description: error.message === "Workout not found" 
-            ? `El entrenamiento con ID ${params.id} no existe o ha sido eliminado`
-            : "Error al cargar el entrenamiento. Por favor, intenta de nuevo.",
+          description: "No se pudo cargar la plantilla de entrenamiento",
           variant: "destructive",
         });
-        setWorkout(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadWorkout();
+    if (params.id) {
+      loadTemplate();
+    }
   }, [params.id, toast]);
 
   const handleStartWorkout = () => {
-    if (!workout) return;
-    
-    const workoutData = {
-      id: workout.id,
-      name: workout.name,
-      type: workout.workout_type,
-      exercises: workout.exercises.map(exercise => ({
-        name: exercise.name,
-        sets: exercise.sets,
-        reps: exercise.reps,
-        weight: exercise.weight,
-        duration_seconds: exercise.duration_seconds,
-        distance: exercise.distance,
-        units: exercise.units,
-        rest_seconds: exercise.rest_seconds,
-        notes: exercise.notes
-      }))
-    };
-    
-    router.push(`/dashboard/workout/tracker?workout=${encodeURIComponent(JSON.stringify(workoutData))}`);
+    router.push(`/dashboard/workout/tracker?template=${params.id}`);
   };
 
   if (isLoading) {
@@ -95,13 +65,13 @@ export default function WorkoutDetailPage({ params }: WorkoutDetailPageProps) {
     );
   }
 
-  if (!workout) {
+  if (!template) {
     return (
       <div className="flex flex-col gap-6 p-6">
         <div className="text-center py-12">
-          <h2 className="text-xl font-semibold mb-2">Entrenamiento no encontrado</h2>
+          <h2 className="text-xl font-semibold mb-2">Plantilla no encontrada</h2>
           <p className="text-muted-foreground mb-4">
-            El entrenamiento que buscas no existe o no tienes acceso a él.
+            La plantilla de entrenamiento que buscas no existe o no tienes acceso a ella.
           </p>
           <Link href="/dashboard/workout">
             <Button variant="outline">Volver al dashboard</Button>
@@ -115,8 +85,9 @@ export default function WorkoutDetailPage({ params }: WorkoutDetailPageProps) {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
-          title={workout.name}
-          description={`Creado el ${format(new Date(workout.created_at), "d 'de' MMMM 'de' yyyy", { locale: es })}`}
+          title={template.name}
+          description="Plantilla de entrenamiento"
+          icon={<DumbbellIcon className="h-6 w-6 text-primary" />}
         />
         <Link href="/dashboard/workout">
           <Button variant="outline" size="sm" className="gap-2">
@@ -135,7 +106,7 @@ export default function WorkoutDetailPage({ params }: WorkoutDetailPageProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {workout.exercises.map((exercise, index) => (
+              {template.exercises.map((exercise, index) => (
                 <div
                   key={exercise.id}
                   className="p-4 rounded-lg border bg-card"
@@ -172,28 +143,24 @@ export default function WorkoutDetailPage({ params }: WorkoutDetailPageProps) {
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <ClockIcon className="h-4 w-4 text-muted-foreground" />
-                  <span>Duración estimada: {workout.duration_minutes ? `${workout.duration_minutes} minutos` : "No especificada"}</span>
+                  <span>Duración estimada: {template.duration || "No especificada"}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    Última vez: {workout.last_performed 
-                      ? format(new Date(workout.last_performed), "d 'de' MMMM", { locale: es })
-                      : "Nunca realizado"}
-                  </span>
+                  <DumbbellIcon className="h-4 w-4 text-muted-foreground" />
+                  <span>Tipo: {template.type}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Notas */}
-          {workout.notes && (
+          {template.notes && (
             <Card>
               <CardHeader>
                 <CardTitle>Notas</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">{workout.notes}</p>
+                <p className="text-sm text-muted-foreground">{template.notes}</p>
               </CardContent>
             </Card>
           )}

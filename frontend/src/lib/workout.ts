@@ -16,16 +16,17 @@ import {
   WorkoutProgressData
 } from '@/types/workout';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { supabase } from "./supabase";
 
 // Inicializar cliente Supabase para componentes
-const supabase = createClientComponentClient<Database>();
+const supabaseClient = createClientComponentClient<Database>();
 
 // Función para obtener todos los workouts de un usuario
 export async function getUserWorkouts(
   userId: string,
   filters?: WorkoutFilters
 ): Promise<Workout[]> {
-  let query = supabase
+  let query = supabaseClient
     .from('workouts')
     .select('*')
     .eq('user_id', userId)
@@ -62,7 +63,7 @@ export async function getWorkoutWithExercises(
   workoutId: string
 ): Promise<WorkoutWithExercises | null> {
   // Obtener el workout
-  const { data: workout, error: workoutError } = await supabase
+  const { data: workout, error: workoutError } = await supabaseClient
     .from('workouts')
     .select('*')
     .eq('id', workoutId)
@@ -78,7 +79,7 @@ export async function getWorkoutWithExercises(
   }
 
   // Obtener los ejercicios asociados a este workout
-  const { data: exercises, error: exercisesError } = await supabase
+  const { data: exercises, error: exercisesError } = await supabaseClient
     .from('workout_exercises')
     .select('*')
     .eq('workout_id', workoutId)
@@ -101,7 +102,7 @@ export async function createWorkout(
   exercises: Omit<WorkoutExerciseInsert, 'workout_id'>[]
 ): Promise<WorkoutWithExercises> {
   // Iniciar una transacción
-  const { data: createdWorkout, error: workoutError } = await supabase
+  const { data: createdWorkout, error: workoutError } = await supabaseClient
     .from('workouts')
     .insert(workout)
     .select()
@@ -123,14 +124,14 @@ export async function createWorkout(
   }));
 
   // Insertar ejercicios
-  const { data: createdExercises, error: exercisesError } = await supabase
+  const { data: createdExercises, error: exercisesError } = await supabaseClient
     .from('workout_exercises')
     .insert(exercisesWithWorkoutId)
     .select();
 
   if (exercisesError) {
     // En caso de error, intentar eliminar el workout creado para mantener consistencia
-    await supabase.from('workouts').delete().eq('id', createdWorkout.id);
+    await supabaseClient.from('workouts').delete().eq('id', createdWorkout.id);
     console.error('Error creating workout exercises:', exercisesError);
     throw exercisesError;
   }
@@ -148,7 +149,7 @@ export async function updateWorkout(
   exercises: WorkoutExerciseInsert[]
 ): Promise<void> {
   // Actualizar el workout
-  const { error: workoutError } = await supabase
+  const { error: workoutError } = await supabaseClient
     .from('workouts')
     .update(workout)
     .eq('id', workoutId);
@@ -159,7 +160,7 @@ export async function updateWorkout(
   }
 
   // Eliminar los ejercicios existentes
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await supabaseClient
     .from('workout_exercises')
     .delete()
     .eq('workout_id', workoutId);
@@ -177,7 +178,7 @@ export async function updateWorkout(
   }));
 
   // Insertar los nuevos ejercicios
-  const { data: createdExercises, error: exercisesError } = await supabase
+  const { data: createdExercises, error: exercisesError } = await supabaseClient
     .from('workout_exercises')
     .insert(exercisesWithWorkoutId)
     .select();
@@ -188,7 +189,7 @@ export async function updateWorkout(
   }
 
   // Obtener el user_id del workout
-  const { data: workoutData } = await supabase
+  const { data: workoutData } = await supabaseClient
     .from('workouts')
     .select('user_id')
     .eq('id', workoutId)
@@ -203,7 +204,7 @@ export async function updateWorkout(
 // Función para eliminar un workout
 export async function deleteWorkout(workoutId: string): Promise<void> {
   // Eliminar los ejercicios primero (por restricciones de clave foránea)
-  const { error: exercisesError } = await supabase
+  const { error: exercisesError } = await supabaseClient
     .from('workout_exercises')
     .delete()
     .eq('workout_id', workoutId);
@@ -214,7 +215,7 @@ export async function deleteWorkout(workoutId: string): Promise<void> {
   }
 
   // Eliminar el workout
-  const { error: workoutError } = await supabase
+  const { error: workoutError } = await supabaseClient
     .from('workouts')
     .delete()
     .eq('id', workoutId);
@@ -229,7 +230,7 @@ export async function deleteWorkout(workoutId: string): Promise<void> {
 export async function getExerciseTemplates(
   filters?: ExerciseTemplateFilters
 ): Promise<ExerciseTemplate[]> {
-  let query = supabase
+  let query = supabaseClient
     .from('exercise_templates')
     .select('*')
     .order('name');
@@ -262,7 +263,7 @@ export async function getWorkoutTemplates(
   userId: string,
   includePublic: boolean = true
 ): Promise<WorkoutTemplate[]> {
-  let query = supabase
+  let query = supabaseClient
     .from('workout_templates')
     .select('*');
 
@@ -287,7 +288,7 @@ export async function getWorkoutTemplateWithExercises(
   templateId: string
 ): Promise<WorkoutTemplateWithExercises | null> {
   // Obtener la plantilla
-  const { data: template, error: templateError } = await supabase
+  const { data: template, error: templateError } = await supabaseClient
     .from('workout_templates')
     .select('*')
     .eq('id', templateId)
@@ -303,7 +304,7 @@ export async function getWorkoutTemplateWithExercises(
   }
 
   // Obtener los ejercicios asociados a esta plantilla
-  const { data: exercises, error: exercisesError } = await supabase
+  const { data: exercises, error: exercisesError } = await supabaseClient
     .from('workout_template_exercises')
     .select('*')
     .eq('template_id', templateId)
@@ -344,7 +345,7 @@ export async function createWorkoutFromTemplate(
   };
 
   // Primero crear el workout para obtener su ID
-  const { data: createdWorkout, error: workoutError } = await supabase
+  const { data: createdWorkout, error: workoutError } = await supabaseClient
     .from('workouts')
     .insert(newWorkout)
     .select()
@@ -373,13 +374,13 @@ export async function createWorkoutFromTemplate(
   });
 
   // Insertar los ejercicios
-  const { error: exercisesError } = await supabase
+  const { error: exercisesError } = await supabaseClient
     .from('workout_exercises')
     .insert(exercises);
 
   if (exercisesError) {
     // En caso de error, eliminar el workout creado
-    await supabase.from('workouts').delete().eq('id', createdWorkout.id);
+    await supabaseClient.from('workouts').delete().eq('id', createdWorkout.id);
     console.error('Error creating exercises for template workout:', exercisesError);
     throw exercisesError;
   }
@@ -392,7 +393,7 @@ export async function getWorkoutStatistics(
   userId: string
 ): Promise<WorkoutStatistics> {
   // Obtener todos los workouts del usuario
-  const { data: workouts, error } = await supabase
+  const { data: workouts, error } = await supabaseClient
     .from('workouts')
     .select('*')
     .eq('user_id', userId);
@@ -452,7 +453,7 @@ export async function getWorkoutStatistics(
   });
 
   // Obtener el número total de ejercicios
-  const { count: totalExercises, error: countError } = await supabase
+  const { count: totalExercises, error: countError } = await supabaseClient
     .from('workout_exercises')
     .select('*', { count: 'exact', head: true })
     .in('workout_id', workouts.map(w => w.id));
@@ -497,7 +498,7 @@ async function updateUserProgress(
   for (const exercise of exercises) {
     try {
       // Buscar si ya existe un registro de progreso para este ejercicio
-      const { data: progressData, error: progressError } = await supabase
+      const { data: progressData, error: progressError } = await supabaseClient
         .from('workout_progress')
         .select('*')
         .eq('user_id', userId)
@@ -513,7 +514,7 @@ async function updateUserProgress(
 
       if (!progressData) {
         // Crear un nuevo registro de progreso
-        await supabase.from('workout_progress').insert({
+        await supabaseClient.from('workout_progress').insert({
           user_id: userId,
           exercise_name: exercise.name,
           max_weight: exercise.weight,
@@ -557,7 +558,7 @@ async function updateUserProgress(
 
       // Solo actualizar si hay cambios
       if (Object.keys(updates).length > 1) { // > 1 porque last_updated siempre está
-        await supabase
+        await supabaseClient
           .from('workout_progress')
           .update(updates)
           .eq('id', progressData.id);
@@ -593,7 +594,7 @@ export async function getExerciseProgressData(
     }
 
     // Obtener los workouts del usuario
-    const { data: workouts, error: workoutsError } = await supabase
+    const { data: workouts, error: workoutsError } = await supabaseClient
       .from('workouts')
       .select('id, date')
       .eq('user_id', userId)
@@ -614,7 +615,7 @@ export async function getExerciseProgressData(
     }
 
     // Usar el cliente de Supabase para obtener los ejercicios, pero con nombres codificados correctamente
-    const { data: exercises, error: exercisesError } = await supabase
+    const { data: exercises, error: exercisesError } = await supabaseClient
       .from('workout_exercises')
       .select(`workout_id, ${metricField}`)
       .filter('name', 'eq', exerciseName)
@@ -675,7 +676,7 @@ export async function getRecentExercises(
   limit: number = 10
 ): Promise<string[]> {
   // Obtener los workouts más recientes
-  const { data: workouts, error: workoutsError } = await supabase
+  const { data: workouts, error: workoutsError } = await supabaseClient
     .from('workouts')
     .select('id')
     .eq('user_id', userId)
@@ -692,7 +693,7 @@ export async function getRecentExercises(
   }
 
   // Obtener ejercicios únicos de esos workouts
-  const { data: exercises, error: exercisesError } = await supabase
+  const { data: exercises, error: exercisesError } = await supabaseClient
     .from('workout_exercises')
     .select('name')
     .in('workout_id', workouts.map(w => w.id));
@@ -714,7 +715,7 @@ export async function getRecentExercises(
 // Función para crear plantillas de muestra si el usuario no tiene ninguna
 export async function createSampleWorkoutTemplates(userId: string): Promise<void> {
   // Verificar si el usuario ya tiene plantillas
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('workout_templates')
     .select('id')
     .eq('user_id', userId);
@@ -774,7 +775,7 @@ export async function createSampleWorkoutTemplates(userId: string): Promise<void
   ];
   
   // Insertar las plantillas de muestra
-  const { error: insertError } = await supabase
+  const { error: insertError } = await supabaseClient
     .from('workout_templates')
     .insert(sampleTemplates);
   
@@ -792,7 +793,7 @@ export async function getWorkoutTemplatesByMuscleGroup(
   try {
     if (muscleGroup === "all") {
       // Si es "todos", simplemente devolver todas las plantillas disponibles
-      const { data: templates, error } = await supabase
+      const { data: templates, error } = await supabaseClient
         .from('workout_templates')
         .select('*')
         .or(`user_id.eq.${userId},is_public.eq.true`);
@@ -806,7 +807,7 @@ export async function getWorkoutTemplatesByMuscleGroup(
     }
 
     // Buscar plantillas que tienen ejercicios con ese grupo muscular
-    const { data: exercisesByMuscleGroup, error } = await supabase
+    const { data: exercisesByMuscleGroup, error } = await supabaseClient
       .from('workout_template_exercises')
       .select('template_id')
       .eq('muscle_group', muscleGroup);
@@ -815,7 +816,7 @@ export async function getWorkoutTemplatesByMuscleGroup(
       console.error('Error fetching exercises by muscle group:', error);
       // Intentar buscar en el array muscle_groups como fallback
       try {
-        const { data: templatesByMuscleGroupArray, error: fallbackError } = await supabase
+        const { data: templatesByMuscleGroupArray, error: fallbackError } = await supabaseClient
           .from('workout_templates')
           .select('*')
           .or(`user_id.eq.${userId},is_public.eq.true`)
@@ -849,7 +850,7 @@ export async function getWorkoutTemplatesByMuscleGroup(
     }
     
     // Buscar las plantillas por los IDs obtenidos
-    const { data: templates, error: templatesError } = await supabase
+    const { data: templates, error: templatesError } = await supabaseClient
       .from('workout_templates')
       .select('*')
       .or(`user_id.eq.${userId},is_public.eq.true`)
@@ -864,5 +865,56 @@ export async function getWorkoutTemplatesByMuscleGroup(
   } catch (error) {
     console.error(`Error en getWorkoutTemplatesByMuscleGroup:`, error);
     return [];
+  }
+}
+
+export async function getWorkoutById(id: string): Promise<WorkoutWithExercises> {
+  try {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    if (!user) {
+      throw new Error("Usuario no autenticado");
+    }
+
+    // Obtener el workout con sus ejercicios
+    const { data: workout, error } = await supabaseClient
+      .from("workouts")
+      .select(`
+        *,
+        exercises:workout_exercises (
+          id,
+          workout_id,
+          name,
+          sets,
+          reps,
+          weight,
+          duration_seconds,
+          distance,
+          units,
+          rest_seconds,
+          order_index,
+          notes,
+          created_at,
+          updated_at
+        )
+      `)
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching workout:", error);
+      throw error;
+    }
+
+    if (!workout) {
+      console.error("No workout found with ID:", id);
+      throw new Error("Workout not found");
+    }
+
+    return workout as WorkoutWithExercises;
+  } catch (error) {
+    console.error("Error in getWorkoutById:", error);
+    throw error;
   }
 } 

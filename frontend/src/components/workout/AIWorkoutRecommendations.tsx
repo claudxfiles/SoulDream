@@ -154,17 +154,21 @@ export default function AIWorkoutRecommendations({ onCreateWorkout }: AIWorkoutR
       
       // Convertir ejercicios al formato esperado por la API
       const exercisesData = recommendation.exercises.map((exercise, index) => {
-        // Convertir reps a número entero (si es un rango como "10-12", usar el valor máximo)
-        let repsValue = exercise.reps;
-        if (typeof repsValue === 'string') {
-          // Verificar si es un rango (contiene un guion)
-          if (String(repsValue).includes('-')) {
-            // Extraer el valor máximo del rango
-            const rangeParts = String(repsValue).split('-');
-            repsValue = parseInt(rangeParts[1].trim());
+        // Convertir reps a número entero
+        let repsValue: number;
+        
+        if (typeof exercise.reps === 'number') {
+          repsValue = exercise.reps;
+        } else {
+          // Si es un string, intentar extraer un número válido
+          const repsString = String(exercise.reps);
+          if (repsString.includes('-')) {
+            // Si es un rango (e.g., "10-12"), usar el valor máximo
+            const [_, maxReps] = repsString.split('-').map(num => parseInt(num.trim()));
+            repsValue = maxReps || 12; // Valor por defecto si no se puede parsear
           } else {
-            // Si no es un rango pero sigue siendo string, convertir a número
-            repsValue = parseInt(String(repsValue));
+            // Si es un string sin rango, intentar convertir a número
+            repsValue = parseInt(repsString) || 12; // Valor por defecto si no se puede parsear
           }
         }
         

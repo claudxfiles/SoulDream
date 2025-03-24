@@ -1,16 +1,30 @@
-import WorkoutTracker from "@/components/workout/WorkoutTracker";
-import { PageHeader } from "@/components/dashboard/PageHeader";
-import { Metadata } from "next";
-import { DumbbellIcon, TimerIcon, LineChartIcon, ArrowLeftIcon } from "lucide-react";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-
-export const metadata: Metadata = {
-  title: "Rastreador de Entrenamiento | SoulDream",
-  description: "Registra tu progreso en tiempo real durante tus entrenamientos",
-};
+import { PageHeader } from "@/components/ui/page-header";
+import { ArrowLeftIcon, TimerIcon } from "lucide-react";
+import WorkoutTracker from "@/components/workout/WorkoutTracker";
+import { DumbbellIcon, LineChartIcon } from "lucide-react";
 
 export default function WorkoutTrackerPage() {
+  const searchParams = useSearchParams();
+  const workoutParam = searchParams.get('workout');
+  const [workoutData, setWorkoutData] = useState(null);
+
+  useEffect(() => {
+    if (workoutParam) {
+      try {
+        const data = JSON.parse(decodeURIComponent(workoutParam));
+        setWorkoutData(data);
+      } catch (error) {
+        console.error("Error parsing workout data:", error);
+      }
+    }
+  }, [workoutParam]);
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -79,7 +93,7 @@ export default function WorkoutTrackerPage() {
         
         {/* Rastreador principal */}
         <div className="lg:col-span-4 order-1 lg:order-2">
-          <WorkoutTracker />
+          <WorkoutTracker initialWorkout={workoutData} />
         </div>
       </div>
     </div>

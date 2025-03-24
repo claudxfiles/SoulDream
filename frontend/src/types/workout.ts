@@ -103,6 +103,9 @@ export interface WorkoutExercise {
 
 export interface WorkoutWithExercises extends Workout {
   exercises: WorkoutExercise[];
+  duration?: string;
+  last_performed?: string;
+  created_at: string;
 }
 
 // Tipos para inserciones
@@ -156,6 +159,9 @@ export interface WorkoutTemplateExercise {
 
 export interface WorkoutTemplateWithExercises extends WorkoutTemplate {
   exercises: WorkoutTemplateExercise[];
+  duration?: string;
+  type?: string;
+  notes?: string;
 }
 
 export interface WorkoutProgressData {
