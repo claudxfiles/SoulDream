@@ -1,0 +1,3 @@
+# Consulta de búsqueda en un párrafo
+
+Realicemos una búsqueda web. Tu tarea es redactar una consulta de búsqueda en un párrafo, como si le estuvieras diciendo a un investigador humano qué encontrar, incluyendo todo el contexto relevante. Formatea el párrafo como instrucciones claras, ordenando al investigador que encuentre lo que estamos buscando. Solicita fragmentos de código o detalles técnicos cuando sea relevante.

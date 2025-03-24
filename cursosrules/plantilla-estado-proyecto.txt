@@ -1,0 +1,34 @@
+# Plantilla de Estado del Proyecto
+
+## Instrucciones
+Formatea esto en 3 párrafos concisos donde describas:
+- lo que acabamos de hacer
+- lo que no funcionó
+- qué archivos fueron actualizados/creados
+- qué errores evitar
+- las principales ideas/lecciones que hemos aprendido
+- qué problemas/errores estamos enfrentando
+- y cualquier otra cosa que un programador necesite para trabajar productivamente en este proyecto
+
+Escribe en un tono conversacional pero informativo, algo similar a un archivo README en GitHub que sea muy denso en información y sin relleno ni ruido. NO incluyas suposiciones o teorías, solo los hechos.
+
+Espero ver tres párrafos concisos, escritos como si estuvieras dando instrucciones a otro programador y esto fuera TODO lo que pudieras decirle.
+
+## Estructura Recomendada
+
+### Párrafo 1: Logros y Cambios Recientes
+En el último sprint, nosotros [describir logros principales]. Los cambios principales involucraron [listar archivos/componentes clave], con actualizaciones significativas en [áreas específicas]. Implementamos exitosamente [característica/corrección] que resolvió [problema anterior].
+
+### Párrafo 2: Desafíos y Problemas Actuales
+Surgieron varios desafíos durante el desarrollo. El [componente específico] falló debido a [razón técnica], requiriendo [solución alternativa]. Persisten problemas críticos con [problema actual], afectando particularmente [área de impacto]. Los archivos clave para revisar incluyen [rutas de archivos].
+
+### Párrafo 3: Lecciones y Próximos Pasos
+De cara al futuro, evita [error específico] cuando trabajes con [componente/característica]. Lecciones esenciales aprendidas: [ideas clave]. Para un desarrollo productivo, asegúrate de [requisito importante] y ten en cuenta que [información crítica]. Las prioridades actuales se centran en resolver [problema urgente] e implementar [siguiente característica].
+
+## Ejemplo de Uso Real
+
+Implementamos la autenticación OAuth2 con Google y refactorizamos la capa de servicios. Los cambios principales afectaron `/src/auth/*` y `/src/services/*`, con nuevas utilidades en `/src/utils/auth-helpers.js`. La integración con Google ahora funciona correctamente y reduce el tiempo de inicio de sesión en un 60%.
+
+El sistema de caché Redis falló bajo carga pesada debido a conexiones no cerradas, requiriendo implementar un pool de conexiones. Persisten problemas de rendimiento en la API de búsqueda, especialmente con consultas complejas. Revisar `/src/services/search.js` y `/src/config/redis.js` para context completo del problema.
+
+Para trabajo futuro, evita crear nuevas conexiones Redis fuera del pool. Aprendimos que el manejo de errores asíncrono necesita centralización. Asegúrate de ejecutar `npm run validate` antes de commits y nota que los tests de integración requieren Redis local. Prioridades: optimizar búsqueda y implementar rate limiting.

@@ -1,0 +1,454 @@
+# Cursor Rules: Migración de Datos Mock a Datos Reales para SoulDream
+
+## Contexto
+Eres un Senior Software Engineer especializado en migrar aplicaciones desde datos mock a conexiones reales con APIs y bases de datos. El usuario ha desarrollado SoulDream, una plataforma all-in-one para gestión personal que utiliza Next.js, TypeScript, Tailwind CSS, Shadcn/UI y Supabase como base de datos. La aplicación ya tiene una UI robusta con múltiples módulos (workout, tareas, hábitos, finanzas, etc.) que actualmente funcionan con datos de maqueta, pero necesita migrar a datos reales manteniendo la experiencia de usuario actual.
+## Idioma
+porfavor responde en español
+
+## Objetivos Principales
+- Mantener íntegramente la estética visual y experiencia de usuario actual
+- Implementar un sistema para migrar módulo por módulo sin interrumpir funcionalidad
+- Crear adaptadores robustos para transformar datos de Supabase al formato esperado por los componentes
+- Desarrollar un toggle de desarrollo para alternar entre datos mock y reales durante pruebas
+- Implementar estados de loading, error y vacíos que mantengan la estética de la aplicación
+- Documentar el proceso de migración para cada módulo
+
+## Estructura de la Migración
+
+### Fase 1: Fundamentos y Preparación
+1. **Análisis de estructura de datos actual**
+   - Documentar la estructura exacta de los datos mock por módulo
+   - Definir interfaces TypeScript para ambos formatos (mock y Supabase)
+   - Identificar discrepancias entre modelos y planificar adaptaciones
+
+2. **Infraestructura para fuentes duales de datos**
+   - Crear store Zustand para alternar entre fuentes de datos
+   - Implementar componente de toggle visible solo en desarrollo
+   - Establecer mecanismos para persistir la preferencia durante desarrollo
+
+### Fase 2: Sistema de Adaptadores y Servicios
+1. **Servicios de conexión con Supabase**
+   - Implementar cliente Supabase con manejo de errores robusto
+   - Crear servicios modulares por tipo de entidad (tareas, hábitos, workout, etc.)
+   - Implementar operaciones CRUD completas para cada entidad
+
+2. **Adaptadores bidireccionales**
+   - Desarrollar adaptadores para transformar datos de Supabase a formato mock
+   - Implementar transformación inversa para guardar datos en formato correcto
+   - Añadir validación y manejo de casos edge (valores nulos, tipos incorrectos)
+
+3. **Proveedores de datos contextuales**
+   - Crear Context Providers para cada tipo de entidad
+   - Implementar lógica para seleccionar fuente basada en store global
+   - Exponer hooks personalizados con estados de loading, error y datos
+
+### Fase 3: Implementación Gradual por Módulos
+Implementar la migración en este orden específico:
+
+1. **Tareas**
+   - Implementar primero por su relativa simplicidad
+   - Crear tests visuales para comparar presentación antes/después
+
+2. **Workout**
+   - Migrar considerando la complejidad de relaciones entre entidades
+   - Implementar adaptadores específicos para visualizaciones de progreso
+
+3. **Hábitos**
+   - Adaptar lógica para cálculo de rachas/streaks desde datos reales
+   - Optimizar consultas para rendimiento en cálculos históricos
+
+4. **Metas/Goals**
+   - Migrar con especial atención a la visualización de progreso
+   - Implementar lógica para actualización en tiempo real
+
+5. **Finanzas**
+   - Migrar con énfasis en la precisión de cálculos numéricos
+   - Adaptar visualizaciones y gráficos para trabajar con datos dinámicos
+
+6. **Calendar**
+   - Completar integración con Google Calendar y datos locales
+   - Optimizar para mostrar eventos de diferentes fuentes
+
+7. **Analytics**
+   - Migrar visualizaciones y dashboards a datos reales
+   - Implementar cálculos de métricas desde múltiples fuentes de datos
+
+### Fase 4: Estados Avanzados y Experiencia de Usuario
+1. **Estados de carga personalizados**
+   - Implementar skeletons y spinners con la estética de la aplicación
+   - Asegurar transiciones suaves entre estados de carga y datos
+
+2. **Manejo de errores elegante**
+   - Crear componentes de error visualmente integrados
+   - Implementar reintentos automáticos y manuales
+   - Desarrollar sistema para mantener datos locales durante desconexiones
+
+3. **Estados vacíos atractivos**
+   - Diseñar componentes de estado vacío para cada tipo de entidad
+   - Implementar acciones directas desde estados vacíos
+   - Añadir opción para generar datos de ejemplo
+
+4. **Optimizaciones de rendimiento**
+   - Implementar React Query para caching y revalidación
+   - Optimizar consultas a Supabase con filtros y selección de campos
+   - Añadir paginación e infinite scrolling donde sea necesario
+
+## Implementación Técnica Detallada
+
+### 1. Interfaces de Datos Robustas
+# Definir interfaces precisas para datos mock y datos de API:
+// 📄 types/data-interfaces.ts
+
+// Interfaz para datos mock de Tareas
+export interface TaskMockData {
+  id: number;
+  title: string;
+  dueDate: string; // formato "YYYY-MM-DD"
+  priority: 'high' | 'medium' | 'low';
+}
+
+// Interfaz para datos de API de Tareas
+export interface TaskApiData {
+  id: string;
+  title: string;
+  due_date: string; // formato "YYYY-MM-DD"
+  priority: string;
+  user_id: string;
+  // otros campos
+}
+### 2. Adaptadores
+# Crear adaptadores para transformar entre formatos:
+// 📄 adapters/tasksAdapter.ts
+import { TaskApiData, TaskMockData } from '@/types/data-interfaces';
+
+export const tasksAdapter = {
+  apiToMockFormat(apiData: TaskApiData[]): TaskMockData[] {
+    return apiData.map(task => ({
+      id: parseInt(task.id),
+      title: task.title,
+      dueDate: task.due_date,
+      priority: task.priority as 'high' | 'medium' | 'low',
+    }));
+  }
+};
+### 3. Servicios de datos
+# Implementar servicios para comunicación con Supabase:
+// 📄 services/tasksService.ts
+import { supabase } from '@/lib/supabase';
+import { TaskApiData } from '@/types/data-interfaces';
+
+export const tasksService = {
+  async getTasks(): Promise<TaskApiData[]> {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('due_date', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  },
+  
+  async createTask(task: Omit<TaskApiData, 'id' | 'user_id'>): Promise<TaskApiData> {
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert(task)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+  
+  // Otros métodos CRUD
+};
+### 4. Proveedores de datos
+# Crear contextos para proporcionar datos a componentes:
+
+// 📄 providers/TasksDataProvider.tsx
+import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { useDataSourceStore } from '@/store/dataSourceStore';
+import { mockTasks } from '@/data/mockData';
+import { tasksService } from '@/services/tasksService';
+import { tasksAdapter } from '@/adapters/tasksAdapter';
+import { TaskMockData } from '@/types/data-interfaces';
+
+interface TasksDataContextType {
+  tasks: TaskMockData[];
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+const TasksDataContext = createContext<TasksDataContextType | undefined>(undefined);
+
+export function TasksDataProvider({ children }: { children: ReactNode }) {
+  const [tasks, setTasks] = useState<TaskMockData[]>(mockTasks);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const { useRealData } = useDataSourceStore();
+
+  const fetchTasks = async () => {
+    if (!useRealData) {
+      setTasks(mockTasks);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const apiData = await tasksService.getTasks();
+      const formattedData = tasksAdapter.apiToMockFormat(apiData);
+      setTasks(formattedData);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Unknown error'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, [useRealData]);
+
+  return (
+    <TasksDataContext.Provider value={{ 
+      tasks, 
+      isLoading, 
+      error,
+      refetch: fetchTasks
+    }}>
+      {children}
+    </TasksDataContext.Provider>
+  );
+}
+
+export const useTasksData = () => {
+  const context = useContext(TasksDataContext);
+  if (context === undefined) {
+    throw new Error('useTasksData must be used within a TasksDataProvider');
+  }
+  return context;
+};
+### 5. Estado global para control de fuente de datos
+# Implementar un store para controlar qué fuente de datos usar:
+// 📄 store/dataSourceStore.ts
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface DataSourceState {
+  useRealData: boolean;
+  setUseRealData: (value: boolean) => void;
+}
+
+export const useDataSourceStore = create<DataSourceState>()(
+  persist(
+    (set) => ({
+      useRealData: process.env.NODE_ENV === 'production', // Producción siempre usa datos reales
+      setUseRealData: (value) => set({ useRealData: value }),
+    }),
+    {
+      name: 'data-source-storage',
+    }
+  )
+);
+
+### 6. Toggle para desarrollo
+# Crear un componente para alternar fuentes de datos:
+
+// 📄 components/dev/DataSourceToggle.tsx
+import { useDataSourceStore } from '@/store/dataSourceStore';
+import { Switch } from '@/components/ui/switch';
+
+export function DataSourceToggle() {
+  const { useRealData, setUseRealData } = useDataSourceStore();
+  
+  // Solo mostrar en desarrollo
+  if (process.env.NODE_ENV !== 'development') return null;
+  
+  return (
+    <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg z-50 flex items-center space-x-2">
+      <span className={`text-sm ${!useRealData ? 'font-bold' : ''}`}>Mock</span>
+      <Switch 
+        checked={useRealData} 
+        onCheckedChange={setUseRealData} 
+      />
+      <span className={`text-sm ${useRealData ? 'font-bold' : ''}`}>Real</span>
+    </div>
+  );
+}
+### 7. Seeder para datos de demostración
+// 📄 utils/seedDemoData.ts
+import { supabase } from '@/lib/supabase';
+import { mockTasks, mockGoals, mockHabits } from '@/data/mockData';
+
+export async function seedDemoData() {
+  // Obtener el ID del usuario actual
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Usuario no autenticado');
+  
+  try {
+    // Convertir datos mock a formato de API
+    const tasksForApi = mockTasks.map(task => ({
+      title: task.title,
+      description: task.description || '',
+      due_date: task.dueDate,
+      priority: task.priority,
+      status: 'pending',
+      user_id: user.id
+    }));
+    
+    // Insertar tareas
+    const { error: tasksError } = await supabase.from('tasks').insert(tasksForApi);
+    if (tasksError) throw tasksError;
+    
+    // Repetir para cada tipo de datos (metas, hábitos, etc.)
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error seeding demo data:', error);
+    return { success: false, error };
+  }
+}
+
+### 8. Estados vacíos atractivos
+// 📄 components/ui/EmptyState.tsx
+import { Button } from '@/components/ui/button';
+import { PlusCircle, ClipboardList, Target, BarChart } from 'lucide-react';
+import { seedDemoData } from '@/utils/seedDemoData';
+import { useState } from 'react';
+
+type EmptyStateType = 'tasks' | 'goals' | 'habits' | 'finance' | 'workout';
+
+const EmptyStateConfig = {
+  tasks: {
+    icon: ClipboardList,
+    title: 'No tienes tareas pendientes',
+    description: 'Crea tu primera tarea para comenzar a organizar tu día',
+    actionText: 'Crear tarea'
+  },
+  goals: {
+    icon: Target,
+    title: 'Aún no tienes metas definidas',
+    description: 'Establece metas para visualizar tu progreso a largo plazo',
+    actionText: 'Definir meta'
+  },
+  // Configuraciones para otros tipos
+};
+
+interface EmptyStateProps {
+  type: EmptyStateType;
+  onActionClick?: () => void;
+  showDemoButton?: boolean;
+}
+
+export function EmptyState({ type, onActionClick, showDemoButton = true }: EmptyStateProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const config = EmptyStateConfig[type];
+  const Icon = config.icon;
+  
+  const handleDemoData = async () => {
+    setIsLoading(true);
+    try {
+      await seedDemoData();
+      // Refrescar datos
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  return (
+    <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
+      <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-full">
+        <Icon className="h-8 w-8 text-primary-500" />
+      </div>
+      <h3 className="mt-4 text-lg font-medium">{config.title}</h3>
+      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+        {config.description}
+      </p>
+      <div className="mt-6 flex flex-col sm:flex-row gap-3">
+        <Button onClick={onActionClick}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          {config.actionText}
+        </Button>
+        
+        {showDemoButton && (
+          <Button 
+            variant="outline" 
+            onClick={handleDemoData}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Creando...' : 'Usar datos de ejemplo'}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+### 9. Uso práctico en componentes
+// 📄 components/tasks/TasksList.tsx
+import { useTasksData } from '@/providers/TasksDataProvider';
+import { TaskCard } from './TaskCard';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/skeleton';
+
+export function TasksList() {
+  const { tasks, isLoading, error } = useTasksData();
+  
+  // Estado de carga
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton key={index} className="h-24 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+  
+  // Estado de error
+  if (error) {
+    return (
+      <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+        <p className="text-red-600 dark:text-red-400">Error: {error.message}</p>
+        <button className="mt-2 text-sm text-red-600 dark:text-red-400 underline">
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+  
+  // Estado vacío
+  if (tasks.length === 0) {
+    return <EmptyState type="tasks" onActionClick={() => {/* Abrir modal */}} />;
+  }
+  
+  // Renderizado normal
+  return (
+    <div className="space-y-4">
+      {tasks.map(task => (
+        <TaskCard key={task.id} task={task} />
+      ))}
+    </div>
+  );
+}
+
+# Proceso de migración módulo a módulo:
+Aplicar este proceso para cada módulo, en el siguiente orden:
+1. Tareas: Funcionalidad básica, buen punto de inicio
+2. Metas: Siguiente nivel de complejidad
+3. Hábitos: Incluye funcionalidad de streak/rachas
+4. Workout: Componentes más complejos
+5. Finanzas: Datos numéricos y gráficos
+6. Calendario: Integración con Google Calendar
+7. Asistente IA: Componentes conversacionales
+8. Analítica: Visualizaciones y dashboards
+
+# Consejos adicionales:
+1. Rendimiento: Usa React Query o SWR para manejo eficiente de datos
+2. Desarrollo: Implementa un sistema de flags para características en desarrollo
+3. Pruebas: Añade tests visuales para comparar antes/después
+4. Despliegue: Usa feature flags para control gradual en producción
+
+El enfoque de "adaptadores" es clave para mantener la UI actual mientras migras a datos reales. Este patrón permite una transición suave y controlada.

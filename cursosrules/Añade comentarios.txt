@@ -1,0 +1,3 @@
+# Añade comentarios a tu base de código!!
+
+Explica tu proceso de pensamiento en comentarios dentro de la codebase"
