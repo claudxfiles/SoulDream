@@ -93,4 +93,38 @@ function getWorkoutColor(type: string): string {
     sports: '#f59e0b',
   };
   return colors[type] || '#6b7280';
-} 
+}
+
+// Función para convertir un entrenamiento a evento del calendario
+export const workoutToCalendarEvent = (workout: Workout): CalendarEvent => {
+  const startDate = new Date(workout.date);
+  const endDate = new Date(startDate.getTime() + workout.duration_minutes * 60000);
+
+  return {
+    id: `workout-${workout.id}`,
+    title: workout.name,
+    description: workout.description || '',
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+    type: 'workout',
+    metadata: {
+      workoutType: workout.workout_type,
+      muscleGroups: workout.muscle_groups,
+      duration: workout.duration_minutes
+    }
+  };
+};
+
+// Función para convertir un evento del calendario a entrenamiento
+export const calendarEventToWorkout = (event: CalendarEvent): Partial<WorkoutInsert> => {
+  const startDate = new Date(event.start);
+  
+  return {
+    name: event.title,
+    description: event.description,
+    date: startDate.toISOString(),
+    duration_minutes: event.metadata?.duration || 60,
+    workout_type: event.metadata?.workoutType || WorkoutType.CUSTOM,
+    muscle_groups: event.metadata?.muscleGroups || []
+  };
+}; 

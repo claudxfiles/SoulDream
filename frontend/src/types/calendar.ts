@@ -1,15 +1,28 @@
+import { WorkoutType } from './workout';
+
 export type EventSource = 'app' | 'google' | 'habit' | 'task' | 'goal' | 'workout';
 export type SyncStatus = 'local' | 'synced' | 'sync_failed' | 'deleted' | 'sync_pending';
+
+export type CalendarEventType = 'workout' | 'task' | 'habit' | 'goal' | 'custom';
+
+export interface CalendarEventMetadata {
+  workoutType?: WorkoutType;
+  muscleGroups?: string[];
+  duration?: number;
+  [key: string]: any;
+}
 
 export interface CalendarEvent {
   id: string;
   title: string;
+  description?: string;
   start: string;
   end: string;
-  allDay: boolean;
-  description?: string;
-  source: EventSource;
+  type: CalendarEventType;
+  metadata?: CalendarEventMetadata;
   color?: string;
+  allDay?: boolean;
+  source: EventSource;
   sourceId?: string;
   userId?: string;
   relatedId?: string;
@@ -107,4 +120,12 @@ export interface CalendarSyncLog {
   eventsDeleted: number;
   errorMessage?: string;
   errorDetails?: any;
+}
+
+export interface CalendarView {
+  id: string;
+  name: string;
+  events: CalendarEvent[];
+  color?: string;
+  visible: boolean;
 } 
