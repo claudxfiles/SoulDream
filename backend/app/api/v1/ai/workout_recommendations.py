@@ -60,15 +60,17 @@ async def generate_workout_recommendations(
     current_user = Depends(get_current_user)
 ):
     try:
-        # Verificación adicional de autenticación
-        if not current_user or "user_id" not in current_user:
-            raise HTTPException(
-                status_code=401, 
-                detail="Usuario no autenticado o token inválido"
-            )
-            
         # Log para debugging
-        print(f"Usuario autenticado: {current_user['user_id']}")
+        print(f"Recibida solicitud de recomendaciones de workout")
+        print(f"Usuario autenticado: {current_user}")
+        print(f"Datos de la solicitud: {request.dict()}")
+        
+        # Verificación de autenticación
+        if not current_user:
+            raise HTTPException(
+                status_code=401,
+                detail="No se encontró información del usuario"
+            )
             
         # Verificar si tenemos la API key disponible - leer directamente del archivo .env
         # Cargar .env manualmente

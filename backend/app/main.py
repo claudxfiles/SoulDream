@@ -59,11 +59,11 @@ else:
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # En desarrollo permitimos todos los orígenes
     allow_credentials=True,
-    allow_methods=["*"],  # Permitir todos los métodos
-    allow_headers=["*"],  # Permitir todos los headers
-    expose_headers=["Content-Type", "Authorization", "Content-Length"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Añadir middleware de timing
