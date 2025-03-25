@@ -387,7 +387,6 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
       return;
     }
 
-    // Verificar si hay datos válidos para guardar
     if (activeExercises.length === 0) {
       toast({
         title: "Sin ejercicios",
@@ -401,8 +400,29 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
       const now = new Date();
       const duration = workoutDuration > 0 ? workoutDuration / 60 : 0;
 
-      // Crear objeto de inserción de entrenamiento
-      const workoutData: WorkoutInsert = {
+      // Pre-calcular los ejercicios para evitar cálculos repetitivos
+      const exercises = activeExercises.map((exercise, index) => {
+        const completedSets = exercise.sets.filter(set => set.completed);
+        const totalWeight = completedSets.reduce((sum, set) => sum + set.weight, 0);
+        const totalReps = completedSets.reduce((sum, set) => sum + set.reps, 0);
+        const completedSetsCount = completedSets.length;
+
+        const baseExercise = {
+          name: exercise.name,
+          sets: completedSetsCount,
+          reps: completedSetsCount > 0 ? Math.round(totalReps / completedSetsCount) : 0,
+          weight: completedSetsCount > 0 ? Math.round(totalWeight / completedSetsCount) : undefined,
+          duration_seconds: undefined,
+          rest_seconds: exercise.restSeconds,
+          order_index: index,
+          notes: exercise.notes || undefined
+        };
+
+        return workoutId ? { ...baseExercise, workout_id: workoutId } : baseExercise;
+      });
+
+      // Preparar datos del workout una sola vez
+      const workoutData = {
         user_id: user.id,
         name: workoutName || `Entrenamiento ${format(now, 'dd/MM/yyyy')}`,
         description: workoutNotes || undefined,
@@ -414,44 +434,14 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
         muscle_groups: selectedMuscleGroups.length > 0 ? selectedMuscleGroups : undefined
       };
 
-      // Crear objetos de inserción de ejercicios
-      const exercises = activeExercises.map((exercise, index) => {
-        // Calcular valores promedio de los sets completados
-        const completedSets = exercise.sets.filter(set => set.completed);
-        const avgWeight = completedSets.length > 0
-          ? completedSets.reduce((sum, set) => sum + set.weight, 0) / completedSets.length
-          : 0;
-        const totalReps = completedSets.reduce((sum, set) => sum + set.reps, 0);
-
-        return {
-          name: exercise.name,
-          sets: completedSets.length,
-          reps: Math.round(totalReps / completedSets.length) || 0,
-          weight: Math.round(avgWeight) || undefined,
-          duration_seconds: undefined,
-          rest_seconds: exercise.restSeconds,
-          order_index: index,
-          notes: exercise.notes || undefined
-        };
-      });
-
       let result;
       if (workoutId) {
-        // Si hay un entrenamiento inicial, actualizarlo
-        const exercisesWithWorkoutId = exercises.map(exercise => ({
-          ...exercise,
-          workout_id: workoutId
-        }));
-        await updateWorkout(workoutId, workoutData, exercisesWithWorkoutId);
-        result = {
-          id: workoutId,
-          name: workoutName
-        };
+        await updateWorkout(workoutId, workoutData, exercises as WorkoutExerciseInsert[]);
+        result = { id: workoutId, name: workoutName };
       } else {
-        // Si no hay entrenamiento inicial, crear uno nuevo
-        result = await createWorkout(workoutData, exercises);
+        result = await createWorkout(workoutData, exercises as WorkoutExerciseInsert[]);
       }
-      
+
       if (!result?.id) {
         throw new Error('No se pudo obtener el ID del entrenamiento');
       }
@@ -461,7 +451,6 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
         description: `Tu entrenamiento "${workoutName}" ha sido ${workoutId ? 'actualizado' : 'guardado'} correctamente.`,
       });
 
-      // Redireccionar a la página de detalles del entrenamiento
       router.push(`/dashboard/workout/${result.id}`);
     } catch (error) {
       console.error("Error saving workout:", error);
