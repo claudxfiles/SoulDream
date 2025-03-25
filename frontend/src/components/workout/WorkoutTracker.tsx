@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { createWorkout, getExerciseTemplates } from "@/lib/workout";
+import { createWorkout, getExerciseTemplates, updateWorkout } from "@/lib/workout";
 import { ExerciseTemplate, MuscleGroup, WorkoutType, WorkoutInsert, WorkoutExerciseInsert } from "@/types/workout";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,6 +58,7 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
   const router = useRouter();
 
   // Estado para el entrenamiento activo
+  const [workoutId, setWorkoutId] = useState<string | undefined>(initialWorkout?.id);
   const [workoutName, setWorkoutName] = useState<string>(initialWorkout?.name || "");
   const [workoutType, setWorkoutType] = useState<WorkoutType>(
     initialWorkout?.type || WorkoutType.STRENGTH
@@ -107,6 +108,10 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
       }
       if (initialWorkout.type) {
         setWorkoutType(initialWorkout.type);
+      }
+      // Guardar el ID del entrenamiento si existe
+      if (initialWorkout.id) {
+        setWorkoutId(initialWorkout.id);
       }
     }
   }, [initialWorkout]);
@@ -248,7 +253,33 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
       restSeconds: 60,
     };
 
-    setActiveExercises([...activeExercises, newExercise]);
+    // Añadir el nuevo ejercicio al array existente
+    setActiveExercises(prevExercises => [...prevExercises, newExercise]);
+
+    // Si hay un entrenamiento activo, actualizarlo inmediatamente
+    if (workoutId && user?.id) {
+      const exerciseData = {
+        workout_id: workoutId,
+        name: newExercise.name,
+        sets: 4,
+        reps: 0,
+        rest_seconds: 60,
+        order_index: activeExercises.length,
+        notes: ""
+      };
+
+      // Actualizar el entrenamiento con el nuevo ejercicio
+      updateWorkout(workoutId, {}, [...activeExercises.map((ex, index) => ({
+        workout_id: workoutId,
+        name: ex.name,
+        sets: ex.sets.length,
+        reps: 0,
+        rest_seconds: ex.restSeconds,
+        order_index: index,
+        notes: ex.notes
+      })), exerciseData]);
+    }
+
     setSelectedExercise("");
     setSelectedMuscleGroup("");
   };
@@ -404,19 +435,34 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
         };
       });
 
-      // Guardar el entrenamiento
-      const result = await createWorkout(workoutData, exercises);
+      let result;
+      if (workoutId) {
+        // Si hay un entrenamiento inicial, actualizarlo
+        const exercisesWithWorkoutId = exercises.map(exercise => ({
+          ...exercise,
+          workout_id: workoutId
+        }));
+        await updateWorkout(workoutId, workoutData, exercisesWithWorkoutId);
+        result = {
+          id: workoutId,
+          name: workoutName
+        };
+      } else {
+        // Si no hay entrenamiento inicial, crear uno nuevo
+        result = await createWorkout(workoutData, exercises);
+      }
       
-      // Casting para TypeScript
-      const typedResult = result as unknown as { id: string; name: string };
+      if (!result?.id) {
+        throw new Error('No se pudo obtener el ID del entrenamiento');
+      }
 
       toast({
-        title: "¡Entrenamiento guardado!",
-        description: `Tu entrenamiento "${typedResult.name}" ha sido guardado correctamente.`,
+        title: workoutId ? "¡Entrenamiento actualizado!" : "¡Entrenamiento guardado!",
+        description: `Tu entrenamiento "${workoutName}" ha sido ${workoutId ? 'actualizado' : 'guardado'} correctamente.`,
       });
 
       // Redireccionar a la página de detalles del entrenamiento
-      router.push(`/dashboard/workout/${typedResult.id}`);
+      router.push(`/dashboard/workout/${result.id}`);
     } catch (error) {
       console.error("Error saving workout:", error);
       toast({

@@ -490,82 +490,71 @@ export async function getWorkoutStatistics(
   };
 }
 
-// Función para actualizar el progreso del usuario para ejercicios
-async function updateUserProgress(
-  userId: string,
-  exercises: WorkoutExercise[]
-): Promise<void> {
-  for (const exercise of exercises) {
-    try {
-      // Buscar si ya existe un registro de progreso para este ejercicio
-      const { data: progressData, error: progressError } = await supabaseClient
+// Función auxiliar para codificar nombres de ejercicios
+function encodeExerciseName(name: string): string {
+  return encodeURIComponent(name.trim());
+}
+
+// Función para actualizar el progreso del usuario
+async function updateUserProgress(userId: string, exercises: WorkoutExercise[]): Promise<void> {
+  try {
+    for (const exercise of exercises) {
+      const encodedName = encodeExerciseName(exercise.name);
+      
+      // Obtener el progreso actual
+      const { data: existingProgress } = await supabaseClient
         .from('workout_progress')
         .select('*')
         .eq('user_id', userId)
         .eq('exercise_name', exercise.name)
-        .single();
+        .maybeSingle();
 
-      if (progressError && progressError.code !== 'PGRST116') { // PGRST116 = No data found
-        console.error('Error fetching progress:', progressError);
-        continue;
-      }
-
-      const today = format(new Date(), 'yyyy-MM-dd');
-
-      if (!progressData) {
-        // Crear un nuevo registro de progreso
-        await supabaseClient.from('workout_progress').insert({
-          user_id: userId,
-          exercise_name: exercise.name,
-          max_weight: exercise.weight,
-          max_reps: exercise.reps,
-          max_duration: exercise.duration_seconds,
-          max_distance: exercise.distance,
-          start_date: today,
-          last_updated: today
-        });
-        continue; // Continuar con el siguiente ejercicio
-      }
-      
-      // Actualizar el registro de progreso si los nuevos valores son mayores
-      type WorkoutProgressUpdate = {
-        last_updated: string;
-        max_weight?: number;
-        max_reps?: number;
-        max_duration?: number;
-        max_distance?: number;
-      };
-      
-      const updates: WorkoutProgressUpdate = {
-        last_updated: today
+      const now = new Date().toISOString();
+      const newSet = {
+        date: now,
+        weight: exercise.weight || 0,
+        reps: exercise.reps,
+        volume: (exercise.weight || 0) * exercise.reps
       };
 
-      if (exercise.weight && (!progressData.max_weight || exercise.weight > progressData.max_weight)) {
-        updates.max_weight = exercise.weight;
-      }
+      if (existingProgress) {
+        // Actualizar progreso existente
+        const updatedProgress: Partial<WorkoutProgressRecord> = {
+          max_weight: Math.max(existingProgress.max_weight || 0, exercise.weight || 0),
+          max_reps: Math.max(existingProgress.max_reps || 0, exercise.reps),
+          total_volume: (existingProgress.total_volume || 0) + (exercise.weight || 0) * exercise.reps,
+          last_performed: now,
+          progress_history: [...(existingProgress.progress_history || []), newSet]
+        };
 
-      if (exercise.reps && (!progressData.max_reps || exercise.reps > progressData.max_reps)) {
-        updates.max_reps = exercise.reps;
-      }
+        if ((exercise.weight || 0) * exercise.reps > (existingProgress.best_set?.volume || 0)) {
+          updatedProgress.best_set = newSet;
+        }
 
-      if (exercise.duration_seconds && (!progressData.max_duration || exercise.duration_seconds > progressData.max_duration)) {
-        updates.max_duration = exercise.duration_seconds;
-      }
-
-      if (exercise.distance && (!progressData.max_distance || exercise.distance > progressData.max_distance)) {
-        updates.max_distance = exercise.distance;
-      }
-
-      // Solo actualizar si hay cambios
-      if (Object.keys(updates).length > 1) { // > 1 porque last_updated siempre está
         await supabaseClient
           .from('workout_progress')
-          .update(updates)
-          .eq('id', progressData.id);
+          .update(updatedProgress)
+          .eq('user_id', userId)
+          .eq('exercise_name', exercise.name);
+      } else {
+        // Crear nuevo progreso
+        await supabaseClient
+          .from('workout_progress')
+          .insert({
+            user_id: userId,
+            exercise_name: exercise.name,
+            max_weight: exercise.weight || 0,
+            max_reps: exercise.reps,
+            total_volume: (exercise.weight || 0) * exercise.reps,
+            last_performed: now,
+            best_set: newSet,
+            progress_history: [newSet]
+          });
       }
-    } catch (error) {
-      console.error(`Error updating progress for exercise ${exercise.name}:`, error);
     }
+  } catch (error) {
+    console.error('Error updating user progress:', error);
+    // No lanzar el error para no interrumpir el flujo principal
   }
 }
 
