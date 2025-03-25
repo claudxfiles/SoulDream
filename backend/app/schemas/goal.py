@@ -176,8 +176,8 @@ class GoalMetadata(BaseModel):
     confidence: float
     timeframe: Optional[Dict[str, Any]] = None
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "area": "finanzas",
                 "goalType": "adquisicion",
@@ -194,4 +194,5 @@ class GoalMetadata(BaseModel):
                     "durationDays": 365
                 }
             }
-        } 
+        }
+    } 
