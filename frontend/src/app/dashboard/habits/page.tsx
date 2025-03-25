@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
-import { HabitCreate } from '@/types/habit';
+import type { HabitCreate } from '@/types/habit';
 import { habitService } from '@/services/habitService';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { 
@@ -30,60 +30,7 @@ import {
 function HabitsPageContent() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { habits, isLoading, error, refetch, createHabit, completeHabit, deleteHabit } = useHabits();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [diagnosticData, setDiagnosticData] = useState<any>(null);
-  const [isRunningDiagnostic, setIsRunningDiagnostic] = useState(false);
   const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
-  
-  // Función para forzar una recarga manual
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refetch();
-      toast({
-        title: "Actualizado",
-        description: "La lista de hábitos ha sido actualizada",
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error("Error al actualizar hábitos:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar la lista de hábitos",
-        variant: "destructive",
-        duration: 3000,
-      });
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  // Función para ejecutar diagnóstico
-  const handleRunDiagnostic = async () => {
-    setIsRunningDiagnostic(true);
-    try {
-      const data = await habitService.getDiagnostic();
-      setDiagnosticData(data);
-      
-      toast({
-        title: "Diagnóstico completado",
-        description: `Se encontraron ${data.habits_with_service_role} hábitos con el rol de servicio y ${data.habits_with_normal_client} con el cliente normal.`,
-        duration: 5000,
-      });
-      
-      console.log("Datos de diagnóstico:", data);
-    } catch (error) {
-      console.error("Error al ejecutar diagnóstico:", error);
-      toast({
-        title: "Error en diagnóstico",
-        description: "No se pudo completar el diagnóstico",
-        variant: "destructive",
-        duration: 3000,
-      });
-    } finally {
-      setIsRunningDiagnostic(false);
-    }
-  };
 
   // Manejador para cuando se crea un nuevo hábito
   const handleCreateHabit = (habit: HabitCreate) => {
@@ -91,7 +38,6 @@ function HabitsPageContent() {
       createHabit(habit);
       setIsCreateDialogOpen(false);
       
-      // Mostrar toast de éxito
       toast({
         title: "Hábito creado",
         description: "El hábito se ha creado correctamente",
@@ -107,38 +53,16 @@ function HabitsPageContent() {
       });
     }
   };
-  
-  // Verificar datos al montar el componente - realizamos solo un único refresh inicial
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
 
   // Manejador para eliminar un hábito
   const handleDeleteHabit = (habitId: string) => {
     setHabitToDelete(habitId);
   };
 
-  const confirmDeleteHabit = () => {
-    if (habitToDelete) {
-      try {
-        deleteHabit(habitToDelete);
-        toast({
-          title: "Hábito eliminado",
-          description: "El hábito se ha eliminado correctamente",
-          duration: 3000,
-        });
-        setHabitToDelete(null);
-      } catch (error) {
-        console.error("Error al eliminar hábito:", error);
-        toast({
-          title: "Error",
-          description: "No se pudo eliminar el hábito. Inténtalo nuevamente.",
-          variant: "destructive",
-          duration: 5000,
-        });
-      }
-    }
-  };
+  // Verificar datos al montar el componente
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   return (
     <div className="container mx-auto py-6">
@@ -148,31 +72,7 @@ function HabitsPageContent() {
         icon={<CheckCircle2 className="h-6 w-6" />}
       />
 
-      <div className="mt-6 flex justify-between items-center">
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-1"
-          >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            <span>{isRefreshing ? "Actualizando..." : "Actualizar"}</span>
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleRunDiagnostic}
-            disabled={isRunningDiagnostic}
-            className="flex items-center gap-1"
-          >
-            <Bug className={cn("h-4 w-4", isRunningDiagnostic && "animate-spin")} />
-            <span>{isRunningDiagnostic ? "Diagnosticando..." : "Diagnosticar"}</span>
-          </Button>
-        </div>
-        
+      <div className="mt-6 flex justify-end items-center">
         <Button 
           onClick={() => setIsCreateDialogOpen(true)}
           className="flex items-center gap-2"
@@ -181,18 +81,6 @@ function HabitsPageContent() {
           <span>Nuevo Hábito</span>
         </Button>
       </div>
-
-      {/* Mostrar resultados del diagnóstico si están disponibles */}
-      {diagnosticData && (
-        <div className="mt-4 p-4 rounded-lg border bg-amber-50 dark:bg-amber-950/20">
-          <h3 className="font-medium">Resultados del diagnóstico:</h3>
-          <p>ID de usuario: {diagnosticData.user_id}</p>
-          <p>Estado de autenticación: {diagnosticData.auth_status}</p>
-          <p>Hábitos encontrados (rol de servicio): {diagnosticData.habits_with_service_role}</p>
-          <p>Hábitos encontrados (cliente normal): {diagnosticData.habits_with_normal_client}</p>
-          {diagnosticData.error && <p className="text-red-500">Error: {diagnosticData.error}</p>}
-        </div>
-      )}
 
       <div className="mt-6">
         <Tabs defaultValue="all" className="w-full">
@@ -343,7 +231,17 @@ function HabitsPageContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteHabit}>Eliminar</AlertDialogAction>
+            <AlertDialogAction onClick={() => {
+              if (habitToDelete) {
+                deleteHabit(habitToDelete);
+                toast({
+                  title: "Hábito eliminado",
+                  description: "El hábito se ha eliminado correctamente",
+                  duration: 3000,
+                });
+                setHabitToDelete(null);
+              }
+            }}>Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
