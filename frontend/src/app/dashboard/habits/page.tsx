@@ -30,7 +30,6 @@ import {
 function HabitsPageContent() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { habits, isLoading, error, refetch, createHabit, completeHabit, deleteHabit } = useHabits();
-  const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
 
   // Manejador para cuando se crea un nuevo hábito
   const handleCreateHabit = (habit: HabitCreate) => {
@@ -56,7 +55,12 @@ function HabitsPageContent() {
 
   // Manejador para eliminar un hábito
   const handleDeleteHabit = (habitId: string) => {
-    setHabitToDelete(habitId);
+    deleteHabit(habitId);
+    toast({
+      title: "Hábito eliminado",
+      description: "El hábito se ha eliminado correctamente",
+      duration: 3000,
+    });
   };
 
   // Verificar datos al montar el componente
@@ -220,31 +224,6 @@ function HabitsPageContent() {
         onOpenChange={setIsCreateDialogOpen}
         onCreateHabit={handleCreateHabit}
       />
-      
-      <AlertDialog open={!!habitToDelete} onOpenChange={() => habitToDelete ? setHabitToDelete(null) : null}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar hábito</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. ¿Estás seguro de que quieres eliminar este hábito y todos sus registros?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (habitToDelete) {
-                deleteHabit(habitToDelete);
-                toast({
-                  title: "Hábito eliminado",
-                  description: "El hábito se ha eliminado correctamente",
-                  duration: 3000,
-                });
-                setHabitToDelete(null);
-              }
-            }}>Eliminar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
