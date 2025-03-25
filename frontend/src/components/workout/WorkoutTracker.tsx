@@ -36,7 +36,7 @@ interface WorkoutTrackerProps {
   initialWorkout?: {
     id: string;
     name: string;
-    type: string;
+    type: WorkoutType;
     exercises: Array<{
       name: string;
       sets: number;
@@ -47,6 +47,7 @@ interface WorkoutTrackerProps {
       units?: string;
       rest_seconds: number;
       notes?: string;
+      muscle_group?: MuscleGroup;
     }>;
   } | null;
 }
@@ -59,9 +60,9 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
   // Estado para el entrenamiento activo
   const [workoutName, setWorkoutName] = useState<string>(initialWorkout?.name || "");
   const [workoutType, setWorkoutType] = useState<WorkoutType>(
-    initialWorkout?.type as WorkoutType || WorkoutType.STRENGTH
+    initialWorkout?.type || WorkoutType.STRENGTH
   );
-  const [workoutNotes, setWorkoutNotes] = useState<string | undefined>(undefined);
+  const [workoutNotes, setWorkoutNotes] = useState<string>("");
   const [activeExercises, setActiveExercises] = useState<ActiveExercise[]>([]);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number>(0);
   const [currentSetIndex, setCurrentSetIndex] = useState<number>(0);
@@ -82,14 +83,14 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
   const [workoutDuration, setWorkoutDuration] = useState<number>(0);
   const [isWorkoutActive, setIsWorkoutActive] = useState<boolean>(false);
   const [selectedMuscleGroups, setSelectedMuscleGroups] = useState<string[]>([]);
-  const [caloriesBurned, setCaloriesBurned] = useState<number | undefined>(undefined);
+  const [caloriesBurned, setCaloriesBurned] = useState<number>(0);
 
   // Inicializar ejercicios si hay datos iniciales
   useEffect(() => {
     if (initialWorkout?.exercises) {
       const exercises: ActiveExercise[] = initialWorkout.exercises.map(ex => ({
         name: ex.name,
-        muscleGroup: MuscleGroup.FULL_BODY, // Valor por defecto más genérico
+        muscleGroup: ex.muscle_group || MuscleGroup.FULL_BODY,
         sets: Array(ex.sets).fill(null).map(() => ({
           weight: ex.weight || 0,
           reps: ex.reps || 0,
@@ -99,6 +100,14 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
         restSeconds: ex.rest_seconds || 60
       }));
       setActiveExercises(exercises);
+      
+      // Actualizar el nombre y tipo del entrenamiento
+      if (initialWorkout.name) {
+        setWorkoutName(initialWorkout.name);
+      }
+      if (initialWorkout.type) {
+        setWorkoutType(initialWorkout.type);
+      }
     }
   }, [initialWorkout]);
 
@@ -647,7 +656,7 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
                                   <Input
                                     type="number"
                                     min={0}
-                                    value={set.weight}
+                                    value={set.weight || 0}
                                     onChange={(e) => updateSetWeight(
                                       exerciseIndex, 
                                       setIndex, 
@@ -660,7 +669,7 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
                                   <Input
                                     type="number"
                                     min={0}
-                                    value={set.reps}
+                                    value={set.reps || 0}
                                     onChange={(e) => updateSetReps(
                                       exerciseIndex, 
                                       setIndex, 
