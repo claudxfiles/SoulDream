@@ -16,7 +16,8 @@ import { ExerciseTemplate, MuscleGroup, WorkoutType, WorkoutInsert, WorkoutExerc
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
-import { Trash2Icon, PlusCircleIcon, PlayIcon, PauseIcon, SquareIcon, SaveIcon, DumbbellIcon, TimerIcon, ActivityIcon, RotateCcwIcon } from "lucide-react";
+import { Trash2Icon, PlusCircleIcon, PlayIcon, PauseIcon, SquareIcon, SaveIcon, DumbbellIcon, TimerIcon, ActivityIcon, RotateCcwIcon, CheckCircleIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ExerciseSet {
   weight: number;
@@ -484,316 +485,473 @@ export default function WorkoutTracker({ initialWorkout }: WorkoutTrackerProps) 
             Registra tu progreso en tiempo real durante tu entrenamiento
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Encabezado del entrenamiento */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="workout-name">Nombre del entrenamiento</Label>
-                <Input
-                  id="workout-name"
-                  placeholder="Ej: Entrenamiento de pecho y brazos"
-                  value={workoutName}
-                  onChange={(e) => setWorkoutName(e.target.value)}
-                  disabled={isWorkoutActive}
-                />
-              </div>
-              <div>
-                <Label htmlFor="workout-type">Tipo de entrenamiento</Label>
-                <Select
-                  value={workoutType}
-                  onValueChange={(v) => setWorkoutType(v as WorkoutType)}
-                  disabled={isWorkoutActive}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.values(WorkoutType).map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="workout-notes">Notas generales</Label>
-              <Input
-                id="workout-notes"
-                placeholder="Añade notas sobre este entrenamiento"
-                value={workoutNotes}
-                onChange={(e) => setWorkoutNotes(e.target.value)}
-              />
-            </div>
-          </div>
+        <CardContent>
+          <Tabs defaultValue={isWorkoutActive ? "workout" : "setup"} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="setup" disabled={isWorkoutActive}>
+                <DumbbellIcon className="h-4 w-4 mr-2" />
+                Configuración
+              </TabsTrigger>
+              <TabsTrigger value="workout">
+                <ActivityIcon className="h-4 w-4 mr-2" />
+                Entrenamiento
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Selector de ejercicios */}
-          {!isWorkoutActive && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Añadir ejercicio</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Grupo muscular</Label>
-                    <Select
-                      value={selectedMuscleGroup}
-                      onValueChange={(v) => setSelectedMuscleGroup(v as MuscleGroup | "ALL")}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar grupo muscular" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">Todos</SelectItem>
-                        {Object.values(MuscleGroup).map((group) => (
-                          <SelectItem key={group} value={group}>
-                            {group.charAt(0).toUpperCase() + group.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            <TabsContent value="setup" className="space-y-6">
+              {/* Paso 1: Configuración básica */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-semibold">1</span>
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Configuración Básica</CardTitle>
+                      <CardDescription>Define los detalles de tu entrenamiento</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="workout-name">Nombre del entrenamiento</Label>
+                      <Input
+                        id="workout-name"
+                        placeholder="Ej: Entrenamiento de pecho y brazos"
+                        value={workoutName}
+                        onChange={(e) => setWorkoutName(e.target.value)}
+                        disabled={isWorkoutActive}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="workout-type">Tipo de entrenamiento</Label>
+                      <Select
+                        value={workoutType}
+                        onValueChange={(v) => setWorkoutType(v as WorkoutType)}
+                        disabled={isWorkoutActive}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.values(WorkoutType).map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type.charAt(0).toUpperCase() + type.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div>
-                    <Label>Ejercicio</Label>
-                    <Select 
-                      value={selectedExercise}
-                      onValueChange={setSelectedExercise}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar ejercicio" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.name}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="workout-notes">Notas generales</Label>
+                    <Input
+                      id="workout-notes"
+                      placeholder="Añade notas sobre este entrenamiento"
+                      value={workoutNotes}
+                      onChange={(e) => setWorkoutNotes(e.target.value)}
+                    />
                   </div>
-                </div>
-                <Button 
-                  className="mt-4 w-full" 
-                  onClick={handleAddExercise}
-                >
-                  <PlusCircleIcon className="h-4 w-4 mr-2" />
-                  Añadir ejercicio
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
 
-          {/* Lista de ejercicios */}
-          {activeExercises.length > 0 && (
-            <div>
-              <h3 className="text-lg font-medium mb-4">Ejercicios ({activeExercises.length})</h3>
-              <div className="space-y-4">
-                {activeExercises.map((exercise, exerciseIndex) => (
-                  <Card key={`${exercise.name}-${exerciseIndex}`} className={
-                    isWorkoutActive && exerciseIndex === currentExerciseIndex 
-                      ? "border-primary" 
-                      : ""
-                  }>
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-center">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Badge variant="outline" className="font-normal">
-                            {exercise.muscleGroup}
-                          </Badge>
-                          {exercise.name}
-                        </CardTitle>
-                        {!isWorkoutActive && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => removeExercise(exerciseIndex)}
-                          >
-                            <Trash2Icon className="h-4 w-4" />
-                          </Button>
-                        )}
+              {/* Paso 2: Añadir ejercicios */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-semibold">2</span>
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Añadir Ejercicios</CardTitle>
+                      <CardDescription>Selecciona los ejercicios para tu entrenamiento</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Grupo muscular</Label>
+                      <Select
+                        value={selectedMuscleGroup}
+                        onValueChange={(v) => setSelectedMuscleGroup(v as MuscleGroup | "ALL")}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar grupo muscular" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">Todos</SelectItem>
+                          {Object.values(MuscleGroup).map((group) => (
+                            <SelectItem key={group} value={group}>
+                              {group.charAt(0).toUpperCase() + group.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Ejercicio</Label>
+                      <Select 
+                        value={selectedExercise}
+                        onValueChange={setSelectedExercise}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar ejercicio" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredTemplates.map((template) => (
+                            <SelectItem key={template.id} value={template.name}>
+                              {template.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button 
+                    className="mt-4 w-full" 
+                    onClick={handleAddExercise}
+                  >
+                    <PlusCircleIcon className="h-4 w-4 mr-2" />
+                    Añadir ejercicio
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Lista de ejercicios configurados */}
+              {activeExercises.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-primary font-semibold">3</span>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pb-3 space-y-3">
-                      {/* Controles de descanso */}
-                      {isWorkoutActive && exerciseIndex === currentExerciseIndex && (
-                        <div className="bg-muted p-3 rounded-md">
-                          <div className="flex justify-between items-center mb-2">
-                            <Label>Tiempo de descanso: {exercise.restSeconds}s</Label>
-                            <div className="flex items-center gap-2">
+                      <div>
+                        <CardTitle className="text-lg">Ejercicios Configurados</CardTitle>
+                        <CardDescription>Revisa y ajusta los ejercicios añadidos</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {activeExercises.map((exercise, exerciseIndex) => (
+                        <Card key={`${exercise.name}-${exerciseIndex}`}>
+                          <CardHeader className="pb-2">
+                            <div className="flex justify-between items-center">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                <Badge variant="outline" className="font-normal">
+                                  {exercise.muscleGroup}
+                                </Badge>
+                                {exercise.name}
+                              </CardTitle>
                               <Button 
-                                variant="outline" 
+                                variant="ghost" 
                                 size="icon"
-                                onClick={resetRestTimer}
+                                onClick={() => removeExercise(exerciseIndex)}
                               >
-                                <RotateCcwIcon className="h-4 w-4" />
+                                <Trash2Icon className="h-4 w-4" />
                               </Button>
-                              {isTimerRunning ? (
-                                <Button 
-                                  variant="outline" 
-                                  size="icon"
-                                  onClick={pauseRestTimer}
-                                >
-                                  <PauseIcon className="h-4 w-4" />
-                                </Button>
-                              ) : (
-                                <Button 
-                                  variant="outline" 
-                                  size="icon"
-                                  onClick={startRestTimer}
-                                >
-                                  <PlayIcon className="h-4 w-4" />
-                                </Button>
-                              )}
                             </div>
+                          </CardHeader>
+                          <CardContent className="pb-3 space-y-3">
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead>
+                                  <tr className="text-xs text-muted-foreground font-medium">
+                                    <th className="text-left pb-2">Set</th>
+                                    <th className="text-center pb-2">Peso (kg)</th>
+                                    <th className="text-center pb-2">Reps</th>
+                                    <th className="pb-2"></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {exercise.sets.map((set, setIndex) => (
+                                    <tr key={setIndex}>
+                                      <td className="py-2 text-left">{setIndex + 1}</td>
+                                      <td className="py-2">
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          value={set.weight || 0}
+                                          onChange={(e) => updateSetWeight(
+                                            exerciseIndex, 
+                                            setIndex, 
+                                            parseFloat(e.target.value) || 0
+                                          )}
+                                          className="h-8 text-center w-20 mx-auto"
+                                        />
+                                      </td>
+                                      <td className="py-2">
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          value={set.reps || 0}
+                                          onChange={(e) => updateSetReps(
+                                            exerciseIndex, 
+                                            setIndex, 
+                                            parseInt(e.target.value) || 0
+                                          )}
+                                          className="h-8 text-center w-20 mx-auto"
+                                        />
+                                      </td>
+                                      <td className="py-2">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon"
+                                          onClick={() => removeSet(exerciseIndex, setIndex)}
+                                        >
+                                          <Trash2Icon className="h-4 w-4" />
+                                        </Button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => addSet(exerciseIndex)}
+                            >
+                              <PlusCircleIcon className="h-4 w-4 mr-2" />
+                              Añadir set
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="workout" className="space-y-6">
+              {activeExercises.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <DumbbellIcon className="h-12 w-12 text-muted-foreground/50" />
+                    <p className="mt-4 text-lg font-medium text-muted-foreground">
+                      No hay ejercicios configurados
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Añade ejercicios en la pestaña de configuración para comenzar
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : !isWorkoutActive ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <Button 
+                      size="lg"
+                      className="gap-2"
+                      onClick={() => setIsWorkoutActive(true)}
+                    >
+                      <PlayIcon className="h-5 w-5" />
+                      Iniciar Entrenamiento
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  {/* Panel de progreso */}
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-6">
+                          <div className="text-center">
+                            <p className="text-sm font-medium text-muted-foreground">Ejercicio</p>
+                            <p className="text-2xl font-bold">{currentExerciseIndex + 1}/{activeExercises.length}</p>
                           </div>
-                          <div className="mb-2">
-                            <Slider
-                              value={[exercise.restSeconds]}
-                              min={10}
-                              max={180}
-                              step={5}
-                              onValueChange={(value) => updateExerciseRest(exerciseIndex, value[0])}
-                            />
+                          <div className="text-center">
+                            <p className="text-sm font-medium text-muted-foreground">Serie</p>
+                            <p className="text-2xl font-bold">
+                              {currentSetIndex + 1}/{activeExercises[currentExerciseIndex]?.sets.length}
+                            </p>
                           </div>
-                          <div className="text-center text-lg font-semibold">
-                            <TimerIcon className="inline-block h-4 w-4 mr-2" />
-                            {restTimeRemaining}s
+                          <div className="text-center">
+                            <p className="text-sm font-medium text-muted-foreground">Tiempo</p>
+                            <p className="text-2xl font-bold">{formatTime(workoutDuration)}</p>
                           </div>
                         </div>
-                      )}
-                      
-                      {/* Tabla de sets */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="text-xs text-muted-foreground font-medium">
-                              <th className="text-left pb-2">Set</th>
-                              <th className="text-center pb-2">Peso (kg)</th>
-                              <th className="text-center pb-2">Reps</th>
-                              <th className="text-center pb-2">Completado</th>
-                              {!isWorkoutActive && <th className="pb-2"></th>}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {exercise.sets.map((set, setIndex) => (
-                              <tr key={setIndex} className={
-                                isWorkoutActive && 
-                                exerciseIndex === currentExerciseIndex && 
-                                setIndex === currentSetIndex 
-                                  ? "bg-accent/30" 
-                                  : ""
-                              }>
-                                <td className="py-2 text-left">{setIndex + 1}</td>
-                                <td className="py-2">
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={set.weight || 0}
-                                    onChange={(e) => updateSetWeight(
-                                      exerciseIndex, 
-                                      setIndex, 
-                                      parseFloat(e.target.value) || 0
-                                    )}
-                                    className="h-8 text-center w-20 mx-auto"
-                                  />
-                                </td>
-                                <td className="py-2">
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={set.reps || 0}
-                                    onChange={(e) => updateSetReps(
-                                      exerciseIndex, 
-                                      setIndex, 
-                                      parseInt(e.target.value) || 0
-                                    )}
-                                    className="h-8 text-center w-20 mx-auto"
-                                  />
-                                </td>
-                                <td className="py-2 text-center">
-                                  <Switch
-                                    checked={set.completed}
-                                    onCheckedChange={() => toggleSetCompletion(exerciseIndex, setIndex)}
-                                    disabled={!isWorkoutActive}
-                                  />
-                                </td>
-                                {!isWorkoutActive && (
-                                  <td className="py-2">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon"
-                                      onClick={() => removeSet(exerciseIndex, setIndex)}
-                                    >
-                                      <Trash2Icon className="h-4 w-4" />
-                                    </Button>
-                                  </td>
-                                )}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {!isWorkoutActive && (
                         <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => addSet(exerciseIndex)}
+                          variant="destructive"
+                          size="lg"
+                          className="gap-2"
+                          onClick={() => setIsWorkoutActive(false)}
                         >
-                          <PlusCircleIcon className="h-4 w-4 mr-2" />
-                          Añadir set
+                          <SquareIcon className="h-5 w-5" />
+                          Finalizar
                         </Button>
-                      )}
-
-                      <div>
-                        <Label htmlFor={`notes-${exerciseIndex}`}>Notas</Label>
-                        <Input
-                          id={`notes-${exerciseIndex}`}
-                          placeholder="Añade notas sobre este ejercicio"
-                          value={exercise.notes}
-                          onChange={(e) => updateExerciseNotes(exerciseIndex, e.target.value)}
-                        />
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            </div>
-          )}
+
+                  {/* Ejercicio actual */}
+                  <Card className="border-primary">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-normal">
+                          {activeExercises[currentExerciseIndex]?.muscleGroup}
+                        </Badge>
+                        {activeExercises[currentExerciseIndex]?.name}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Temporizador de descanso */}
+                      {isTimerRunning && (
+                        <div className="bg-muted rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="relative h-16 w-16">
+                                <svg className="transform -rotate-90 h-16 w-16">
+                                  <circle
+                                    className="text-muted-foreground/20 stroke-current"
+                                    strokeWidth="4"
+                                    fill="none"
+                                    r="30"
+                                    cx="32"
+                                    cy="32"
+                                  />
+                                  <circle
+                                    className="text-primary stroke-current"
+                                    strokeWidth="4"
+                                    strokeLinecap="round"
+                                    fill="none"
+                                    r="30"
+                                    cx="32"
+                                    cy="32"
+                                    strokeDasharray={`${(restTimeRemaining / originalRestTime) * 188.4} 188.4`}
+                                  />
+                                </svg>
+                                <span className="absolute inset-0 flex items-center justify-center text-lg font-bold">
+                                  {restTimeRemaining}s
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-medium">Tiempo de descanso</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Siguiente serie: {currentSetIndex + 2}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setIsTimerRunning(!isTimerRunning)}
+                              >
+                                {isTimerRunning ? (
+                                  <PauseIcon className="h-4 w-4" />
+                                ) : (
+                                  <PlayIcon className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setRestTimeRemaining(originalRestTime)}
+                              >
+                                <RotateCcwIcon className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <Slider
+                            value={[activeExercises[currentExerciseIndex]?.restSeconds || 60]}
+                            min={10}
+                            max={180}
+                            step={5}
+                            className="mt-4"
+                            onValueChange={(value) => updateExerciseRest(currentExerciseIndex, value[0])}
+                          />
+                        </div>
+                      )}
+
+                      {/* Series del ejercicio actual */}
+                      <div className="space-y-2">
+                        {activeExercises[currentExerciseIndex]?.sets.map((set, setIndex) => (
+                          <div
+                            key={setIndex}
+                            className={cn(
+                              "p-4 rounded-lg border",
+                              setIndex === currentSetIndex
+                                ? "border-primary bg-primary/5"
+                                : set.completed
+                                ? "border-green-200 bg-green-50/30"
+                                : "border-muted bg-card"
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                  <span className="font-medium">{setIndex + 1}</span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <div>
+                                    <Label>Peso (kg)</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={set.weight || 0}
+                                      onChange={(e) => updateSetWeight(
+                                        currentExerciseIndex,
+                                        setIndex,
+                                        parseFloat(e.target.value) || 0
+                                      )}
+                                      className="h-8 w-20"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Reps</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={set.reps || 0}
+                                      onChange={(e) => updateSetReps(
+                                        currentExerciseIndex,
+                                        setIndex,
+                                        parseInt(e.target.value) || 0
+                                      )}
+                                      className="h-8 w-20"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              {setIndex === currentSetIndex ? (
+                                <Button
+                                  size="lg"
+                                  className="gap-2"
+                                  onClick={() => toggleSetCompletion(currentExerciseIndex, setIndex)}
+                                >
+                                  <CheckCircleIcon className="h-5 w-5" />
+                                  Completar Serie
+                                </Button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  {set.completed ? (
+                                    <Badge variant="success" className="gap-1">
+                                      <CheckCircleIcon className="h-3 w-3" />
+                                      Completado
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="gap-1">
+                                      Pendiente
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="flex items-center gap-2">
-            {!isWorkoutActive ? (
-              <Button 
-                onClick={startWorkout}
-                disabled={activeExercises.length === 0}
-                className="gap-2"
-              >
-                <PlayIcon className="h-4 w-4" />
-                Iniciar entrenamiento
-              </Button>
-            ) : (
-              <Button 
-                onClick={stopWorkout}
-                variant="outline"
-                className="gap-2"
-              >
-                <SquareIcon className="h-4 w-4" />
-                Pausar entrenamiento
-              </Button>
-            )}
-            
-            {isWorkoutActive && (
-              <div className="flex items-center gap-2 ml-4">
-                <ActivityIcon className="h-5 w-5 text-primary" />
-                <span className="text-lg font-semibold">{formatTime(workoutDuration)}</span>
-              </div>
-            )}
-          </div>
-          
+        <CardFooter className="flex justify-end">
           <Button 
             onClick={saveWorkout}
             className="gap-2"
