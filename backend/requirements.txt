@@ -1,30 +1,41 @@
 # FastAPI y dependencias relacionadas
-fastapi==0.115.12
-uvicorn==0.21.1
-pydantic==2.10.6
-pydantic-settings==2.8.1
-python-dotenv==1.1.0
+fastapi==0.110.0
+uvicorn==0.27.1
+pydantic==2.6.3
+pydantic-settings==2.2.1
+python-dotenv==1.0.1
 
 # Autenticación y seguridad
-PyJWT==2.10.1
+PyJWT==2.8.0
 passlib==1.7.4
-bcrypt==4.3.0
+bcrypt==4.1.2
 python-jose==3.3.0
 
 # Base de datos y ORM
-supabase==2.14.0
+supabase==2.4.0
 psycopg2-binary==2.9.9
+sqlalchemy==2.0.28
+alembic==1.13.1
+asyncpg==0.29.0
 
 # Google Calendar API
-google-api-python-client==2.165.0
+google-api-python-client==2.121.0
 google-auth-httplib2==0.2.0
-google-auth-oauthlib==1.2.1
+google-auth-oauthlib==1.2.0
 
-# OpenAI
-openai==1.68.2
+# OpenAI y AI
+openai==1.12.0
+tiktoken==0.6.0
 
 # Utilidades
-python-multipart==0.0.6
-email-validator==2.2.0
-httpx==0.28.1
-aiohttp==3.11.14
+python-multipart==0.0.9
+email-validator==2.1.0.post1
+httpx==0.27.0
+aiohttp==3.9.3
+python-jose[cryptography]==3.3.0
+requests==2.31.0
+pytest==8.0.2
+pytest-asyncio==0.23.5
+
+# Logging y monitoreo
+loguru==0.7.2
