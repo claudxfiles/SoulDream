@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, RefreshCw, Bug, RotateCw } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, RefreshCw, Bug, RotateCw, Filter } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addDays, subDays, addWeeks, subWeeks, parseISO, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useCalendarEvents, useGoogleCalendarStatus, useSyncCalendar } from '@/hooks/useGoogleCalendar';
@@ -15,8 +15,13 @@ import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { CalendarEvent as CalendarEventType, EventSource } from '@/types/calendar';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { TooltipButton } from './FixedTooltip';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 // Crear un QueryClient para este componente específico
 const calendarQueryClient = new QueryClient();
@@ -48,6 +53,14 @@ interface SyncStats {
   errors: string[];
 }
 
+interface CalendarFilters {
+  tasks: boolean;
+  goals: boolean;
+  habits: boolean;
+  workouts: boolean;
+  googleEvents: boolean;
+}
+
 // Wrapping del componente con QueryClientProvider
 export function CalendarView() {
   return (
@@ -60,16 +73,23 @@ export function CalendarView() {
 // Componente interno que contiene toda la funcionalidad
 const CalendarViewContent = React.memo(function CalendarViewContent() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<'day' | 'week' | 'month'>('week');
+  const [view, setView] = useState<'day' | 'week' | 'month' | 'agenda'>('week');
+  const [filters, setFilters] = useState<CalendarFilters>({
+    tasks: true,
+    goals: true,
+    habits: true,
+    workouts: true,
+    googleEvents: true,
+  });
+  
+  const { user } = useAuth();
+  const { isConnected, needsReconnect } = useGoogleCalendarStatus();
   const { toast } = useToast();
-  const { session, loading: sessionLoading } = useAuth();
+  const queryClient = useQueryClient();
   
-  // Estado de conexión con Google Calendar
-  const { isConnected, needsReconnect, statusChecked } = useGoogleCalendarStatus();
-  
-  // Hook de sincronización
-  const { syncCalendar, isSyncing, lastSyncStats } = useSyncCalendar();
-  
+  // Referencia para virtualización
+  const parentRef = useRef<HTMLDivElement>(null);
+
   // Calcular fechas de inicio y fin según la vista - memoizadas para evitar recálculos
   const { startDate, endDate } = React.useMemo(() => {
     const start = view === 'week' 
@@ -88,7 +108,37 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
   }, [currentDate, view]);
   
   // Obtener eventos del calendario
-  const { data: calendarEvents = [], isLoading, isError, error, refetch } = useCalendarEvents(startDate, endDate);
+  const { 
+    data: calendarEvents = [], 
+    isLoading, 
+    isError, 
+    error: calendarError, 
+    refetch 
+  } = useCalendarEvents(startDate, endDate);
+
+  const { syncCalendar: sync, isSyncing } = useSyncCalendar();
+  
+  // Filtrar y ordenar eventos
+  const sortedAndFilteredEvents = React.useMemo(() => {
+    return calendarEvents
+      .filter(event => {
+        if (event.source === 'google' && !filters.googleEvents) return false;
+        if (event.relatedType === 'task' && !filters.tasks) return false;
+        if (event.relatedType === 'goal' && !filters.goals) return false;
+        if (event.relatedType === 'habit' && !filters.habits) return false;
+        if (event.relatedType === 'workout' && !filters.workouts) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  }, [calendarEvents, filters]);
+
+  // Configurar virtualizador para la vista de agenda
+  const rowVirtualizer = useVirtualizer({
+    count: sortedAndFilteredEvents.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,
+    overscan: 5,
+  });
   
   // Referencia para controlar el renderizado inicial y logs
   const renderRef = useRef({
@@ -96,16 +146,16 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
     lastLogTime: 0
   });
   
-  // Efecto para mostrar mensaje de error si ocurre - solo cuando cambia isError o error
+  // Efecto para mostrar mensaje de error si ocurre
   useEffect(() => {
-    if (!isError) return;
+    if (!calendarError) return;
     
-    if (error instanceof Error) {
+    if (calendarError instanceof Error) {
       // Verificar si el mensaje de error indica un problema de reconexión
       if (
-        error.message.includes('reconecta tu cuenta') || 
-        error.message.includes('expirado') ||
-        error.message.includes('permisos')
+        calendarError.message.includes('reconecta tu cuenta') || 
+        calendarError.message.includes('expirado') ||
+        calendarError.message.includes('permisos')
       ) {
         toast({
           title: "Problema de conexión con Google Calendar",
@@ -124,12 +174,12 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
       } else {
         toast({
           title: "Error al cargar eventos",
-          description: error.message || "Hubo un problema al cargar los eventos del calendario",
+          description: calendarError.message || "Hubo un problema al cargar los eventos del calendario",
           variant: "destructive"
         });
       }
     }
-  }, [isError, error, toast]);
+  }, [calendarError, toast]);
   
   // Efecto para depurar eventos del calendario - controlado para evitar spam de logs
   useEffect(() => {
@@ -198,8 +248,8 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
       : addWeeks(endDate, 2);    // Dos semanas después
     
     // Iniciar sincronización
-    await syncCalendar(syncStartDate, syncEndDate);
-  }, [isConnected, needsReconnect, startDate, endDate, syncCalendar, toast, view]);
+    await sync(syncStartDate, syncEndDate);
+  }, [isConnected, needsReconnect, startDate, endDate, sync, toast, view]);
   
   // Formatea el encabezado de fecha según la vista - memoizado
   const formatDateHeader = useCallback(() => {
@@ -216,8 +266,7 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
   
   // Render de la vista diaria
   function renderDayView() {
-    // Filtrar eventos para mostrar solo los del día seleccionado
-    const dayEvents = calendarEvents.filter(event => {
+    const dayEvents = sortedAndFilteredEvents.filter(event => {
       const eventDate = parseISO(event.start);
       return isSameDay(eventDate, currentDate);
     });
@@ -254,15 +303,13 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
   
   // Render de la vista semanal
   function renderWeekView() {
-    // Obtener los días de la semana
     const daysOfWeek = eachDayOfInterval({
       start: startOfWeek(currentDate, { weekStartsOn: 1 }),
       end: endOfWeek(currentDate, { weekStartsOn: 1 })
     });
     
-    // Agrupar eventos por día
     const eventsByDay = daysOfWeek.map(day => {
-      const dayEvents = calendarEvents.filter(event => {
+      const dayEvents = sortedAndFilteredEvents.filter(event => {
         const eventDate = parseISO(event.start);
         return isSameDay(eventDate, day);
       });
@@ -352,8 +399,7 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
         {/* Cuadrícula de días */}
         <div className="grid grid-cols-7 gap-1">
           {days.map((day) => {
-            // Eventos para este día
-            const dayEvents = calendarEvents.filter(event => {
+            const dayEvents = sortedAndFilteredEvents.filter(event => {
               const eventStart = parseISO(event.start);
               return isSameDay(eventStart, day);
             });
@@ -409,6 +455,120 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
       </div>
     );
   }
+  
+  // Componente de filtros memoizado
+  const FiltersPanel = React.useCallback(() => (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="icon">
+          <Filter className="h-4 w-4" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Filtros de Calendario</SheetTitle>
+        </SheetHeader>
+        <div className="py-4 space-y-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="tasks" 
+              checked={filters.tasks}
+              onCheckedChange={(checked: boolean) => 
+                setFilters((prev: CalendarFilters) => ({ ...prev, tasks: checked }))
+              }
+            />
+            <label htmlFor="tasks">Tareas</label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="goals" 
+              checked={filters.goals}
+              onCheckedChange={(checked: boolean) => 
+                setFilters((prev: CalendarFilters) => ({ ...prev, goals: checked }))
+              }
+            />
+            <label htmlFor="goals">Metas</label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="habits" 
+              checked={filters.habits}
+              onCheckedChange={(checked: boolean) => 
+                setFilters((prev: CalendarFilters) => ({ ...prev, habits: checked }))
+              }
+            />
+            <label htmlFor="habits">Hábitos</label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="workouts" 
+              checked={filters.workouts}
+              onCheckedChange={(checked: boolean) => 
+                setFilters((prev: CalendarFilters) => ({ ...prev, workouts: checked }))
+              }
+            />
+            <label htmlFor="workouts">Entrenamientos</label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="googleEvents" 
+              checked={filters.googleEvents}
+              onCheckedChange={(checked: boolean) => 
+                setFilters((prev: CalendarFilters) => ({ ...prev, googleEvents: checked }))
+              }
+            />
+            <label htmlFor="googleEvents">Eventos de Google</label>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  ), [filters, setFilters]);
+
+  // Vista de agenda con virtualización
+  const AgendaView = React.useCallback(() => {
+    if (!parentRef.current) return null;
+
+    return (
+      <ScrollArea ref={parentRef} className="h-[600px]">
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const event = sortedAndFilteredEvents[virtualRow.index];
+            return (
+              <div
+                key={event.id}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <CalendarEvent
+                  event={{
+                    id: event.id,
+                    summary: event.title,
+                    description: event.description,
+                    start: { dateTime: event.start },
+                    end: { dateTime: event.end },
+                    location: event.location,
+                    colorId: event.color
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    );
+  }, [rowVirtualizer, sortedAndFilteredEvents]);
   
   // Agregar un mensaje de estado en el calendario
   function renderStatusMessage() {
@@ -476,6 +636,7 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
             <Button variant="ghost" size="icon" onClick={() => navigate('next')}>
               <ChevronRight className="h-4 w-4" />
             </Button>
+            <FiltersPanel />
             <TooltipButton
               onClick={handleSync}
               disabled={!isConnected || needsReconnect || isSyncing}
@@ -489,19 +650,20 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
         <div className="flex items-center justify-between">
           <div className="text-lg font-medium">{formatDateHeader()}</div>
           <div>
-            <Tabs defaultValue="week" value={view} onValueChange={(value) => setView(value as 'day' | 'week' | 'month')}>
+            <Tabs defaultValue="week" value={view} onValueChange={(value) => setView(value as 'day' | 'week' | 'month' | 'agenda')}>
               <TabsList>
                 <TabsTrigger value="day">Día</TabsTrigger>
                 <TabsTrigger value="week">Semana</TabsTrigger>
                 <TabsTrigger value="month">Mes</TabsTrigger>
+                <TabsTrigger value="agenda">Agenda</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
         </div>
         
-        {lastSyncStats && lastSyncStats.timestamp && (
+        {isSyncing && (
           <div className="text-xs text-muted-foreground mt-1">
-            Última sincronización: {format(lastSyncStats.timestamp, 'dd/MM/yyyy HH:mm', { locale: es })}
+            Sincronizando...
           </div>
         )}
       </CardHeader>
@@ -516,6 +678,7 @@ const CalendarViewContent = React.memo(function CalendarViewContent() {
             {view === 'day' && renderDayView()}
             {view === 'week' && renderWeekView()}
             {view === 'month' && renderMonthView()}
+            {view === 'agenda' && <AgendaView />}
           </>
         )}
       </CardContent>
