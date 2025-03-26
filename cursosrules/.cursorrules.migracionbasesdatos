@@ -93,6 +93,68 @@ Implementar la migración en este orden específico:
    - Optimizar consultas a Supabase con filtros y selección de campos
    - Añadir paginación e infinite scrolling donde sea necesario
 
+## Estructura de Directorios Frontend:
+
+souldream/
+├── frontend/
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx                         # App Router de Next.js
+│   │   │   ├── dashboard/                       # Dashboard y rutas protegidas
+│   │   │   ├── auth/                            # Login y registro
+│   │   │   └── api/                             # API Routes
+│   │   ├── components/                          # Componentes
+│   │   │   ├── ui/                              # UI base (shadcn/ui)
+│   │   │   ├── landing/                         # Componentes de landing
+│   │   │   ├── dashboard/                       # Layout y componentes del dashboard
+│   │   │   ├── Metas/                           # Componentes de gestión de Metas
+│   │   │   ├── habits/                          # Componentes de hábitos
+│   │   │   ├── finance/                         # Componentes financieros
+│   │   │   ├── workout/                         # Componentes de fitness
+│   │   │   ├── ai-chat/                         # Componentes de chat con IA
+│   │   │   ├── calendar/                        # Componentes de calendario
+│   │   │   ├── analytics/                       # Visualizaciones y gráficos
+│   │   │   ├── subscription/                    # Planes y pagos
+│   │   │   └── shared/                          # Componentes compartidos
+│   │   ├── hooks/                               # Hooks personalizados
+│   │   ├── lib/                                 # Utilidades y servicios
+│   │   │   ├── supabase.ts                      # Cliente Supabase centralizado
+│   │   │   ├── ai.ts                            # Integraciones de IA
+│   │   │   ├── Metas.ts                         # Servicio de Metas
+│   │   │   ├── habits.ts                        # Servicio de hábitos
+│   │   │   ├── finance.ts                       # Servicio financiero
+│   │   │   ├── workout.ts                       # Servicio de workout
+│   │   │   ├── calendar.ts                      # Servicio de calendario
+│   │   │   ├── analytics.ts                     # Servicio de analítica
+│   │   │   └── paypal.ts                        # Servicio de PayPal
+│   │   ├── store/                               # Estado global (Zustand)
+│   │   ├── types/                               # Definiciones TypeScript
+│   │   └── styles/                              # Estilos y animaciones
+│   │ 
+├── backend/
+│   ├── app/
+│   │   ├── api/                                 # Endpoints API
+│   │   │   ├── v1/
+│   │   │   │   ├── auth/                        # Autenticación
+│   │   │   │   ├── Metas/                       # Endpoints de Metas
+│   │   │   │   ├── habits/                      # Endpoints de hábitos
+│   │   │   │   ├── finance/                     # Endpoints financieros
+│   │   │   │   ├── workout/                     # Endpoints de workout
+│   │   │   │   ├── ai/                          # Endpoints de IA
+│   │   │   │   ├── calendar/                    # Endpoints de calendario
+│   │   │   │   ├── analytics/                   # Endpoints de analítica
+│   │   │   │   └── payments/                    # Endpoints de pagos
+│   │   ├── core/                                # Configuración central
+│   │   ├── db/                                  # Modelos y esquemas
+│   │   ├── services/                            # Lógica de negocio
+│   │   │   ├── ai/                              # Servicios de IA
+│   │   │   ├── calendar/                        # Servicios de calendario
+│   │   │   └── payment/                         # Servicios de pago
+│   │   └── utils/                               # Utilidades
+├── supabase/                                     # Configuración de Supabase
+    └── migrations/                               # Migraciones SQL
+
+
 ## Implementación Técnica Detallada
 
 ### 1. Interfaces de Datos Robustas
