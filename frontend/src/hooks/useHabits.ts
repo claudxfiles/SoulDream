@@ -271,11 +271,20 @@ export const useUpdateHabit = (options?: any) => {
       }
     },
     onSuccess: (data, variables) => {
-      // Actualizar el caché del hábito individual
-      queryClient.setQueryData(['habit', variables.id], data);
+      // Actualizar inmediatamente el caché del hábito individual
+      queryClient.setQueryData(['habits', variables.id], data);
       
-      // Actualizar la lista de hábitos
+      // Actualizar inmediatamente la lista de hábitos
+      queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
+        if (!oldData) return [data];
+        return oldData.map(habit => 
+          habit.id === data.id ? { ...data, isCompletedToday: habit.isCompletedToday } : habit
+        );
+      });
+      
+      // Invalidar las queries para asegurar la consistencia
       queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['habits', variables.id] });
       
       // Llamar al callback de éxito si existe
       if (options?.onSuccess) {

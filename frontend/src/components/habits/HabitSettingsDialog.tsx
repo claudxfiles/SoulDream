@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useGetHabitById, useUpdateHabit, useDeleteHabit } from '@/hooks/useHabits';
 import HabitGoalLink from './HabitGoalLink';
 import { Habit, HabitUpdate, HABIT_CATEGORIES } from '@/types/habit';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface HabitSettingsDialogProps {
   habitId: string;
@@ -29,6 +30,7 @@ type FormValues = {
   category?: string;
   frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
   is_active: boolean;
+  goal_value?: number;
 };
 
 export default function HabitSettingsDialog({ habitId, open, onOpenChange, onSuccess }: HabitSettingsDialogProps) {
@@ -46,6 +48,8 @@ export default function HabitSettingsDialog({ habitId, open, onOpenChange, onSuc
     }
   });
   
+  const queryClient = useQueryClient();
+  
   // Mutaciones para actualizar y eliminar hábitos
   const updateHabit = useUpdateHabit({
     onSuccess: () => {
@@ -53,6 +57,8 @@ export default function HabitSettingsDialog({ habitId, open, onOpenChange, onSuc
         title: "Hábito actualizado",
         description: "Los cambios se han guardado correctamente",
       });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['habit', habitId] });
       onSuccess?.();
       onOpenChange(false);
     },
@@ -109,8 +115,9 @@ export default function HabitSettingsDialog({ habitId, open, onOpenChange, onSuc
       id: habitId,
       title: data.title.trim(),
       description: data.description?.trim() || '',
-      frequency: data.frequency,
       category: data.category || 'otros',
+      frequency: data.frequency,
+      goal_value: data.goal_value || 1,
       is_active: data.is_active
     };
 

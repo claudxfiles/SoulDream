@@ -48,7 +48,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   
   // Encontrar la categoría para obtener el ícono
-  const category = HABIT_CATEGORIES.find(c => c.id === habit.category) || HABIT_CATEGORIES[7]; // Default a "Otros"
+  const category = HABIT_CATEGORIES.find(c => c.id === (habit.category || 'otros')) || HABIT_CATEGORIES[7]; // Default a "Otros"
   
   // Formatear la fecha de creación
   const formattedDate = formatDistanceToNow(new Date(habit.created_at), { 
@@ -140,7 +140,12 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
       <HabitSettingsDialog
         habitId={habit.id}
         open={showSettingsDialog}
-        onOpenChange={setShowSettingsDialog}
+        onOpenChange={(open) => {
+          setShowSettingsDialog(open);
+          if (!open && onUpdate) {
+            onUpdate();
+          }
+        }}
         onSuccess={onUpdate}
       />
 
