@@ -1,4 +1,4 @@
-import { getSupabaseClient } from './supabase';
+import { supabaseClient } from './supabase';
 import { toast } from '@/components/ui/use-toast';
 
 // Tipos
@@ -121,15 +121,13 @@ export const expenseCategories = [
 // Funciones para transacciones
 export const createTransaction = async (transaction: Transaction): Promise<Transaction | null> => {
   try {
-    const supabase = getSupabaseClient();
-    
     // Asegurar que tiene un user_id, si no está usando RLS
     if (!transaction.user_id) {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabaseClient.auth.getUser();
       if (user) transaction.user_id = user.id;
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('transactions')
       .insert(transaction)
       .select()
@@ -167,9 +165,7 @@ export const getTransactions = async (
   }
 ): Promise<Transaction[]> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    let query = supabase
+    let query = supabaseClient
       .from('transactions')
       .select('*')
       .order('date', { ascending: false });
@@ -211,9 +207,7 @@ export const getTransactions = async (
 
 export const updateTransaction = async (id: string, updates: Partial<Transaction>): Promise<boolean> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('transactions')
       .update(updates)
       .eq('id', id);
@@ -242,9 +236,7 @@ export const updateTransaction = async (id: string, updates: Partial<Transaction
 
 export const deleteTransaction = async (id: string): Promise<boolean> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('transactions')
       .delete()
       .eq('id', id);
@@ -274,15 +266,12 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 // Funciones para metas financieras
 export const createFinancialGoal = async (goal: FinancialGoal): Promise<FinancialGoal | null> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    // Asegurar que tiene un user_id, si no está usando RLS
     if (!goal.user_id) {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabaseClient.auth.getUser();
       if (user) goal.user_id = user.id;
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('financial_goals')
       .insert(goal)
       .select()
@@ -292,15 +281,15 @@ export const createFinancialGoal = async (goal: FinancialGoal): Promise<Financia
       console.error('Error creating financial goal:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo crear la meta financiera',
+        description: 'No se pudo crear el objetivo financiero',
         variant: 'destructive',
       });
       return null;
     }
     
     toast({
-      title: 'Meta creada',
-      description: 'La meta financiera se ha creado correctamente',
+      title: 'Objetivo creado',
+      description: 'El objetivo financiero se ha creado correctamente',
     });
     
     return data;
@@ -312,9 +301,7 @@ export const createFinancialGoal = async (goal: FinancialGoal): Promise<Financia
 
 export const getFinancialGoals = async (): Promise<FinancialGoal[]> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('financial_goals')
       .select('*')
       .order('created_at', { ascending: false });
@@ -333,9 +320,7 @@ export const getFinancialGoals = async (): Promise<FinancialGoal[]> => {
 
 export const updateFinancialGoal = async (id: string, updates: Partial<FinancialGoal>): Promise<boolean> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('financial_goals')
       .update(updates)
       .eq('id', id);
@@ -364,9 +349,7 @@ export const updateFinancialGoal = async (id: string, updates: Partial<Financial
 
 export const deleteFinancialGoal = async (id: string): Promise<boolean> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('financial_goals')
       .delete()
       .eq('id', id);
@@ -396,15 +379,13 @@ export const deleteFinancialGoal = async (id: string): Promise<boolean> => {
 // Funciones para subscripciones
 export const createSubscription = async (subscription: Subscription): Promise<Subscription | null> => {
   try {
-    const supabase = getSupabaseClient();
-    
     // Asegurar que tiene un user_id, si no está usando RLS
     if (!subscription.user_id) {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabaseClient.auth.getUser();
       if (user) subscription.user_id = user.id;
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('subscriptions_tracker')
       .insert(subscription)
       .select()
@@ -434,9 +415,7 @@ export const createSubscription = async (subscription: Subscription): Promise<Su
 
 export const getSubscriptions = async (): Promise<Subscription[]> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('subscriptions_tracker')
       .select('*')
       .order('next_billing_date', { ascending: true });
@@ -455,9 +434,7 @@ export const getSubscriptions = async (): Promise<Subscription[]> => {
 
 export const updateSubscription = async (id: string, updates: Partial<Subscription>): Promise<boolean> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('subscriptions_tracker')
       .update(updates)
       .eq('id', id);
@@ -486,9 +463,7 @@ export const updateSubscription = async (id: string, updates: Partial<Subscripti
 
 export const deleteSubscription = async (id: string): Promise<boolean> => {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('subscriptions_tracker')
       .delete()
       .eq('id', id);
@@ -520,26 +495,22 @@ export const getFinancialSummary = async (
   period: 'month' | 'year' = 'month'
 ): Promise<FinancialSummary | null> => {
   try {
-    const supabase = getSupabaseClient();
-    
     // Determinar fechas para el periodo
     const now = new Date();
-    let startDate: string;
+    let startDate = new Date();
     
     if (period === 'month') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      startDate.setMonth(now.getMonth() - 1);
     } else {
-      startDate = new Date(now.getFullYear(), 0, 1).toISOString();
+      startDate.setFullYear(now.getFullYear() - 1);
     }
     
-    const endDate = now.toISOString();
-    
     // Obtener las transacciones del período
-    const { data: transactions, error: transactionsError } = await supabase
+    const { data: transactions, error: transactionsError } = await supabaseClient
       .from('transactions')
       .select('*')
-      .gte('date', startDate)
-      .lte('date', endDate);
+      .gte('date', startDate.toISOString())
+      .lte('date', now.toISOString());
     
     if (transactionsError) {
       console.error('Error fetching transactions:', transactionsError);
@@ -547,41 +518,38 @@ export const getFinancialSummary = async (
     }
     
     // Obtener las suscripciones
-    const { data: subscriptions, error: subscriptionsError } = await supabase
+    const { data: subscriptions, error: subscriptionsError } = await supabaseClient
       .from('subscriptions_tracker')
       .select('*');
     
     if (subscriptionsError) {
       console.error('Error fetching subscriptions:', subscriptionsError);
+      return null;
     }
     
     // Obtener las metas financieras
-    const { data: goals, error: goalsError } = await supabase
+    const { data: goals, error: goalsError } = await supabaseClient
       .from('financial_goals')
       .select('*');
     
     if (goalsError) {
-      console.error('Error fetching financial goals:', goalsError);
+      console.error('Error fetching goals:', goalsError);
+      return null;
     }
     
-    // Calcular el resumen
+    // Calcular totales
     const income = transactions
-      ? transactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + (t.amount || 0), 0)
-      : 0;
+      ?.filter(t => t.type === 'income')
+      .reduce((sum: number, t: Transaction) => sum + t.amount, 0) || 0;
     
     const expenses = transactions
-      ? transactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + (t.amount || 0), 0)
-      : 0;
-    
-    const balance = income - expenses;
+      ?.filter(t => t.type === 'expense')
+      .reduce((sum: number, t: Transaction) => sum + t.amount, 0) || 0;
     
     const subscriptionsTotal = subscriptions
-      ? subscriptions.reduce((sum, s) => sum + (s.amount || 0), 0)
-      : 0;
+      ?.reduce((sum: number, s: Subscription) => sum + s.amount, 0) || 0;
+    
+    const balance = income - expenses;
     
     // Calcular progreso de metas de ahorro
     const totalSavingsGoals = goals

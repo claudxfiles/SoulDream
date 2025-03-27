@@ -25,6 +25,8 @@ type CalendarEventInput = {
   recurrenceRule?: string;
   isAllDay?: boolean;
   color?: string;
+  type?: 'task' | 'goal' | 'habit' | 'workout' | 'custom';
+  source?: 'local' | 'google';
 };
 
 type GoogleEventInput = {
@@ -76,6 +78,8 @@ export enum SyncType {
   MANUAL = 'manual',  // Iniciado por el usuario
   AUTO = 'auto'       // Automático (ej: programado)
 }
+
+export type SyncStatus = 'local' | 'synced' | 'sync_failed' | 'deleted';
 
 // Función para verificar y obtener credenciales de Google Calendar
 export async function getCalendarCredentials(userId: string): Promise<GoogleCalendarCredentials | null> {
@@ -466,16 +470,41 @@ export async function createCalendarEvent(event: {
   colorId?: string;
   calendarId?: string;
   recurrence?: string[];
+  type?: 'task' | 'goal' | 'habit' | 'workout' | 'custom';
+  source?: 'local' | 'google';
 }) {
   try {
     // Obtener el ID del usuario actual
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
+      console.error('Error al obtener usuario:', userError);
       throw new Error('No se pudo obtener el usuario actual');
     }
 
     const { calendarId = 'primary', ...eventData } = event;
+    
+    // Definir el estado inicial de sincronización
+    const initialSyncStatus: SyncStatus = 'local';
+    
+    // Log detallado del evento a crear
+    console.log('Intentando crear evento en Supabase:', {
+      datosEvento: {
+        user_id: user.id,
+        title: eventData.summary,
+        description: eventData.description || '',
+        start_time: eventData.startDateTime.toISOString(),
+        end_time: eventData.endDateTime.toISOString(),
+        location: eventData.location || '',
+        color: eventData.colorId || null,
+        sync_status: initialSyncStatus,
+        is_all_day: false,
+        recurrence_rule: eventData.recurrence ? eventData.recurrence[0] : null,
+        is_recurring: !!eventData.recurrence,
+        type: eventData.type || 'custom',
+        source: eventData.source || 'local'
+      }
+    });
     
     // Primero crear el evento en Supabase con todos los campos requeridos
     const { data: localEvent, error: supabaseError } = await supabase
@@ -488,18 +517,40 @@ export async function createCalendarEvent(event: {
         end_time: eventData.endDateTime.toISOString(),
         location: eventData.location || '',
         color: eventData.colorId || null,
-        sync_status: 'local',
+        sync_status: initialSyncStatus,
         is_all_day: false,
         recurrence_rule: eventData.recurrence ? eventData.recurrence[0] : null,
-        is_recurring: !!eventData.recurrence
+        is_recurring: !!eventData.recurrence,
+        type: eventData.type || 'custom',
+        source: eventData.source || 'local'
       })
       .select()
       .single();
 
     if (supabaseError) {
-      console.error('Error al crear evento en Supabase:', supabaseError);
+      // Log detallado del error
+      console.error('Error detallado al crear evento en Supabase:', {
+        código: supabaseError.code,
+        mensaje: supabaseError.message,
+        detalles: supabaseError.details,
+        hint: supabaseError.hint,
+        errorCompleto: supabaseError
+      });
+      
+      // Si es un error de restricción, mostrar más detalles
+      if (supabaseError.code === '23514') {
+        console.error('Violación de restricción CHECK:', {
+          restricción: supabaseError.message.match(/check constraint "([^"]+)"/)?.[1],
+          columnaAfectada: supabaseError.message.includes('sync_status') ? 'sync_status' : 'desconocida',
+          valorIntentoInsertar: initialSyncStatus
+        });
+      }
+      
       throw new Error('Error al crear evento en el calendario local');
     }
+
+    // Log de éxito
+    console.log('Evento creado exitosamente en Supabase:', localEvent);
 
     // Luego crear el evento en Google Calendar
     const response = await fetch('/api/v1/calendar', {
@@ -655,6 +706,8 @@ Estado: ${task.status}`,
     endDateTime,
     // Asignar color según prioridad
     colorId: task.priority === 'high' ? '4' : (task.priority === 'medium' ? '5' : '9'),
+    type: 'task',
+    source: 'local'
   });
 }
 
