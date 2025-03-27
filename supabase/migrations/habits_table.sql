@@ -2,6 +2,9 @@
 DROP TABLE IF EXISTS habits CASCADE;
 DROP TABLE IF EXISTS habit_logs CASCADE;
 
+-- Eliminar tipo habit_frequency si existe
+DROP TYPE IF EXISTS habit_frequency;
+
 -- Crear extensión UUID si no existe
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

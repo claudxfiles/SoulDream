@@ -21,7 +21,7 @@ BEGIN
   ORDER BY completed_date DESC
   LIMIT 1;
   
-  -- Obtener valores actuales
+  -- Obtener valores actuales del hábito
   SELECT h.current_streak, h.best_streak, h.total_completions 
   INTO habit_current_streak, habit_best_streak, habit_total_completions
   FROM habits h

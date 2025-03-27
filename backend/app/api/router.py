@@ -12,4 +12,8 @@ api_router.include_router(finance.router, prefix="/finance", tags=["finance"])
 api_router.include_router(habits.router, prefix="/habits", tags=["habits"])
 api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"])
 api_router.include_router(ai_router, prefix="/ai", tags=["ai"])
-api_router.include_router(ai_chat.router, prefix="/ai-chat", tags=["ai-chat"]) 
+api_router.include_router(ai_chat.router, prefix="/ai-chat", tags=["ai-chat"])
+
+@api_router.get("/test")
+async def test_endpoint():
+    return {"message": "API router funcionando correctamente"} 

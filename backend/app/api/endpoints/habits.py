@@ -37,11 +37,22 @@ async def read_habits(
         # Usar directamente el cliente con rol de servicio para evitar consultas redundantes
         supabase_service = get_service_client()
         
-        response = supabase_service.table("habits") \
-            .select("*") \
-            .eq("user_id", current_user.id) \
-            .eq("is_active", True) \
-            .execute()
+        # Intentar primero con is_active
+        try:
+            response = supabase_service.table("habits") \
+                .select("*") \
+                .eq("user_id", current_user.id) \
+                .eq("is_active", True) \
+                .execute()
+        except Exception as e:
+            # Si falla, probablemente is_active no existe, intentar sin el filtro
+            if "42703" in str(e):  # Código de error PostgreSQL para columna no existente
+                response = supabase_service.table("habits") \
+                    .select("*") \
+                    .eq("user_id", current_user.id) \
+                    .execute()
+            else:
+                raise e
         
         logger.info(f"Hábitos encontrados: {len(response.data)}")
         return [Habit(**habit) for habit in response.data]
@@ -68,31 +79,78 @@ async def create_habit(
         habit_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
         
-        habit_db = {
-            **habit_in.dict(),
+        # Convertir a diccionario y eliminar campos que podrían no existir
+        habit_dict = habit_in.dict()
+        
+        # Campos requeridos que siempre deben existir
+        required_fields = {
             "id": habit_id,
             "user_id": current_user.id,
+            "title": habit_dict["title"],
             "created_at": now,
-            "updated_at": now,
+            "updated_at": now
+        }
+        
+        # Campos opcionales que podrían no existir en la base de datos
+        optional_fields = {
+            "description": habit_dict.get("description"),
+            "frequency": habit_dict.get("frequency", "daily"),
+            "specific_days": habit_dict.get("specific_days"),
+            "category": habit_dict.get("category"),
+            "reminder_time": habit_dict.get("reminder_time"),
+            "cue": habit_dict.get("cue"),
+            "reward": habit_dict.get("reward"),
+            "goal_value": habit_dict.get("goal_value", 1),
             "is_active": True,
             "current_streak": 0,
             "best_streak": 0,
-            "total_completions": 0
+            "total_completions": 0,
+            "related_goal_id": habit_dict.get("related_goal_id")
         }
         
         # Usar el cliente con rol de servicio
         supabase_service = get_service_client()
         
-        # Insertar con el rol de servicio
-        response = supabase_service.table("habits").insert(habit_db).execute()
-        
-        if not response.data:
+        # Intentar insertar primero solo con campos requeridos
+        try:
+            response = supabase_service.table("habits").insert(required_fields).execute()
+            habit_id = response.data[0]["id"]
+            
+            # Si la inserción básica fue exitosa, intentar actualizar con campos opcionales
+            # uno por uno para identificar cuáles existen
+            for field, value in optional_fields.items():
+                if value is not None:
+                    try:
+                        update_data = {field: value}
+                        supabase_service.table("habits") \
+                            .update(update_data) \
+                            .eq("id", habit_id) \
+                            .execute()
+                    except Exception as field_error:
+                        logger.warning(f"Campo {field} no pudo ser actualizado: {str(field_error)}")
+                        continue
+            
+            # Obtener el hábito actualizado
+            final_response = supabase_service.table("habits") \
+                .select("*") \
+                .eq("id", habit_id) \
+                .execute()
+            
+            if not final_response.data:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error al obtener el hábito creado"
+                )
+            
+            return Habit(**final_response.data[0])
+            
+        except Exception as e:
+            logger.error(f"Error al crear el hábito: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error al crear el hábito: No se recibieron datos"
+                detail=f"Error al crear el hábito: {str(e)}"
             )
-        
-        return Habit(**response.data[0])
+            
     except Exception as e:
         logger.error(f"Error al crear el hábito: {str(e)}")
         raise HTTPException(
@@ -412,4 +470,43 @@ async def diagnostic_habits(
             "error": str(e),
             "user_id": current_user.id if current_user else None,
             "auth_status": "authenticated" if current_user else "not authenticated"
+        }
+
+@router.post("/setup", response_model=dict)
+async def setup_habits_table(
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Endpoint de configuración para crear/verificar la tabla habits
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Iniciando configuración de la tabla habits")
+    
+    try:
+        # Usar rol de servicio para ejecutar SQL directamente
+        supabase_service = get_service_client()
+        
+        # Leer el archivo SQL
+        with open("supabase/migrations/20240326_create_habits_table.sql", "r") as f:
+            sql = f.read()
+        
+        # Ejecutar el SQL
+        response = supabase_service.table("habits").execute(sql)
+        
+        # Verificar que la tabla existe consultando un registro
+        test_response = supabase_service.table("habits").select("*").limit(1).execute()
+        
+        return {
+            "status": "success",
+            "message": "Tabla habits creada/verificada correctamente",
+            "table_exists": True,
+            "sample_data": test_response.data if test_response.data else []
+        }
+    except Exception as e:
+        logger.error(f"Error en configuración de habits: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "table_exists": False,
+            "sample_data": []
         } 
