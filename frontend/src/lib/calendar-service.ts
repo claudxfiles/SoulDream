@@ -1,7 +1,7 @@
 // Servicio para interactuar con las APIs de calendario
 
 import { supabase } from "./supabase";
-import type { CalendarEvent, EventSourceType } from '@/types/calendar';
+import type { CalendarEvent, EventSource } from '@/types/calendar';
 import { parseISO, format, addHours, addMinutes, isSameDay, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -25,6 +25,24 @@ type CalendarEventInput = {
   recurrenceRule?: string;
   isAllDay?: boolean;
   color?: string;
+};
+
+type GoogleEventInput = {
+  summary: string;
+  description?: string;
+  start: {
+    dateTime?: string;
+    date?: string;
+    timeZone?: string;
+  };
+  end: {
+    dateTime?: string;
+    date?: string;
+    timeZone?: string;
+  };
+  location?: string;
+  colorId?: string;
+  recurrence?: string[];
 };
 
 type GoogleCalendarEvent = {
@@ -158,13 +176,24 @@ export async function refreshTokenIfNeeded(userId: string, credentials: GoogleCa
   // Si el token expira en menos de 5 minutos, refrescarlo
   if (credentials.expiry_date < Date.now() + 5 * 60 * 1000) {
     try {
-      const { data, error } = await supabase.functions.invoke('refresh-google-token', {
-        body: { refresh_token: credentials.refresh_token }
+      // Usar el endpoint de la API en lugar de la función Edge
+      const response = await fetch('/api/v1/auth/refresh-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          refresh_token: credentials.refresh_token,
+          userId: userId
+        })
       });
 
-      if (error || !data) {
-        throw new Error(`Error refreshing token: ${error?.message || 'Unknown error'}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Error refreshing token: ${errorData.error || 'Unknown error'}`);
       }
+
+      const data = await response.json();
 
       // Actualizar las credenciales en la base de datos
       const { error: updateError } = await supabase
@@ -280,7 +309,7 @@ export async function getCalendarEvents(userId: string, startDate: Date, endDate
         location: event.location || '',
         color: event.colorId || '',
         isAllDay: !!event.start.date,
-        source: 'google' as EventSourceType,
+        source: 'google' as EventSource,
       };
     });
   } catch (error: any) {
@@ -436,10 +465,43 @@ export async function createCalendarEvent(event: {
   location?: string;
   colorId?: string;
   calendarId?: string;
+  recurrence?: string[];
 }) {
   try {
+    // Obtener el ID del usuario actual
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      throw new Error('No se pudo obtener el usuario actual');
+    }
+
     const { calendarId = 'primary', ...eventData } = event;
     
+    // Primero crear el evento en Supabase con todos los campos requeridos
+    const { data: localEvent, error: supabaseError } = await supabase
+      .from('calendar_events')
+      .insert({
+        user_id: user.id,
+        title: eventData.summary,
+        description: eventData.description || '',
+        start_time: eventData.startDateTime.toISOString(),
+        end_time: eventData.endDateTime.toISOString(),
+        location: eventData.location || '',
+        color: eventData.colorId || null,
+        sync_status: 'local',
+        is_all_day: false,
+        recurrence_rule: eventData.recurrence ? eventData.recurrence[0] : null,
+        is_recurring: !!eventData.recurrence
+      })
+      .select()
+      .single();
+
+    if (supabaseError) {
+      console.error('Error al crear evento en Supabase:', supabaseError);
+      throw new Error('Error al crear evento en el calendario local');
+    }
+
+    // Luego crear el evento en Google Calendar
     const response = await fetch('/api/v1/calendar', {
       method: 'POST',
       headers: {
@@ -454,11 +516,29 @@ export async function createCalendarEvent(event: {
     });
     
     if (!response.ok) {
+      // Si falla Google Calendar, actualizar el estado en Supabase
+      await supabase
+        .from('calendar_events')
+        .update({ sync_status: 'sync_failed' })
+        .eq('id', localEvent.id);
+
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Error al crear evento en el calendario');
+      throw new Error(errorData.error || 'Error al crear evento en Google Calendar');
     }
     
-    return await response.json();
+    const googleEvent = await response.json();
+
+    // Actualizar el evento local con el ID de Google
+    await supabase
+      .from('calendar_events')
+      .update({
+        google_event_id: googleEvent.id,
+        sync_status: 'synced',
+        last_synced_at: new Date().toISOString()
+      })
+      .eq('id', localEvent.id);
+    
+    return googleEvent;
   } catch (error) {
     console.error('Error al crear evento en el calendario:', error);
     throw error;
@@ -601,22 +681,31 @@ export async function syncUserCalendar(
   };
 
   try {
+    // Validar fechas
+    if (!startDate || !endDate || startDate > endDate) {
+      throw new Error('Fechas de sincronización inválidas');
+    }
+
     // Verificar que el usuario está autenticado y coincide con el userId proporcionado
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
+      console.error('Error de autenticación:', sessionError);
       throw new Error(`Error de autenticación: ${sessionError.message}`);
     }
 
     if (!session) {
+      console.error('Usuario no autenticado');
       throw new Error('Usuario no autenticado');
     }
 
     if (session.user.id !== userId) {
+      console.error('ID de usuario no coincide');
       throw new Error('ID de usuario no coincide con el usuario autenticado');
     }
 
     console.log('Iniciando sincronización para usuario:', userId);
+    console.log('Rango de fechas:', { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
 
     // Crear el registro de sincronización
     const { data: syncLog, error: syncLogError } = await supabase
@@ -644,8 +733,8 @@ export async function syncUserCalendar(
     // Obtener credenciales de Google Calendar
     const credentials = await getCalendarCredentials(userId);
     if (!credentials) {
+      console.error('No se encontraron credenciales de Google Calendar');
       result.errors.push('No se encontraron credenciales de Google Calendar');
-      // Solo intentamos actualizar el log si se creó correctamente
       if (syncLogId) {
         await updateSyncLog(syncLogId, 'failed', result);
       }
@@ -654,6 +743,7 @@ export async function syncUserCalendar(
 
     // Refrescar token si es necesario
     const refreshedCredentials = await refreshTokenIfNeeded(userId, credentials);
+    console.log('Token de acceso refrescado correctamente');
     
     try {
       // Realizar sincronización según la dirección especificada
@@ -727,14 +817,12 @@ export async function syncUserCalendar(
             }
           } else {
             // Crear evento local desde Google
-            const { error: insertError } = await supabase
-              .from('calendar_events')
-              .insert({
+            const newEvent = {
                 user_id: userId,
-                title: googleEvent.summary,
+                title: googleEvent.summary || 'Sin título',
                 description: googleEvent.description || '',
-                start_time: googleEvent.start.dateTime || googleEvent.start.date,
-                end_time: googleEvent.end.dateTime || googleEvent.end.date,
+                start_time: new Date(googleEvent.start.dateTime || googleEvent.start.date || new Date()).toISOString(),
+                end_time: new Date(googleEvent.end.dateTime || googleEvent.end.date || new Date()).toISOString(),
                 location: googleEvent.location || '',
                 is_all_day: !googleEvent.start.dateTime,
                 color: googleEvent.colorId || null,
@@ -742,13 +830,68 @@ export async function syncUserCalendar(
                 sync_status: 'synced',
                 last_synced_at: new Date().toISOString(),
                 is_recurring: googleEvent.recurrence ? true : false,
-                recurrence_rule: googleEvent.recurrence ? googleEvent.recurrence[0] : null
-              });
-              
+                recurrence_rule: googleEvent.recurrence ? googleEvent.recurrence[0] : null,
+                type: 'custom',
+                source: 'google'
+            };
+
+            // Log detallado antes de la validación
+            console.log('Evento a validar:', {
+                ...newEvent,
+                user_id_type: typeof newEvent.user_id,
+                user_id_valid: isValidUUID(newEvent.user_id),
+                title_type: typeof newEvent.title,
+                start_time_type: typeof newEvent.start_time,
+                end_time_type: typeof newEvent.end_time,
+                start_time_valid: isValidISODate(newEvent.start_time),
+                end_time_valid: isValidISODate(newEvent.end_time)
+            });
+
+            // Validar el evento antes de insertarlo
+            const validation = validateCalendarEvent(newEvent);
+            
+            // Log detallado del evento y su validación
+            console.log('Detalles del evento a insertar:', {
+                evento: newEvent,
+                validacion: validation,
+                eventoGoogle: {
+                    id: googleEvent.id,
+                    summary: googleEvent.summary,
+                    start: googleEvent.start,
+                    end: googleEvent.end,
+                    raw: googleEvent
+                }
+            });
+
+            if (!validation.isValid) {
+                console.error('Error de validación:', validation.errors);
+                result.errors.push(`Error de validación: ${validation.errors.join(', ')}`);
+                continue;
+            }
+
+            // Intentar insertar el evento
+            const { data: insertedEvent, error: insertError } = await supabase
+                .from('calendar_events')
+                .insert(newEvent)
+                .select()
+                .single();
+
             if (insertError) {
-              result.errors.push(`Error al crear evento local: ${insertError.message}`);
+                console.error('Error detallado al insertar evento:', {
+                    error: {
+                        code: insertError.code,
+                        message: insertError.message,
+                        details: insertError.details,
+                        hint: insertError.hint
+                    },
+                    datosEvento: newEvent,
+                    datosGoogleEvent: googleEvent,
+                    validacionResultado: validation
+                });
+                result.errors.push(`Error al insertar evento: ${insertError.message} - Detalles: ${insertError.details || 'No hay detalles adicionales'}`);
             } else {
-              result.eventsCreated++;
+                console.log('Evento insertado exitosamente:', insertedEvent);
+                result.eventsCreated++;
             }
           }
         }
@@ -806,29 +949,7 @@ export async function syncUserCalendar(
           // Sincronizar eventos locales a Google
           for (const localEvent of localEvents) {
             try {
-              const googleEvent = {
-                summary: localEvent.title,
-                description: localEvent.description || '',
-                start: localEvent.is_all_day
-                  ? { date: localEvent.start_time.substring(0, 10) }
-                  : { 
-                      dateTime: localEvent.start_time,
-                      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                    },
-                end: localEvent.is_all_day
-                  ? { date: localEvent.end_time.substring(0, 10) }
-                  : { 
-                      dateTime: localEvent.end_time,
-                      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                    },
-                location: localEvent.location || '',
-                colorId: localEvent.color || undefined
-              };
-              
-              // Añadir regla de recurrencia si existe
-              if (localEvent.recurrence_rule) {
-                googleEvent.recurrence = [localEvent.recurrence_rule];
-              }
+              const googleEvent = await pushEventToGoogle(localEvent, refreshedCredentials.access_token);
               
               let response;
               
@@ -903,9 +1024,10 @@ export async function syncUserCalendar(
           .select('*')
           .eq('user_id', userId)
           .eq('sync_status', 'deleted')
-          .is('google_event_id', 'not.null');
+          .not('google_event_id', 'is', null);
           
         if (deletedEventsError) {
+          console.error('Error al obtener eventos eliminados:', deletedEventsError);
           result.errors.push(`Error al obtener eventos eliminados: ${deletedEventsError.message}`);
         } else if (deletedEvents) {
           for (const event of deletedEvents) {
@@ -1019,10 +1141,20 @@ async function fetchGoogleCalendarEvents(
   endDate: Date
 ): Promise<GoogleCalendarEvent[]> {
   try {
+    if (!accessToken) {
+      throw new Error('Token de acceso no proporcionado');
+    }
+
     // Formatear fechas para la API
     const timeMin = startDate.toISOString();
     const timeMax = endDate.toISOString();
     
+    console.log('Obteniendo eventos de Google Calendar:', {
+      timeMin,
+      timeMax,
+      hasAccessToken: !!accessToken
+    });
+
     // Llamar a la API de Google Calendar
     const response = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`, 
@@ -1036,14 +1168,19 @@ async function fetchGoogleCalendarEvents(
     
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Error fetching Google Calendar events:', errorData);
-      throw new Error(`Error API Google: ${errorData.error?.message || JSON.stringify(errorData)}`);
+      console.error('Error en la respuesta de Google Calendar:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
+      throw new Error(`Error API Google (${response.status}): ${errorData.error?.message || JSON.stringify(errorData)}`);
     }
     
     const data = await response.json();
+    console.log(`Eventos obtenidos de Google Calendar: ${data.items?.length || 0}`);
     return data.items || [];
   } catch (error) {
-    console.error('Error in fetchGoogleCalendarEvents:', error);
+    console.error('Error en fetchGoogleCalendarEvents:', error);
     throw error;
   }
 }
@@ -1070,4 +1207,170 @@ function needsUpdate(googleEvent: GoogleCalendarEvent, localEvent: any): boolean
   if ((googleEvent.colorId || '') !== (localEvent.color || '')) return true;
   
   return false;
+}
+
+// Función para sincronizar eventos locales a Google
+async function pushEventToGoogle(localEvent: any, accessToken: string): Promise<any> {
+  // Validar que el evento tenga los campos requeridos
+  if (!localEvent.title || !localEvent.start_time || !localEvent.end_time) {
+    console.error('Evento inválido:', localEvent);
+    throw new Error('Evento inválido: faltan campos requeridos (título, fecha inicio, fecha fin)');
+  }
+
+  // Asegurarse de que las fechas sean válidas
+  const startTime = new Date(localEvent.start_time);
+  const endTime = new Date(localEvent.end_time);
+  
+  if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+    console.error('Fechas inválidas:', { start: localEvent.start_time, end: localEvent.end_time });
+    throw new Error('Fechas inválidas en el evento');
+  }
+
+  // Asegurarse de que la fecha de fin no sea anterior a la de inicio
+  if (endTime < startTime) {
+    console.error('La fecha de fin es anterior a la fecha de inicio:', { start: startTime, end: endTime });
+    throw new Error('La fecha de fin no puede ser anterior a la fecha de inicio');
+  }
+
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  const googleEvent: GoogleEventInput = {
+    summary: localEvent.title,
+    description: localEvent.description || '',
+    start: localEvent.is_all_day
+      ? { 
+          date: format(startTime, 'yyyy-MM-dd'),
+          timeZone
+        }
+      : { 
+          dateTime: startTime.toISOString(),
+          timeZone
+        },
+    end: localEvent.is_all_day
+      ? { 
+          date: format(endTime, 'yyyy-MM-dd'),
+          timeZone
+        }
+      : { 
+          dateTime: endTime.toISOString(),
+          timeZone
+        }
+  };
+
+  // Añadir campos opcionales solo si existen y son válidos
+  if (localEvent.location && typeof localEvent.location === 'string') {
+    googleEvent.location = localEvent.location;
+  }
+
+  if (localEvent.color && typeof localEvent.color === 'string') {
+    googleEvent.colorId = localEvent.color;
+  }
+  
+  // Añadir regla de recurrencia si existe y es válida
+  if (localEvent.recurrence_rule && typeof localEvent.recurrence_rule === 'string') {
+    googleEvent.recurrence = [localEvent.recurrence_rule];
+  }
+
+  console.log('Enviando evento a Google Calendar:', {
+    ...googleEvent,
+    accessTokenPresent: !!accessToken
+  });
+  
+  return googleEvent;
+}
+
+// Función para validar un evento antes de insertarlo en Supabase
+function validateCalendarEvent(event: any): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  // Validar campos requeridos y sus tipos
+  if (!event.user_id) {
+    errors.push('user_id es requerido');
+  } else if (typeof event.user_id !== 'string' || !isValidUUID(event.user_id)) {
+    errors.push(`user_id debe ser un UUID válido, recibido: ${typeof event.user_id}`);
+  }
+
+  if (!event.title) {
+    errors.push('title es requerido');
+  } else if (typeof event.title !== 'string') {
+    errors.push(`title debe ser string, recibido: ${typeof event.title}`);
+  }
+
+  if (!event.type) {
+    errors.push('type es requerido');
+  } else if (typeof event.type !== 'string') {
+    errors.push(`type debe ser string, recibido: ${typeof event.type}`);
+  }
+
+  if (!event.source) {
+    errors.push('source es requerido');
+  } else if (typeof event.source !== 'string') {
+    errors.push(`source debe ser string, recibido: ${typeof event.source}`);
+  }
+
+  // Validar fechas
+  if (!event.start_time) {
+    errors.push('start_time es requerido');
+  } else if (!isValidISODate(event.start_time)) {
+    errors.push(`start_time debe ser una fecha ISO válida, recibido: ${event.start_time}`);
+  }
+
+  if (!event.end_time) {
+    errors.push('end_time es requerido');
+  } else if (!isValidISODate(event.end_time)) {
+    errors.push(`end_time debe ser una fecha ISO válida, recibido: ${event.end_time}`);
+  }
+
+  // Validar que end_time sea después de start_time
+  if (event.start_time && event.end_time && isValidISODate(event.start_time) && isValidISODate(event.end_time)) {
+    if (new Date(event.end_time) <= new Date(event.start_time)) {
+      errors.push('end_time debe ser posterior a start_time');
+    }
+  }
+
+  // Validar campos opcionales si están presentes
+  if (event.description !== undefined && typeof event.description !== 'string') {
+    errors.push('description debe ser string');
+  }
+
+  if (event.location !== undefined && typeof event.location !== 'string') {
+    errors.push('location debe ser string');
+  }
+
+  if (event.color !== undefined && event.color !== null && typeof event.color !== 'string') {
+    errors.push('color debe ser string o null');
+  }
+
+  if (event.is_all_day !== undefined && typeof event.is_all_day !== 'boolean') {
+    errors.push('is_all_day debe ser boolean');
+  }
+
+  if (event.is_recurring !== undefined && typeof event.is_recurring !== 'boolean') {
+    errors.push('is_recurring debe ser boolean');
+  }
+
+  if (event.recurrence_rule !== undefined && event.recurrence_rule !== null && typeof event.recurrence_rule !== 'string') {
+    errors.push('recurrence_rule debe ser string o null');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+// Función auxiliar para validar UUIDs
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+// Función auxiliar para validar fechas ISO
+function isValidISODate(dateString: string): boolean {
+  try {
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date.getTime()) && dateString === date.toISOString();
+  } catch {
+    return false;
+  }
 } 
