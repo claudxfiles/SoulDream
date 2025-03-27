@@ -1,43 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/supabase';
 
-// Estas variables de entorno deben configurarse en un archivo .env.local
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Crear una única instancia del cliente para componentes
+export const supabase = createClientComponentClient<Database>();
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-// Cliente para el lado del servidor
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Variable para almacenar la instancia del cliente entre módulos
-let supabaseClientInstance: ReturnType<typeof createClientComponentClient> | null = null;
-
-// Implementación del patrón singleton para el cliente de componentes
-export const createClientComponent = () => {
-  // En el lado del servidor (durante SSR), siempre crear una nueva instancia
-  if (typeof window === 'undefined') {
-    return createClientComponentClient();
-  }
-  
-  // En el lado del cliente, crear una única instancia si no existe
-  if (!supabaseClientInstance) {
-    supabaseClientInstance = createClientComponentClient();
-    // Usar un console.debug en lugar de log para reducir ruido en la consola
-    console.debug('Inicializando cliente de Supabase (singleton)');
-  }
-  
-  return supabaseClientInstance;
-};
-
-// Exportar la instancia del cliente para componentes
-// No inicializar directamente aquí para evitar ejecución en importación
-export const getSupabaseClient = () => createClientComponent();
-
-// Método para uso conveniente cuando sabemos que estamos en el cliente
-export const supabaseClient = typeof window !== 'undefined' ? createClientComponent() : null;
+// Exportar la instancia del cliente para uso conveniente
+export const supabaseClient = supabase;
 
 // Tipos para las tablas de Supabase
 export type Tables = {

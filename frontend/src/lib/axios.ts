@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { toast } from '@/components/ui/use-toast';
-import { createClientComponent } from './supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/supabase';
 
 // Crear una instancia de axios con la configuración base
 export const api = axios.create({
@@ -15,7 +16,7 @@ api.interceptors.request.use(
   async (config) => {
     try {
       // Obtener el token de sesión de Supabase
-      const supabase = createClientComponent();
+      const supabase = createClientComponentClient<Database>();
       const { data } = await supabase.auth.getSession();
       const session = data.session;
       

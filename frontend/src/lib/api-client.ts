@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { createClientComponent } from './supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/supabase';
 
 // URL base de la API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -19,7 +20,7 @@ export const apiClient = axios.create({
 // Interceptor para incluir el token de autenticación en cada solicitud
 apiClient.interceptors.request.use(async (config) => {
   try {
-    const supabase = createClientComponent();
+    const supabase = createClientComponentClient<Database>();
     const { data } = await supabase.auth.getSession();
     const session = data.session;
     
@@ -80,7 +81,7 @@ apiClient.interceptors.response.use(
           console.log('Intentando refrescar la sesión debido a error 401');
         }
         // Intentar refrescar la sesión
-        const supabase = createClientComponent();
+        const supabase = createClientComponentClient<Database>();
         const { data } = await supabase.auth.refreshSession();
         const session = data.session;
         

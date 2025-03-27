@@ -601,59 +601,46 @@ export async function syncUserCalendar(
   };
 
   try {
-    // Omitir la verificación de autenticación y usar directamente el userId proporcionado
+    // Verificar que el usuario está autenticado y coincide con el userId proporcionado
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      throw new Error(`Error de autenticación: ${sessionError.message}`);
+    }
+
+    if (!session) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    if (session.user.id !== userId) {
+      throw new Error('ID de usuario no coincide con el usuario autenticado');
+    }
+
     console.log('Iniciando sincronización para usuario:', userId);
 
-    // Variable para realizar seguimiento si podemos crear registros de sincronización
-    let canCreateSyncLog = false; // Por defecto asumimos que no podemos crear logs
-    let syncLogId = null;
-    
-    // Verificar si el usuario tiene permiso para crear registros (prueba simple)
-    try {
-      const testResult = await supabase
-        .from('calendar_sync_logs')
-        .select('count')
-        .limit(1);
-        
-      if (!testResult.error) {
-        console.log('Permisos verificados para tabla calendar_sync_logs');
-        canCreateSyncLog = true;
-      } else {
-        console.warn('Problemas de permisos detectados, omitiendo creación de logs:', testResult.error.message);
-      }
-    } catch (permError) {
-      console.error('Error al verificar permisos:', permError);
+    // Crear el registro de sincronización
+    const { data: syncLog, error: syncLogError } = await supabase
+      .from('calendar_sync_logs')
+      .insert({
+        user_id: userId,
+        sync_type: syncType,
+        status: 'in_progress',
+        started_at: new Date().toISOString(),
+        events_created: 0,
+        events_updated: 0,
+        events_deleted: 0
+      })
+      .select('id')
+      .single();
+
+    if (syncLogError) {
+      console.error('Error al crear registro de sincronización:', syncLogError);
+      throw new Error(`Error al crear registro de sincronización: ${syncLogError.message}`);
     }
-    
-    // Solo intentar crear el registro si tenemos permisos
-    if (canCreateSyncLog) {
-      try {
-        const { data: syncLog, error: syncLogError } = await supabase
-          .from('calendar_sync_logs')
-          .insert({
-            user_id: userId, // Usar el ID que se pasa como parámetro
-            sync_type: syncType,
-            status: 'in_progress',
-            started_at: new Date().toISOString()
-          })
-          .select('id')
-          .single();
-          
-        if (syncLogError) {
-          console.error('Error al crear registro de sincronización:', syncLogError);
-        } else if (syncLog) {
-          syncLogId = syncLog.id;
-          console.log('Registro de sincronización creado con ID:', syncLogId);
-        }
-      } catch (logError) {
-        console.error('Excepción al crear registro de sincronización:', logError);
-      }
-    } else {
-      console.log('Omitiendo creación de registro de sincronización debido a permisos insuficientes');
-    }
-    
-    // Continuar con el proceso de sincronización independientemente del resultado anterior
-    
+
+    const syncLogId = syncLog?.id;
+    console.log('Registro de sincronización creado con ID:', syncLogId);
+
     // Obtener credenciales de Google Calendar
     const credentials = await getCalendarCredentials(userId);
     if (!credentials) {

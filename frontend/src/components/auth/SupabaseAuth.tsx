@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { createClientComponent } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/supabase';
 import { useRouter } from 'next/navigation';
 
 export default function SupabaseAuth() {
   const router = useRouter();
-  const supabase = createClientComponent();
+  const supabase = createClientComponentClient<Database>();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
