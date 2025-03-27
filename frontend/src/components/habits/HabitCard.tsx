@@ -17,8 +17,6 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { HABIT_CATEGORIES } from '@/types/habit';
-import Link from 'next/link';
-import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,17 +32,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import HabitSettingsDialog from './HabitSettingsDialog';
+import { cn } from '@/lib/utils';
 
 interface HabitCardProps {
   habit: Habit;
   onComplete: () => void;
   onDelete?: (habitId: string) => void;
+  onUpdate?: () => void;
 }
 
-export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelete }) => {
+export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelete, onUpdate }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   
   // Encontrar la categoría para obtener el ícono
   const category = HABIT_CATEGORIES.find(c => c.id === habit.category) || HABIT_CATEGORIES[7]; // Default a "Otros"
@@ -73,33 +74,26 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
         ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20" 
         : "border-gray-200 dark:border-gray-700"
     )}>
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{habit.title}</h3>
-            <span className={`text-xs px-2 py-1 rounded-full ${category.color} bg-opacity-10`}>
-              {category.name}
-            </span>
-          </div>
-          
-          {habit.description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {habit.description}
-            </p>
-          )}
-          
-          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-2">
-            <Clock className="h-4 w-4 mr-1" />
-            <span>Creado {formattedDate}</span>
+      <div className="flex flex-col space-y-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-3">
+            <div className={cn(
+              "p-2 rounded-lg",
+              category.color || "bg-gray-100 dark:bg-gray-800"
+            )}>
+              {category.icon}
+            </div>
             
-            {habit.current_streak > 0 && (
-              <div className="ml-4 flex items-center">
-                <Activity className="h-4 w-4 mr-1 text-indigo-500" />
-                <span className="text-indigo-600 dark:text-indigo-400">
-                  {habit.current_streak} días consecutivos
-                </span>
+            <div>
+              <h3 className="font-medium">{habit.title}</h3>
+              {habit.description && (
+                <p className="text-sm text-muted-foreground mt-1">{habit.description}</p>
+              )}
+              <div className="flex items-center mt-2 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3 mr-1" />
+                <span>Creado {formattedDate}</span>
               </div>
-            )}
+            </div>
           </div>
         </div>
         
@@ -129,11 +123,9 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/dashboard/habits/${habit.id}`}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Detalles/Configuración</span>
-                </Link>
+              <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Configuración</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-950">
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -143,6 +135,14 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Diálogo de configuración */}
+      <HabitSettingsDialog
+        habitId={habit.id}
+        open={showSettingsDialog}
+        onOpenChange={setShowSettingsDialog}
+        onSuccess={onUpdate}
+      />
 
       {/* Diálogo de confirmación para eliminar */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

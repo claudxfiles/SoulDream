@@ -1,0 +1,473 @@
+Guía práctica para migrar de datos mock a datos reales usando Supabase en SoulDream
+He visto que tienes un cursor.rules bastante completo y también que has estado intentando implementar la migración durante todo el día sin éxito. Vamos a hacer esto de forma práctica y paso a paso, comenzando con un módulo específico (Metas) como solicitaste.
+Plan de acción simplificado
+En lugar de intentar implementar todo el sistema de una vez, vamos a dividirlo en pasos muy concretos y ejecutables:
+Paso 1: Configurar el cliente Supabase (si no está ya configurado)
+Primero, necesitamos asegurarnos de que el cliente Supabase esté correctamente configurado:
+// lib/supabase.ts
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
+Paso 2: Identifica y analiza los datos mock de Metas
+Busca donde están definidos tus datos mock de Metas. Por ejemplo, podrían estar en un archivo como:
+•	data/mockData.ts
+•	data/mockGoals.ts
+•	O directamente definidos en algún componente
+Analiza cuidadosamente su estructura. Por ejemplo:
+// Ejemplo de cómo podrían verse tus datos mock de Metas
+export const mockGoals = [
+  {
+    id: 1,
+    title: "Perder 5 kg",
+    description: "Alcanzar un peso más saludable",
+    targetDate: "2023-12-31",
+    category: "health",
+    progress: 60,
+    createdAt: "2023-01-15",
+  },
+  // más metas...
+];
+Paso 3: Crea una tabla en Supabase para las Metas
+Usando la consola de Supabase, crea una tabla que refleje la estructura de tus datos mock:
+CREATE TABLE goals (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT,
+  target_date DATE,
+  category TEXT,
+  progress INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  user_id UUID REFERENCES auth.users(id) NOT NULL
+);
+
+-- Política RLS para que los usuarios solo vean sus propias metas
+CREATE POLICY "Users can only access their own goals" ON goals
+  FOR ALL USING (auth.uid() = user_id);
+Paso 4: Crea las interfaces TypeScript para ambos formatos
+// types/goal.ts
+export interface GoalMockData {
+  id: number;
+  title: string;
+  description: string;
+  targetDate: string; // formato "YYYY-MM-DD"
+  category: string;
+  progress: number;
+  createdAt: string;
+  // ... otros campos que tengas
+}
+
+export interface GoalApiData {
+  id: string; // UUID en Supabase
+  title: string;
+  description: string;
+  target_date: string; // formato "YYYY-MM-DD", nota el cambio a snake_case
+  category: string;
+  progress: number;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  // ... otros campos que tengas en la BD
+}
+Paso 5: Implementa el adaptador para metas
+// adapters/goalsAdapter.ts
+import { GoalApiData, GoalMockData } from '@/types/goal';
+
+export const goalsAdapter = {
+  // Convierte datos de Supabase al formato que usa tu UI
+  apiToMockFormat(apiData: GoalApiData | GoalApiData[]): GoalMockData | GoalMockData[] {
+    if (Array.isArray(apiData)) {
+      return apiData.map(goal => this.apiToMockFormat(goal) as GoalMockData);
+    }
+    
+    return {
+      id: parseInt(apiData.id.substring(0, 8), 16), // Genera un número del UUID
+      title: apiData.title,
+      description: apiData.description,
+      targetDate: apiData.target_date,
+      category: apiData.category,
+      progress: apiData.progress,
+      createdAt: apiData.created_at,
+      // Mapea los demás campos según tu estructura
+    };
+  },
+
+  // Convierte del formato de tu UI al formato de Supabase
+  mockToApiFormat(mockData: Partial<GoalMockData>): Omit<GoalApiData, 'id' | 'user_id' | 'created_at' | 'updated_at'> {
+    return {
+      title: mockData.title || '',
+      description: mockData.description || '',
+      target_date: mockData.targetDate || new Date().toISOString().split('T')[0],
+      category: mockData.category || 'general',
+      progress: mockData.progress || 0,
+      // Mapea los demás campos según tu estructura
+    };
+  }
+};
+Paso 6: Crea el servicio de Metas para Supabase
+// services/goalsService.ts
+import { supabase } from '@/lib/supabase';
+import { GoalApiData } from '@/types/goal';
+
+export const goalsService = {
+  async getGoals(): Promise<GoalApiData[]> {
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw new Error(error.message);
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      return [];
+    }
+  },
+  
+  async createGoal(goal: Omit<GoalApiData, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<GoalApiData | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+      
+      const { data, error } = await supabase
+        .from('goals')
+        .insert({ ...goal, user_id: user.id })
+        .select()
+        .single();
+      
+      if (error) throw new Error(error.message);
+      return data;
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      return null;
+    }
+  },
+  
+  async updateGoal(id: string, updates: Partial<Omit<GoalApiData, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<GoalApiData | null> {
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw new Error(error.message);
+      return data;
+    } catch (error) {
+      console.error('Error updating goal:', error);
+      return null;
+    }
+  },
+  
+  async deleteGoal(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('goals')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw new Error(error.message);
+      return true;
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      return false;
+    }
+  }
+};
+Paso 7: Implementa el Store Zustand para alternar fuentes de datos
+// store/dataSourceStore.ts
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface DataSourceState {
+  useRealData: boolean;
+  setUseRealData: (value: boolean) => void;
+}
+
+export const useDataSourceStore = create<DataSourceState>()(
+  persist(
+    (set) => ({
+      useRealData: process.env.NODE_ENV === 'production', // Prod siempre usa datos reales
+      setUseRealData: (value) => set({ useRealData: value }),
+    }),
+    {
+      name: 'data-source-storage',
+    }
+  )
+);
+Paso 8: Crea el componente Toggle para desarrollo
+// components/dev/DataSourceToggle.tsx
+import { useDataSourceStore } from '@/store/dataSourceStore';
+import { Switch } from '@/components/ui/switch';
+
+export function DataSourceToggle() {
+  const { useRealData, setUseRealData } = useDataSourceStore();
+  
+  // Solo mostrar en desarrollo
+  if (process.env.NODE_ENV !== 'development') return null;
+  
+  return (
+    <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg z-50 flex items-center space-x-2">
+      <span className={`text-sm ${!useRealData ? 'font-bold' : ''}`}>Mock</span>
+      <Switch 
+        checked={useRealData} 
+        onCheckedChange={setUseRealData} 
+      />
+      <span className={`text-sm ${useRealData ? 'font-bold' : ''}`}>Real</span>
+    </div>
+  );
+}
+Paso 9: Crea el Provider de datos para Metas
+// providers/GoalsDataProvider.tsx
+import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { useDataSourceStore } from '@/store/dataSourceStore';
+import { mockGoals } from '@/data/mockData'; // Ajusta la ruta según donde tengas tus mocks
+import { goalsService } from '@/services/goalsService';
+import { goalsAdapter } from '@/adapters/goalsAdapter';
+import { GoalMockData } from '@/types/goal';
+
+interface GoalsDataContextType {
+  goals: GoalMockData[];
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+  createGoal: (goal: Partial<GoalMockData>) => Promise<GoalMockData | null>;
+  updateGoal: (id: number, updates: Partial<GoalMockData>) => Promise<boolean>;
+  deleteGoal: (id: number) => Promise<boolean>;
+}
+
+const GoalsDataContext = createContext<GoalsDataContextType | undefined>(undefined);
+
+export function GoalsDataProvider({ children }: { children: ReactNode }) {
+  const [goals, setGoals] = useState<GoalMockData[]>(mockGoals);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const { useRealData } = useDataSourceStore();
+
+  const fetchGoals = async () => {
+    if (!useRealData) {
+      setGoals(mockGoals);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const apiData = await goalsService.getGoals();
+      const formattedData = goalsAdapter.apiToMockFormat(apiData) as GoalMockData[];
+      setGoals(formattedData);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Error desconocido al cargar metas'));
+      // Fallback a datos mock en caso de error
+      setGoals(mockGoals);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createGoal = async (goalData: Partial<GoalMockData>): Promise<GoalMockData | null> => {
+    if (!useRealData) {
+      // Versión mock
+      const newGoal = {
+        id: Math.max(0, ...mockGoals.map(g => g.id)) + 1,
+        title: goalData.title || 'Nueva meta',
+        description: goalData.description || '',
+        targetDate: goalData.targetDate || new Date().toISOString().split('T')[0],
+        category: goalData.category || 'general',
+        progress: goalData.progress || 0,
+        createdAt: new Date().toISOString(),
+      } as GoalMockData;
+      
+      mockGoals.push(newGoal);
+      setGoals([...mockGoals]);
+      return newGoal;
+    }
+
+    try {
+      const apiGoalData = goalsAdapter.mockToApiFormat(goalData);
+      const createdGoal = await goalsService.createGoal(apiGoalData);
+      
+      if (!createdGoal) return null;
+      
+      const mockFormattedGoal = goalsAdapter.apiToMockFormat(createdGoal) as GoalMockData;
+      setGoals(prev => [...prev, mockFormattedGoal]);
+      return mockFormattedGoal;
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      return null;
+    }
+  };
+
+  const updateGoal = async (id: number, updates: Partial<GoalMockData>): Promise<boolean> => {
+    if (!useRealData) {
+      // Versión mock
+      const goalIndex = mockGoals.findIndex(g => g.id === id);
+      if (goalIndex === -1) return false;
+      
+      mockGoals[goalIndex] = { ...mockGoals[goalIndex], ...updates };
+      setGoals([...mockGoals]);
+      return true;
+    }
+
+    try {
+      // Buscar la meta con este ID mock para obtener el ID real
+      const goal = goals.find(g => g.id === id);
+      if (!goal) return false;
+      
+      // Este sería el ID real de Supabase (habría que almacenarlo de alguna forma)
+      // Para simplificar, supongamos que tenemos una forma de mapear IDs mock a reales
+      const realId = id.toString(); // Esto no funcionará en producción, necesitas un mapeo real
+      
+      const apiUpdates = goalsAdapter.mockToApiFormat(updates);
+      const updated = await goalsService.updateGoal(realId, apiUpdates);
+      
+      if (!updated) return false;
+      
+      // Actualizar el estado local
+      setGoals(prev => 
+        prev.map(g => g.id === id ? { ...g, ...updates } : g)
+      );
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating goal:', error);
+      return false;
+    }
+  };
+
+  const deleteGoal = async (id: number): Promise<boolean> => {
+    if (!useRealData) {
+      // Versión mock
+      const goalIndex = mockGoals.findIndex(g => g.id === id);
+      if (goalIndex === -1) return false;
+      
+      mockGoals.splice(goalIndex, 1);
+      setGoals([...mockGoals]);
+      return true;
+    }
+
+    try {
+      // Mismo problema de mapeo de IDs que en updateGoal
+      const realId = id.toString(); // Necesitas un mapeo real
+      
+      const deleted = await goalsService.deleteGoal(realId);
+      
+      if (deleted) {
+        setGoals(prev => prev.filter(g => g.id !== id));
+      }
+      
+      return deleted;
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    fetchGoals();
+  }, [useRealData]);
+
+  return (
+    <GoalsDataContext.Provider value={{ 
+      goals, 
+      isLoading, 
+      error,
+      refetch: fetchGoals,
+      createGoal,
+      updateGoal,
+      deleteGoal
+    }}>
+      {children}
+    </GoalsDataContext.Provider>
+  );
+}
+
+export const useGoalsData = () => {
+  const context = useContext(GoalsDataContext);
+  if (context === undefined) {
+    throw new Error('useGoalsData debe usarse dentro de un GoalsDataProvider');
+  }
+  return context;
+};
+Paso 10: Integra el provider en tu aplicación
+Agrega el provider de datos y el toggle a tu layout principal o a las páginas donde se usan las metas:
+// En tu layout o página principal
+import { GoalsDataProvider } from '@/providers/GoalsDataProvider';
+import { DataSourceToggle } from '@/components/dev/DataSourceToggle';
+
+export default function Layout({ children }) {
+  return (
+    <>
+      <GoalsDataProvider>
+        {children}
+      </GoalsDataProvider>
+      {process.env.NODE_ENV === 'development' && <DataSourceToggle />}
+    </>
+  );
+}
+Paso 11: Modifica tus componentes para usar el nuevo provider
+Actualiza tus componentes que muestran o manipulan metas para usar el nuevo provider:
+// components/goals/GoalsList.tsx (ejemplo)
+import { useGoalsData } from '@/providers/GoalsDataProvider';
+import { GoalCard } from './GoalCard';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/skeleton';
+
+export function GoalsList() {
+  const { goals, isLoading, error } = useGoalsData();
+  
+  // Estado de carga
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton key={index} className="h-24 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+  
+  // Estado de error
+  if (error) {
+    return (
+      <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+        <p className="text-red-600 dark:text-red-400">Error: {error.message}</p>
+        <button 
+          className="mt-2 text-sm text-red-600 dark:text-red-400 underline"
+          onClick={() => window.location.reload()}
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+  
+  // Estado vacío
+  if (goals.length === 0) {
+    return <EmptyState type="goals" onActionClick={() => {/* Abrir modal de crear */}} />;
+  }
+  
+  // Renderizado normal
+  return (
+    <div className="space-y-4">
+      {goals.map(goal => (
+        <GoalCard key={goal.id} goal={goal} />
+      ))}
+    </div>
+  );
+}
+Consejos para la implementación práctica
+1.	Implementa un módulo a la vez: Comienza con Metas como solicitaste, verifica que funcione completamente antes de pasar al siguiente.
+2.	Comienza con operaciones de lectura: Primero implementa la lectura de datos (getGoals), luego añade las operaciones de escritura.
+3.	Prueba constantemente: Usa el toggle para alternar entre datos mock y reales para verificar que ambos funcionan.
+4.	Solución al problema de IDs: Para manejar la diferencia entre IDs (números en mock vs UUIDs en Supabase), considera:
+•	Almacenar un mapa de IDs mock a IDs reales en localStorage
+•	O incluir ambos IDs en tus objetos de datos
+5.	Datos de ejemplo en Supabase: Para probar, carga algunos datos de ejemplo en tu base de datos Supabase usando el seeder que definiste en tu cursor.rules.
+6.	Mejor enfoque para los adaptadores: En producción, podrías considerar adaptar tu UI para usar directamente el formato de Supabase, en lugar de mantener adaptadores complejos permanentemente.
+

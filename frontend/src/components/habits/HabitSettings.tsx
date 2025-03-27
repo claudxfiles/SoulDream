@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { AlertCircle, Loader2, Save, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -14,7 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
 import { useGetHabitById, useUpdateHabit, useDeleteHabit } from '@/hooks/useHabits';
 import HabitGoalLink from './HabitGoalLink';
-import { HabitUpdate } from '@/types/habit';
+import { Habit, HabitUpdate, HABIT_CATEGORIES } from '@/types/habit';
 
 interface HabitSettingsProps {
   habitId: string;
@@ -23,38 +23,17 @@ interface HabitSettingsProps {
 type FormValues = {
   title: string;
   description: string;
-  category: string;
-  frequency: 'daily' | 'weekly' | 'specific_days';
-  specific_days?: string[];
-  reminder_time?: string;
-  cue?: string;
-  reward?: string;
+  category?: string;
+  goal_value?: number;
   is_active: boolean;
 };
-
-const categories = [
-  { value: 'salud', label: 'Salud y bienestar' },
-  { value: 'productividad', label: 'Productividad' },
-  { value: 'aprendizaje', label: 'Aprendizaje' },
-  { value: 'finanzas', label: 'Finanzas' },
-  { value: 'relaciones', label: 'Relaciones' },
-  { value: 'otro', label: 'Otro' }
-];
-
-const frequencies = [
-  { value: 'daily', label: 'Diario' },
-  { value: 'weekly', label: 'Semanal' },
-  { value: 'weekdays', label: 'Días laborables' },
-  { value: 'weekends', label: 'Fines de semana' },
-  { value: 'custom', label: 'Personalizado' }
-];
 
 export default function HabitSettings({ habitId }: HabitSettingsProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const { data: habit, isLoading, error } = useGetHabitById(habitId);
   const [isConfirmDelete, setIsConfirmDelete] = useState(false);
   
+  const { data: habit, isLoading, error } = useGetHabitById(habitId);
   const { register, handleSubmit, setValue, watch, formState: { errors, isDirty } } = useForm<FormValues>();
   
   // Mutaciones para actualizar y eliminar hábitos
@@ -97,20 +76,26 @@ export default function HabitSettings({ habitId }: HabitSettingsProps) {
     if (habit) {
       setValue('title', habit.title);
       setValue('description', habit.description || '');
-      setValue('category', habit.category || 'otro');
-      setValue('frequency', habit.frequency || 'daily');
-      setValue('reminder_time', habit.reminder_time || '');
-      setValue('cue', habit.cue || '');
-      setValue('reward', habit.reward || '');
+      setValue('category', habit.category || 'otros');
+      setValue('goal_value', habit.goal_value || 1);
       setValue('is_active', habit.is_active !== false);
     }
   }, [habit, setValue]);
   
   const onSubmit = (data: FormValues) => {
-    updateHabit.mutate({
+    const frequency: 'daily' | 'weekly' | 'monthly' | 'custom' = 'daily';
+    
+    const formattedData: HabitUpdate & { id: string } = {
       id: habitId,
-      ...data,
-    });
+      title: data.title.trim(),
+      description: data.description?.trim() || '',
+      frequency,
+      category: data.category || 'otros',
+      goal_value: data.goal_value || 1,
+      is_active: data.is_active
+    };
+
+    updateHabit.mutate(formattedData);
   };
   
   const handleDeleteClick = () => {
@@ -178,60 +163,28 @@ export default function HabitSettings({ habitId }: HabitSettingsProps) {
                   <SelectValue placeholder="Selecciona una categoría" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {HABIT_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="frequency">Frecuencia</Label>
-              <Select
-                value={watch('frequency')}
-                onValueChange={(value) => setValue('frequency', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona la frecuencia" />
-                </SelectTrigger>
-                <SelectContent>
-                  {frequencies.map((frequency) => (
-                    <SelectItem key={frequency.value} value={frequency.value}>
-                      {frequency.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="reminder_time">Hora del recordatorio (opcional)</Label>
-            <Input
-              id="reminder_time"
-              type="time"
-              {...register('reminder_time')}
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cue">Disparador del hábito (opcional)</Label>
+              <Label htmlFor="goal_value">Meta diaria</Label>
               <Input
-                id="cue"
-                placeholder="Ej. Después de desayunar"
-                {...register('cue')}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="reward">Recompensa (opcional)</Label>
-              <Input
-                id="reward"
-                placeholder="Ej. 10 minutos de lectura"
-                {...register('reward')}
+                id="goal_value"
+                type="number"
+                min="1"
+                placeholder="1"
+                {...register('goal_value', { 
+                  valueAsNumber: true,
+                  min: { value: 1, message: 'La meta debe ser al menos 1' }
+                })}
               />
             </div>
           </div>
@@ -244,34 +197,23 @@ export default function HabitSettings({ habitId }: HabitSettingsProps) {
             />
             <Label htmlFor="is_active">Hábito activo</Label>
           </div>
+        </div>
+        
+        <div className="flex justify-between mt-6">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleDeleteClick}
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            {isConfirmDelete ? 'Confirmar eliminación' : 'Eliminar hábito'}
+          </Button>
           
-          <div className="flex justify-between pt-4">
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDeleteClick}
-              disabled={deleteHabit.isPending}
-            >
-              {deleteHabit.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
-              )}
-              {isConfirmDelete ? 'Confirmar eliminación' : 'Eliminar hábito'}
-            </Button>
-            
-            <Button
-              type="submit"
-              disabled={!isDirty || updateHabit.isPending}
-            >
-              {updateHabit.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Guardar cambios
-            </Button>
-          </div>
+          <Button type="submit" className="flex items-center gap-2">
+            <Save className="h-4 w-4" />
+            Guardar cambios
+          </Button>
         </div>
       </form>
       
