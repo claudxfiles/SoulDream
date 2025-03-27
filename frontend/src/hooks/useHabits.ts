@@ -255,11 +255,30 @@ export const useUpdateHabit = (options?: any) => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (updateData: HabitUpdate & { id: string }) => 
-      habitService.updateHabit(updateData),
-    onSuccess: () => {
+    mutationFn: async (updateData: HabitUpdate & { id: string }) => {
+      try {
+        const response = await habitService.updateHabit(updateData);
+        return response;
+      } catch (error: any) {
+        throw new Error(error.response?.data?.detail || 'Error al actualizar el hábito');
+      }
+    },
+    onSuccess: (data, variables) => {
+      // Actualizar el caché del hábito individual
+      queryClient.setQueryData(['habit', variables.id], data);
+      
+      // Actualizar la lista de hábitos
       queryClient.invalidateQueries({ queryKey: ['habits'] });
-      if (options?.onSuccess) options.onSuccess();
+      
+      // Llamar al callback de éxito si existe
+      if (options?.onSuccess) {
+        options.onSuccess(data);
+      }
+    },
+    onError: (error: Error) => {
+      if (options?.onError) {
+        options.onError(error);
+      }
     },
   });
 };

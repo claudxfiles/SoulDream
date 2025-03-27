@@ -27,7 +27,7 @@ type FormValues = {
   title: string;
   description?: string;
   category?: string;
-  goal_value?: number;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
   is_active: boolean;
 };
 
@@ -36,7 +36,15 @@ export default function HabitSettingsDialog({ habitId, open, onOpenChange, onSuc
   const [isConfirmDelete, setIsConfirmDelete] = useState(false);
   
   const { data: habit, isLoading, error } = useGetHabitById(habitId);
-  const { register, handleSubmit, setValue, watch, formState: { errors, isDirty } } = useForm<FormValues>();
+  const { register, handleSubmit, setValue, watch, formState: { errors, isDirty } } = useForm<FormValues>({
+    defaultValues: {
+      title: '',
+      description: '',
+      category: 'otros',
+      frequency: 'daily',
+      is_active: true
+    }
+  });
   
   // Mutaciones para actualizar y eliminar hábitos
   const updateHabit = useUpdateHabit({
@@ -82,21 +90,27 @@ export default function HabitSettingsDialog({ habitId, open, onOpenChange, onSuc
       setValue('title', habit.title);
       setValue('description', habit.description || '');
       setValue('category', habit.category || 'otros');
-      setValue('goal_value', habit.goal_value || 1);
+      setValue('frequency', habit.frequency || 'daily');
       setValue('is_active', habit.is_active !== false);
     }
   }, [habit, setValue]);
   
   const onSubmit = (data: FormValues) => {
-    const frequency: 'daily' | 'weekly' | 'monthly' | 'custom' = 'daily';
-    
+    if (!data.title.trim()) {
+      toast({
+        title: "Error de validación",
+        description: "El título es obligatorio",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const formattedData: HabitUpdate & { id: string } = {
       id: habitId,
       title: data.title.trim(),
       description: data.description?.trim() || '',
-      frequency,
+      frequency: data.frequency,
       category: data.category || 'otros',
-      goal_value: data.goal_value || 1,
       is_active: data.is_active
     };
 
@@ -196,17 +210,23 @@ export default function HabitSettingsDialog({ habitId, open, onOpenChange, onSuc
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="goal_value">Meta diaria</Label>
-                <Input
-                  id="goal_value"
-                  type="number"
-                  min="1"
-                  placeholder="1"
-                  {...register('goal_value', { 
-                    valueAsNumber: true,
-                    min: { value: 1, message: 'La meta debe ser al menos 1' }
-                  })}
-                />
+                <Label htmlFor="frequency">Frecuencia</Label>
+                <Select
+                  value={watch('frequency')}
+                  onValueChange={(value) => setValue('frequency', value as 'daily' | 'weekly' | 'monthly' | 'custom')}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona la frecuencia" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="daily">Diaria</SelectItem>
+                      <SelectItem value="weekly">Semanal</SelectItem>
+                      <SelectItem value="monthly">Mensual</SelectItem>
+                      <SelectItem value="custom">Personalizada</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             

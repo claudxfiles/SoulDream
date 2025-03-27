@@ -62,10 +62,19 @@ export const habitService = {
   // Actualizar un hábito existente
   updateHabit: async (habit: HabitUpdate & { id: string }): Promise<Habit> => {
     try {
-      const response = await apiClient.put(`/api/v1/habits/${habit.id}/`, habit);
+      const { id, ...updateData } = habit;
+      const response = await apiClient.put<Habit>(`/api/v1/habits/${id}/`, updateData);
+      
+      if (!response.data) {
+        throw new Error('No se recibieron datos del servidor');
+      }
+      
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error al actualizar hábito ${habit.id}:`, error);
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
       throw error;
     }
   },
