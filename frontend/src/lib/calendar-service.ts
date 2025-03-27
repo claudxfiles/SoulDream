@@ -95,7 +95,7 @@ export async function getCalendarCredentials(userId: string): Promise<GoogleCale
 
     // Si encontramos credenciales en la tabla, devolverlas
     if (data && data.credentials) {
-      console.log('Credenciales de Google Calendar encontradas en user_integrations');
+      // Credenciales encontradas en user_integrations
       return data.credentials as GoogleCalendarCredentials;
     }
 
@@ -209,7 +209,7 @@ export async function refreshTokenIfNeeded(userId: string, credentials: GoogleCa
         .eq('provider', 'google_calendar');
 
       if (updateError) {
-        console.error('Error updating credentials:', updateError);
+        console.error('Error crítico actualizando credenciales:', updateError);
       }
 
       return {
@@ -232,7 +232,7 @@ export async function getCalendarEvents(userId: string, startDate: Date, endDate
     const credentials = await getCalendarCredentials(userId);
     
     if (!credentials || !credentials.access_token) {
-      console.error('No hay credenciales de Google Calendar disponibles');
+      console.error('Error crítico: No hay credenciales de Google Calendar disponibles');
       throw new Error('No estás conectado a Google Calendar');
     }
     
@@ -690,8 +690,8 @@ export async function syncUserCalendar(
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
-      console.error('Error de autenticación:', sessionError);
-      throw new Error(`Error de autenticación: ${sessionError.message}`);
+      console.error('Error crítico de autenticación:', sessionError);
+      throw new Error('Error de autenticación');
     }
 
     if (!session) {
@@ -723,8 +723,8 @@ export async function syncUserCalendar(
       .single();
 
     if (syncLogError) {
-      console.error('Error al crear registro de sincronización:', syncLogError);
-      throw new Error(`Error al crear registro de sincronización: ${syncLogError.message}`);
+      console.error('Error crítico al crear registro de sincronización:', syncLogError);
+      throw new Error('Error al crear registro de sincronización');
     }
 
     const syncLogId = syncLog?.id;
@@ -864,9 +864,8 @@ export async function syncUserCalendar(
             });
 
             if (!validation.isValid) {
-                console.error('Error de validación:', validation.errors);
-                result.errors.push(`Error de validación: ${validation.errors.join(', ')}`);
-                continue;
+                console.error('Error crítico de validación:', validation.errors);
+                throw new Error('Error de validación de evento');
             }
 
             // Intentar insertar el evento
@@ -877,13 +876,8 @@ export async function syncUserCalendar(
                 .single();
 
             if (insertError) {
-                console.error('Error detallado al insertar evento:', {
-                    error: {
-                        code: insertError.code,
-                        message: insertError.message,
-                        details: insertError.details,
-                        hint: insertError.hint
-                    },
+                console.error('Error crítico al insertar evento:', {
+                    error: insertError,
                     datosEvento: newEvent,
                     datosGoogleEvent: googleEvent,
                     validacionResultado: validation
@@ -992,17 +986,17 @@ export async function syncUserCalendar(
                 })
                 .eq('id', localEvent.id);
                 
-              if (updateError) {
-                throw new Error(`Error actualización DB: ${updateError.message}`);
-              }
-              
-              if (localEvent.google_event_id) {
-                result.eventsUpdated++;
-              } else {
-                result.eventsCreated++;
-              }
+                if (updateError) {
+                  throw new Error(`Error actualización DB: ${updateError.message}`);
+                }
+                
+                if (localEvent.google_event_id) {
+                  result.eventsUpdated++;
+                } else {
+                  result.eventsCreated++;
+                }
             } catch (error: any) {
-              console.error(`Error sincronizando evento ${localEvent.id} a Google:`, error);
+              console.error(`Error crítico sincronizando evento ${localEvent.id}:`, error);
               
               // Marcar evento como fallido en sincronización
               await supabase
@@ -1027,7 +1021,7 @@ export async function syncUserCalendar(
           .not('google_event_id', 'is', null);
           
         if (deletedEventsError) {
-          console.error('Error al obtener eventos eliminados:', deletedEventsError);
+          console.error('Error crítico al procesar eventos eliminados:', deletedEventsError);
           result.errors.push(`Error al obtener eventos eliminados: ${deletedEventsError.message}`);
         } else if (deletedEvents) {
           for (const event of deletedEvents) {
@@ -1127,7 +1121,7 @@ async function updateSyncLog(
       .eq('id', syncLogId);
     
     if (error) {
-      console.error('Error updating sync log:', error);
+      console.error('Error crítico actualizando registro de sincronización:', error);
     }
   } catch (error) {
     console.error('Exception updating sync log:', error);
