@@ -125,14 +125,18 @@ export const useHabits = (category?: string) => {
   
   // Mutación para marcar un hábito como completado
   const completeHabitMutation = useMutation({
-    mutationFn: ({ habitId, notes, rating }: { habitId: string; notes?: string; rating?: number }) => 
-      habitService.logHabit({
-        habit_id: habitId,
-        completed_date: new Date().toISOString(),
-        notes,
-        quality_rating: rating
-      }),
-    onSuccess: (newLog, { habitId }) => {
+    mutationFn: async ({ habitId }: { habitId: string }) => {
+      try {
+        const response = await habitService.logHabit({
+          habit_id: habitId,
+          completed_date: new Date().toISOString(),
+        });
+        return response;
+      } catch (error: any) {
+        throw new Error(error.response?.data?.detail || 'Error al completar el hábito');
+      }
+    },
+    onSuccess: (_, { habitId }) => {
       // Actualizar la caché directamente marcando el hábito como completado
       queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
         if (!oldData) return [];
@@ -146,6 +150,9 @@ export const useHabits = (category?: string) => {
       queryClient.invalidateQueries({ queryKey: ['habitLogs', habitId] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
     },
+    onError: (error: any) => {
+      console.error('Error al completar hábito:', error);
+    }
   });
   
   // Función para cambiar la categoría seleccionada

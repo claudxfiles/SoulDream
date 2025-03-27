@@ -99,7 +99,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
           <div className="flex items-center gap-2">
             {!isCompletedToday ? (
               <Button 
-                onClick={onComplete} 
+                onClick={() => onComplete()} 
                 size="sm" 
                 variant="outline" 
                 className="flex items-center gap-1 hover:bg-green-50 hover:text-green-600 hover:border-green-200 dark:hover:bg-green-950/50 dark:hover:text-green-400 dark:hover:border-green-800"

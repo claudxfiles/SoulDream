@@ -112,11 +112,19 @@ export const habitService = {
         value: logData.value || 1
       };
       
-      const response = await apiClient.post(`/api/v1/habits/${logData.habit_id}/logs/`, logToSend);
+      const response = await apiClient.post<HabitLog>(`/api/v1/habits/${logData.habit_id}/logs/`, logToSend);
+      
+      if (!response.data) {
+        throw new Error('No se recibieron datos del servidor');
+      }
+      
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error al registrar log para hábito ${logData.habit_id}:`, error);
-      throw error;
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
+      throw new Error('Error al registrar el hábito como completado');
     }
   },
   
