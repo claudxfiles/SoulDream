@@ -95,44 +95,44 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
               </div>
             </div>
           </div>
-        </div>
-        
-        <div className="flex items-center">
-          {!isCompletedToday ? (
-            <Button 
-              onClick={onComplete} 
-              size="sm" 
-              variant="outline" 
-              className="flex items-center gap-1 hover:bg-green-50 hover:text-green-600 hover:border-green-200 dark:hover:bg-green-950/50 dark:hover:text-green-400 dark:hover:border-green-800"
-              aria-label="Completar hábito"
-            >
-              <CheckCircle className="h-4 w-4 text-emerald-500" />
-              <span>Completar</span>
-            </Button>
-          ) : (
-            <div className="flex items-center text-emerald-500">
-              <CheckCheck className="h-5 w-5 mr-1" />
-              <span className="text-sm font-medium">Completado hoy</span>
-            </div>
-          )}
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="ml-2">
-                <MoreVertical className="h-4 w-4" />
+
+          <div className="flex items-center gap-2">
+            {!isCompletedToday ? (
+              <Button 
+                onClick={onComplete} 
+                size="sm" 
+                variant="outline" 
+                className="flex items-center gap-1 hover:bg-green-50 hover:text-green-600 hover:border-green-200 dark:hover:bg-green-950/50 dark:hover:text-green-400 dark:hover:border-green-800"
+                aria-label="Completar hábito"
+              >
+                <CheckCircle className="h-4 w-4 text-emerald-500" />
+                <span>Completar</span>
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Configuración</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-950">
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Eliminar</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            ) : (
+              <div className="flex items-center text-emerald-500">
+                <CheckCheck className="h-5 w-5 mr-1" />
+                <span className="text-sm font-medium">Completado hoy</span>
+              </div>
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Configuración</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-950">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>Eliminar</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
