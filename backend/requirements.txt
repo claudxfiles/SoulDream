@@ -4,12 +4,14 @@ uvicorn==0.27.1
 pydantic==2.6.1
 pydantic-settings==2.2.1
 python-dotenv==1.0.1
+starlette==0.36.3  # Requerido por FastAPI
 
 # Autenticación y seguridad
 PyJWT==2.8.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.2
 python-jose[cryptography]==3.3.0
+cryptography==42.0.5  # Requerido para JWT y encriptación
 
 # Base de datos y ORM
 supabase==2.3.4
@@ -17,15 +19,19 @@ psycopg2-binary==2.9.9
 sqlalchemy==2.0.27
 alembic==1.13.1
 asyncpg==0.29.0
+databases[postgresql]==0.8.0  # Soporte para PostgreSQL async
 
-# Google Calendar API
+# Google Calendar API y OAuth
 google-api-python-client==2.121.0
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.0
+google-auth==2.28.1  # Core Google Auth
 
 # OpenAI y AI
 openai==1.12.0
 tiktoken==0.6.0
+numpy==1.26.4  # Requerido para procesamiento de datos AI
+pandas==2.2.1  # Análisis de datos para AI
 
 # Utilidades
 python-multipart==0.0.9
@@ -35,9 +41,23 @@ aiohttp==3.9.3
 requests==2.31.0
 pytest==8.0.2
 pytest-asyncio==0.23.5
+pytest-cov==4.1.0  # Cobertura de pruebas
+black==24.2.0  # Formateador de código
+isort==5.13.2  # Organizador de imports
+mypy==1.9.0  # Type checking
 
 # Logging y monitoreo
 loguru==0.7.2
+prometheus-client==0.20.0  # Métricas y monitoreo
 
 # Fecha y tiempo
 python-dateutil==2.8.2
+pytz==2024.1  # Soporte de zonas horarias
+
+# Cache
+redis==5.0.3  # Para caché y colas de tareas
+celery==5.3.6  # Para tareas asíncronas
+
+# Desarrollo y debugging
+ipython==8.22.2  # Shell interactivo mejorado
+debugpy==1.8.1  # Debugging remoto
