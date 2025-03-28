@@ -6,10 +6,20 @@ CREATE TABLE IF NOT EXISTS tasks (
     description TEXT,
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
-    due_date TIMESTAMP WITH TIME ZONE,
+    due_date DATE,
     due_time TIME,
     duration_minutes INTEGER,
-    timezone TEXT DEFAULT 'UTC',
+    timezone TEXT DEFAULT 'America/Santiago',
+    is_all_day BOOLEAN DEFAULT FALSE,
+    event_start_date DATE,
+    event_end_date DATE,
+    event_start_time TIME,
+    event_end_time TIME,
+    is_all_day BOOLEAN DEFAULT FALSE,
+    event_start_date DATE,
+    event_end_date DATE,
+    event_start_time TIME,
+    event_end_time TIME,
     column_order INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -58,7 +68,7 @@ CREATE POLICY "Users can delete their own tasks"
     TO authenticated
     USING (auth.uid() = user_id);
 
--- Create or replace trigger function
+-- Create or replace function for updating the updated_at column
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -67,29 +77,92 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Drop trigger if exists and create it
+-- Drop existing triggers and function
 DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
+DROP TRIGGER IF EXISTS sync_event_dates_trigger ON tasks;
+DROP FUNCTION IF EXISTS sync_event_dates();
+
+-- Create trigger for event dates synchronization
+CREATE OR REPLACE FUNCTION sync_event_dates()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Copy dates and times without conversion
+    IF NEW.due_date IS NOT NULL THEN
+        NEW.event_start_date = NEW.due_date;
+        NEW.event_end_date = NEW.due_date;
+    END IF;
+    
+    IF NEW.due_time IS NOT NULL THEN
+        NEW.event_start_time = NEW.due_time;
+        NEW.event_end_time = CASE 
+            WHEN NEW.duration_minutes IS NOT NULL THEN NEW.due_time + (NEW.duration_minutes || ' minutes')::interval
+            ELSE NEW.due_time
+        END;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers
 CREATE TRIGGER update_tasks_updated_at
     BEFORE UPDATE ON tasks
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Add columns if they don't exist
+CREATE TRIGGER sync_event_dates_trigger
+    BEFORE INSERT OR UPDATE ON tasks
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_event_dates();
+
+-- Add columns if they don't exist and modify existing ones
 DO $$ 
 BEGIN
+    -- Modify due_date to be DATE type if it exists
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'due_date') THEN
+        ALTER TABLE tasks ALTER COLUMN due_date TYPE DATE USING due_date::DATE;
+    ELSE
+        ALTER TABLE tasks ADD COLUMN due_date DATE;
+    END IF;
+
+    -- Add new columns for events if they don't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'is_all_day') THEN
+        ALTER TABLE tasks ADD COLUMN is_all_day BOOLEAN DEFAULT FALSE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'event_start_date') THEN
+        ALTER TABLE tasks ADD COLUMN event_start_date DATE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'event_end_date') THEN
+        ALTER TABLE tasks ADD COLUMN event_end_date DATE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'event_start_time') THEN
+        ALTER TABLE tasks ADD COLUMN event_start_time TIME;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'event_end_time') THEN
+        ALTER TABLE tasks ADD COLUMN event_end_time TIME;
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'due_time') THEN
         ALTER TABLE tasks ADD COLUMN due_time TIME;
     END IF;
-    
+
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'duration_minutes') THEN
         ALTER TABLE tasks ADD COLUMN duration_minutes INTEGER;
     END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'timezone') THEN
-        ALTER TABLE tasks ADD COLUMN timezone TEXT DEFAULT 'UTC';
-    END IF;
 END $$;
 
--- backfill existing rows with NULL or default values
-UPDATE tasks SET due_time = NULL WHERE due_time IS NULL;
-UPDATE tasks SET timezone = 'UTC' WHERE timezone IS NULL;
+-- Synchronize existing data
+UPDATE tasks 
+SET 
+    event_start_date = due_date,
+    event_end_date = due_date,
+    event_start_time = due_time,
+    event_end_time = CASE 
+        WHEN duration_minutes IS NOT NULL THEN due_time + (duration_minutes || ' minutes')::interval
+        ELSE due_time
+    END
+WHERE due_date IS NOT NULL;

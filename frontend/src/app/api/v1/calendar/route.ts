@@ -51,11 +51,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { summary, description, startDateTime, endDateTime, location, colorId, calendarId = 'primary' } = body;
+    const { summary, description, start, end, location, colorId } = body;
 
-    if (!summary || !startDateTime || !endDateTime) {
+    if (!summary || !start || !end) {
       return NextResponse.json(
         { error: 'Se requieren título, fecha de inicio y fecha de fin' },
+        { status: 400 }
+      );
+    }
+
+    // Validar que las fechas tengan el formato correcto
+    if (!start.dateTime || !start.timeZone || !end.dateTime || !end.timeZone) {
+      return NextResponse.json(
+        { error: 'Las fechas deben incluir dateTime y timeZone' },
         { status: 400 }
       );
     }
@@ -83,20 +91,14 @@ export async function POST(request: NextRequest) {
     // Crear cliente de Calendar e insertar evento
     const calendar = await getGoogleCalendarClient(googleToken.access_token);
     const response = await calendar.events.insert({
-      calendarId,
+      calendarId: 'primary',
       requestBody: {
         summary,
         description,
         location,
         colorId,
-        start: {
-          dateTime: startDateTime,
-          timeZone: 'Europe/Madrid', // Zona horaria específica o dinámica según necesidades
-        },
-        end: {
-          dateTime: endDateTime,
-          timeZone: 'Europe/Madrid', // Zona horaria específica o dinámica según necesidades
-        },
+        start,
+        end,
       },
     });
 

@@ -14,6 +14,8 @@ interface AddTaskToCalendarButtonProps {
     title: string;
     description?: string;
     due_date?: string;
+    due_time?: string;
+    timezone?: string;
     status: string;
     priority: string;
   };
@@ -51,21 +53,29 @@ export function AddTaskToCalendarButton({ task, children, disabled }: AddTaskToC
         return;
       }
 
-      // Validar y parsear la fecha
-      const dueDate = parseISO(task.due_date);
-      if (!isValid(dueDate)) {
-        toast({
-          title: 'Error de fecha',
-          description: 'El formato de la fecha no es válido.',
-          variant: 'destructive',
-        });
-        return;
-      }
+      // Logs de diagnóstico
+      console.log('Fecha original:', task.due_date);
+      console.log('Tipo de fecha:', typeof task.due_date);
 
-      // Crear evento en Google Calendar
+      // Asegurarse de que la fecha esté en formato YYYY-MM-DD
+      const dateOnly = task.due_date.split('T')[0];
+      
+      // Extraer la hora de la fecha o usar la hora por defecto
+      const timeOnly = task.due_time || '21:00:00';
+      
+      // Obtener la zona horaria del usuario
+      const userTimezone = task.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      console.log('Fecha parseada:', dateOnly);
+      console.log('Hora extraída:', timeOnly);
+      console.log('Zona horaria:', userTimezone);
+
+      // Crear evento en Google Calendar con la fecha y hora correctas
       const event = await syncTask({
         ...task,
-        due_date: dueDate.toISOString(), // Asegurar que la fecha esté en formato ISO
+        due_date: dateOnly,
+        due_time: timeOnly,
+        timezone: userTimezone
       });
 
       toast({

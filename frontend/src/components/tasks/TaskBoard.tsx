@@ -190,7 +190,25 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
             {task.due_date && (
               <div className="flex items-center text-gray-400">
                 <Calendar size={14} className="mr-1" />
-                {format(new Date(task.due_date), 'dd MMM', { locale: es })}
+                {(() => {
+                  const dateStr = task.due_time 
+                    ? `${task.due_date}T${task.due_time}` 
+                    : task.due_date;
+                  const date = new Date(dateStr);
+                  const userTimezone = task.timezone || 'America/Santiago';
+                  
+                  // Formatear la fecha en la zona horaria correcta
+                  const formatter = new Intl.DateTimeFormat('es', {
+                    timeZone: userTimezone,
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                  });
+                  
+                  return formatter.format(date);
+                })()}
               </div>
             )}
           </div>

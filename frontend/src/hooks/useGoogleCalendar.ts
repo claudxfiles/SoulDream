@@ -195,6 +195,8 @@ export function useSyncTaskWithCalendar() {
       title: string;
       description?: string;
       due_date: string;
+      due_time?: string;
+      timezone?: string;
       status: string;
       priority: string;
     }) => syncTaskWithCalendar(task),

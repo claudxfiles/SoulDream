@@ -69,13 +69,37 @@ export function TaskFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Crear una fecha UTC combinando due_date y due_time
+    let finalDate = undefined;
+    let finalTime = dueTime;
+    
+    if (dueDate) {
+      const date = new Date(dueDate);
+      const [hours, minutes] = dueTime.split(':');
+      
+      // Crear fecha en UTC
+      const utcDate = new Date(Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        parseInt(hours),
+        parseInt(minutes),
+        0
+      ));
+      
+      // Formatear la fecha para incluir la hora
+      finalDate = utcDate.toISOString().split('.')[0];
+      finalTime = `${hours}:${minutes}:00`;
+    }
+    
     onSubmit({
       title,
       description,
       status,
       priority,
-      due_date: dueDate || undefined,
-      due_time: dueTime,
+      due_date: finalDate,
+      due_time: finalTime,
       timezone,
       duration_minutes: duration,
       tags: tags
@@ -163,7 +187,7 @@ export function TaskFormModal({
           </div>
 
           <div className="grid gap-2">
-            <Label>Fecha límite</Label>
+            <Label>Fecha y hora</Label>
             <div className="flex gap-2">
               <Popover>
                 <PopoverTrigger asChild>
@@ -175,14 +199,33 @@ export function TaskFormModal({
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(new Date(dueDate), "PPP", { locale: es }) : "Seleccionar fecha"}
+                    {dueDate ? format(new Date(dueDate), "d 'de' MMMM 'de' yyyy", { locale: es }) : "Seleccionar fecha"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
                     selected={dueDate ? new Date(dueDate) : undefined}
-                    onSelect={(date) => setDueDate(date?.toISOString() || '')}
+                    onSelect={(date) => {
+                      if (date) {
+                        const [hours, minutes] = dueTime.split(':');
+                        
+                        // Crear fecha en UTC
+                        const utcDate = new Date(Date.UTC(
+                          date.getFullYear(),
+                          date.getMonth(),
+                          date.getDate(),
+                          parseInt(hours),
+                          parseInt(minutes),
+                          0
+                        ));
+                        
+                        // Guardar la fecha completa con hora
+                        setDueDate(utcDate.toISOString().split('.')[0]);
+                      } else {
+                        setDueDate('');
+                      }
+                    }}
                     initialFocus
                   />
                 </PopoverContent>
@@ -190,7 +233,27 @@ export function TaskFormModal({
               <Input
                 type="time"
                 value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
+                onChange={(e) => {
+                  const newTime = e.target.value;
+                  setDueTime(newTime);
+                  if (dueDate) {
+                    const [hours, minutes] = newTime.split(':');
+                    const currentDate = new Date(dueDate);
+                    
+                    // Crear fecha en UTC
+                    const utcDate = new Date(Date.UTC(
+                      currentDate.getUTCFullYear(),
+                      currentDate.getUTCMonth(),
+                      currentDate.getUTCDate(),
+                      parseInt(hours),
+                      parseInt(minutes),
+                      0
+                    ));
+                    
+                    // Guardar la fecha completa con hora
+                    setDueDate(utcDate.toISOString().split('.')[0]);
+                  }
+                }}
                 className="w-[120px]"
               />
             </div>

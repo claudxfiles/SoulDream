@@ -13,15 +13,26 @@ type GoogleCalendarCredentials = {
 };
 
 type CalendarEventInput = {
+  title?: string;
   summary: string;
   description?: string;
-  startDateTime: Date;
-  endDateTime: Date;
+  startDateTime: {
+    dateTime: string;
+    timeZone: string;
+  };
+  endDateTime: {
+    dateTime: string;
+    timeZone: string;
+  };
   location?: string;
   colorId?: string;
   type?: 'task' | 'goal' | 'habit' | 'workout' | 'custom';
   source?: 'local' | 'google';
   timezone?: string;
+  goalId?: string;
+  taskId?: string;
+  habitId?: string;
+  workoutId?: string;
 };
 
 type GoogleEventInput = {
@@ -382,12 +393,12 @@ export async function createGoogleCalendarEvent(
       summary: eventData.title,
       description: eventData.description,
       start: {
-        dateTime: eventData.startDateTime.toISOString(),
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        dateTime: eventData.startDateTime.dateTime,
+        timeZone: eventData.startDateTime.timeZone
       },
       end: {
-        dateTime: eventData.endDateTime.toISOString(),
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        dateTime: eventData.endDateTime.dateTime,
+        timeZone: eventData.endDateTime.timeZone
       }
     };
 
@@ -418,8 +429,8 @@ export async function createGoogleCalendarEvent(
       habit_id: eventData.habitId || null,
       workout_id: eventData.workoutId || null,
       event_title: eventData.title,
-      start_time: eventData.startDateTime.toISOString(),
-      end_time: eventData.endDateTime.toISOString()
+      start_time: eventData.startDateTime.dateTime,
+      end_time: eventData.endDateTime.dateTime
     };
 
     const { error } = await supabase
@@ -468,20 +479,53 @@ export async function createCalendarEvent({
   timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 }: CalendarEventInput) {
   try {
-    const event: GoogleEventInput = {
+    // Validar campos requeridos con logging detallado
+    console.log('Datos recibidos en createCalendarEvent:', JSON.stringify({
+      summary,
+      startDateTime,
+      endDateTime,
+      location,
+      colorId,
+      type,
+      source,
+      timezone
+    }, null, 2));
+
+    if (!summary || !startDateTime || !endDateTime) {
+      const missingFields = [];
+      if (!summary) missingFields.push('summary');
+      if (!startDateTime) missingFields.push('startDateTime');
+      if (!endDateTime) missingFields.push('endDateTime');
+      
+      console.error('Campos faltantes:', missingFields);
+      throw new Error(`Se requieren título, fecha de inicio y fecha de fin`);
+    }
+
+    // Validar que las fechas sean válidas
+    if (!startDateTime.dateTime || !startDateTime.timeZone || !endDateTime.dateTime || !endDateTime.timeZone) {
+      console.error('Formato de fecha inválido:', {
+        startDateTime: JSON.stringify(startDateTime),
+        endDateTime: JSON.stringify(endDateTime)
+      });
+      throw new Error('Las fechas deben incluir dateTime y timeZone');
+    }
+
+    const event = {
       summary,
       description,
       start: {
-        dateTime: startDateTime.toISOString(),
-        timeZone: timezone
+        dateTime: startDateTime.dateTime,
+        timeZone: startDateTime.timeZone
       },
       end: {
-        dateTime: endDateTime.toISOString(),
-        timeZone: timezone
+        dateTime: endDateTime.dateTime,
+        timeZone: endDateTime.timeZone
       },
       location,
       colorId
     };
+
+    console.log('Enviando evento al calendario:', JSON.stringify(event, null, 2));
 
     const response = await fetch('/api/v1/calendar', {
       method: 'POST',
@@ -493,10 +537,17 @@ export async function createCalendarEvent({
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error('Error en la respuesta del servidor:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
       throw new Error(errorData.error || 'Error al crear evento en el calendario');
     }
 
-    return await response.json();
+    const responseData = await response.json();
+    console.log('Respuesta del servidor:', JSON.stringify(responseData, null, 2));
+    return responseData;
   } catch (error) {
     console.error('Error al crear evento en el calendario:', error);
     throw error;
@@ -600,26 +651,38 @@ export async function syncTaskWithCalendar(task: {
   }
 
   try {
-    // Combinar fecha y hora
+    // Obtener la zona horaria del usuario o usar la del sistema
+    const userTimezone = task.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // Asegurarse de que la fecha esté en formato YYYY-MM-DD
+    const dateOnly = task.due_date.split('T')[0];
+    
+    // Combinar fecha y hora en la zona horaria del usuario
     const dueDateTime = task.due_time 
-      ? `${task.due_date.split('T')[0]}T${task.due_time}:00` 
-      : task.due_date;
+      ? `${dateOnly}T${task.due_time}`
+      : `${dateOnly}T${task.due_time || '21:00:00'}`; // Hora por defecto 21:00
 
-    // Validar y parsear la fecha usando parseISO para asegurar consistencia
-    const startDateTime = parseISO(dueDateTime);
-    if (isNaN(startDateTime.getTime())) {
-      throw new Error('Fecha inválida');
-    }
+    // Logs de diagnóstico
+    console.log('Datos de la tarea:', JSON.stringify({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      due_date: task.due_date,
+      due_time: task.due_time,
+      timezone: userTimezone,
+      duration_minutes: task.duration_minutes,
+      status: task.status,
+      priority: task.priority
+    }, null, 2));
 
-    // Crear fecha de fin usando la duración especificada o por defecto 1 hora
-    const endDateTime = addMinutes(startDateTime, task.duration_minutes || 60);
+    console.log('Fecha y hora combinada:', dueDateTime);
 
     // Formatear la descripción con emojis y detalles
     const description = `🎯 Tarea: ${task.description || task.title}
 📊 Prioridad: ${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
 📌 Estado: ${task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-⏱️ Duración: ${task.duration_minutes || 60} minutos
-🌐 Zona horaria: ${task.timezone || 'Local'}
+⏱️ Duración: ${task.duration_minutes || 30} minutos
+🌐 Zona horaria: ${userTimezone}
 🔗 ID: ${task.id}`;
 
     // Asignar color según prioridad
@@ -632,17 +695,32 @@ export async function syncTaskWithCalendar(task: {
       }
     })();
 
-    // Crear el evento asegurando que las fechas estén en formato ISO
-    const event = await createCalendarEvent({
+    // Calcular la fecha de fin basada en la duración especificada
+    const startDate = new Date(dueDateTime);
+    const endDate = addMinutes(startDate, task.duration_minutes || 30);
+
+    // Crear el evento asegurando que las fechas estén en la zona horaria correcta
+    const eventData: CalendarEventInput = {
       summary: `📋 ${task.title}`,
       description,
-      startDateTime: startDateTime,
-      endDateTime: endDateTime,
+      startDateTime: {
+        dateTime: startDate.toISOString().replace('Z', ''),
+        timeZone: userTimezone
+      },
+      endDateTime: {
+        dateTime: endDate.toISOString().replace('Z', ''),
+        timeZone: userTimezone
+      },
       colorId,
       type: 'task',
       source: 'local',
-      timezone: task.timezone
-    });
+      timezone: userTimezone
+    };
+
+    console.log('Datos del evento a crear:', JSON.stringify(eventData, null, 2));
+
+    // Crear el evento
+    const event = await createCalendarEvent(eventData);
 
     return event;
   } catch (error: any) {
