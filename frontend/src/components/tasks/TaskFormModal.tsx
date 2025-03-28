@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,26 @@ export function TaskFormModal({
   const [dueDate, setDueDate] = useState(initialData?.due_date || '');
   const [tags, setTags] = useState<string[]>(initialData?.tags || []);
   const [newTag, setNewTag] = useState('');
+
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title);
+      setDescription(initialData.description || '');
+      setPriority(initialData.priority || 'medium');
+      setStatus(initialData.status || initialStatus || 'pending');
+      setDueDate(initialData.due_date || '');
+      setTags(initialData.tags || []);
+    } else if (!open) {
+      // Limpiar campos cuando se cierra el modal
+      setTitle('');
+      setDescription('');
+      setPriority('medium');
+      setStatus(initialStatus || 'pending');
+      setDueDate('');
+      setTags([]);
+      setNewTag('');
+    }
+  }, [initialData, initialStatus, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
