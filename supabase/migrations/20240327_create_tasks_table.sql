@@ -1,6 +1,24 @@
--- Drop existing table and related objects if they exist
+-- Drop existing triggers first
 DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
+DROP TRIGGER IF EXISTS update_subscriptions_updated_at ON subscriptions;
+DROP TRIGGER IF EXISTS update_workout_progress_updated_at ON workout_progress;
+DROP TRIGGER IF EXISTS update_workouts_updated_at ON workouts;
+DROP TRIGGER IF EXISTS update_workout_exercises_updated_at ON workout_exercises;
+DROP TRIGGER IF EXISTS update_ai_interactions_updated_at ON ai_interactions;
+DROP TRIGGER IF EXISTS update_workout_templates_updated_at ON workout_templates;
+DROP TRIGGER IF EXISTS update_workout_template_exercises_updated_at ON workout_template_exercises;
+DROP TRIGGER IF EXISTS update_calendar_integrations_updated_at ON calendar_integrations;
+DROP TRIGGER IF EXISTS update_calendar_events_updated_at ON calendar_events;
+DROP TRIGGER IF EXISTS update_calendar_settings_updated_at ON calendar_settings;
+DROP TRIGGER IF EXISTS update_goals_updated_at ON goals;
+DROP TRIGGER IF EXISTS update_goal_subtasks_updated_at ON goal_subtasks;
+DROP TRIGGER IF EXISTS update_habits_updated_at ON habits;
+DROP TRIGGER IF EXISTS update_user_google_tokens_updated_at ON user_google_tokens;
+
+-- Now we can safely drop the function
 DROP FUNCTION IF EXISTS update_updated_at_column();
+
+-- Drop the table if it exists
 DROP TABLE IF EXISTS tasks CASCADE;
 
 -- Create tasks table

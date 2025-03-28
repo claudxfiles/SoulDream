@@ -34,7 +34,7 @@ export function TaskFormModal({
   const [priority, setPriority] = useState<Task['priority']>(initialData?.priority || 'medium');
   const [status] = useState<Task['status']>(initialData?.status || initialStatus);
   const [dueDate, setDueDate] = useState<Date | undefined>(
-    initialData?.dueDate ? new Date(initialData.dueDate) : undefined
+    initialData?.due_date ? new Date(initialData.due_date) : undefined
   );
   const [tags, setTags] = useState<string[]>(initialData?.tags || []);
   const [newTag, setNewTag] = useState('');
@@ -50,7 +50,7 @@ export function TaskFormModal({
         description: description.trim(),
         priority,
         status,
-        dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
+        due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         tags
       });
       onOpenChange(false);

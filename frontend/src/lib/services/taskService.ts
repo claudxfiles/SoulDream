@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { Task } from '@/types/tasks';
+import type { Task } from '@/types/task';
 
 export const taskService = {
   async getTasks() {
@@ -13,9 +13,17 @@ export const taskService = {
   },
 
   async createTask(task: Omit<Task, 'id'>) {
+    // Obtener el usuario actual
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    if (!user) throw new Error('No hay usuario autenticado');
+
     const { data, error } = await supabase
       .from('tasks')
-      .insert(task)
+      .insert({
+        ...task,
+        user_id: user.id
+      })
       .select()
       .single();
 
