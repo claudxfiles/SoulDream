@@ -14,6 +14,10 @@ import { TaskFormModal } from './TaskFormModal';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragEndEvent, useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Importar dinámicamente los componentes relacionados con Google Calendar
 const AddTaskToCalendarButton = dynamic(
@@ -26,7 +30,7 @@ const CalendarStatusWrapper = dynamic(
   { ssr: false }
 );
 
-// Componente para una tarea individual
+// Componente para una tarea individual con soporte para drag and drop
 const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: { 
   task: Task; 
   onDelete: (id: string) => void;
@@ -36,6 +40,24 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { user } = useAuthContext();
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: task.id,
+    data: task,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -74,22 +96,38 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
 
   return (
     <>
-      <Card className="mb-3 p-4 cursor-pointer hover:shadow-md transition-shadow bg-gray-900/90 border-gray-800">
+      <Card 
+        ref={setNodeRef}
+        style={style}
+        className="mb-3 p-4 hover:shadow-md transition-shadow bg-gray-900/90 border-gray-800"
+        {...attributes}
+      >
         <div className="flex justify-between items-start mb-3">
-          <h3 className="font-medium text-gray-100">{task.title}</h3>
+          <div className="flex-1 cursor-move" {...listeners}>
+            <h3 className="font-medium text-gray-100">{task.title}</h3>
+          </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
               <button className="text-gray-400 hover:text-gray-200">
                 <MoreVertical size={16} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => onEdit(task)}>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                onEdit(task);
+              }}>
                 <Settings className="mr-2 h-4 w-4" />
                 Configuración
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600">
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteDialog(true);
+                }} 
+                className="text-red-600"
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </DropdownMenuItem>
@@ -131,18 +169,19 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
         </div>
       </Card>
 
-      {/* Diálogo de eliminación */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Esto eliminará permanentemente la tarea.
+              Esta acción no se puede deshacer. Se eliminará permanentemente la tarea.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -170,8 +209,17 @@ const Column = ({
   onEdit: (task: Task) => void;
   onUpdateTask: (id: string, data: Partial<Task>) => Promise<void>;
 }) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${status}`,
+  });
+
   return (
-    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 w-full min-w-[300px]">
+    <div 
+      ref={setNodeRef}
+      className={`h-full bg-gray-100 dark:bg-gray-800 rounded-lg p-4 transition-colors ${
+        isOver ? 'bg-gray-200 dark:bg-gray-700' : ''
+      }`}
+    >
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-semibold text-gray-900 dark:text-white flex items-center">
           {title}
@@ -187,26 +235,28 @@ const Column = ({
         </button>
       </div>
       
-      <div className="space-y-3 min-h-[200px]">
-        {tasks.map((task) => (
-          <TaskCard 
-            key={task.id} 
-            task={task} 
-            onDelete={onDeleteTask}
-            onStatusChange={onStatusChange}
-            onEdit={onEdit}
-            onUpdateTask={onUpdateTask}
-          />
-        ))}
-        
-        {tasks.length === 0 && (
-          <div className="flex items-center justify-center h-24 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              No hay tareas
-            </p>
-          </div>
-        )}
-      </div>
+      <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+        <div className={`space-y-3 min-h-[200px] ${isOver ? 'bg-gray-200/50 dark:bg-gray-700/50 rounded-lg' : ''}`}>
+          {tasks.map((task) => (
+            <TaskCard 
+              key={task.id} 
+              task={task} 
+              onDelete={onDeleteTask}
+              onStatusChange={onStatusChange}
+              onEdit={onEdit}
+              onUpdateTask={onUpdateTask}
+            />
+          ))}
+          
+          {tasks.length === 0 && (
+            <div className="flex items-center justify-center h-24 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No hay tareas
+              </p>
+            </div>
+          )}
+        </div>
+      </SortableContext>
     </div>
   );
 };
@@ -217,6 +267,42 @@ export function TaskBoard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<Task['status']>('pending');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragStart = (event: DragEndEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over) return;
+
+    const activeTask = tasks.find(t => t.id === active.id);
+    if (!activeTask) return;
+
+    // Obtener el nuevo estado de la columna
+    const newStatus = over.id.toString().replace('column-', '') as Task['status'];
+    
+    // Si el estado es diferente, actualizar la tarea
+    if (activeTask.status !== newStatus) {
+      if (updateTask) {
+        await updateTask(activeTask.id, {
+          status: newStatus,
+        });
+      }
+    }
+
+    setActiveId(null);
+  };
 
   const handleAddTask = (status: Task['status']) => {
     setCurrentStatus(status);
@@ -275,58 +361,85 @@ export function TaskBoard() {
   const completedTasks = tasks.filter(task => task.status === 'completed');
 
   return (
-    <div className="w-full">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tablero de tareas</h1>
-        <button 
-          onClick={() => handleAddTask('pending')}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center"
-        >
-          <Plus size={16} className="mr-2" />
-          Nueva tarea
-        </button>
-      </div>
-      
-      <div className="flex space-x-4 overflow-x-auto pb-4">
-        <Column 
-          title="Pendientes" 
-          tasks={pendingTasks} 
-          status="pending"
-          onAddTask={handleAddTask}
-          onDeleteTask={handleDeleteTask}
-          onStatusChange={handleStatusChange}
-          onEdit={handleEditTask}
-          onUpdateTask={updateTask || (async () => {})}
-        />
-        <Column 
-          title="En progreso" 
-          tasks={inProgressTasks} 
-          status="in_progress"
-          onAddTask={handleAddTask}
-          onDeleteTask={handleDeleteTask}
-          onStatusChange={handleStatusChange}
-          onEdit={handleEditTask}
-          onUpdateTask={updateTask || (async () => {})}
-        />
-        <Column 
-          title="Completadas" 
-          tasks={completedTasks} 
-          status="completed"
-          onAddTask={handleAddTask}
-          onDeleteTask={handleDeleteTask}
-          onStatusChange={handleStatusChange}
-          onEdit={handleEditTask}
-          onUpdateTask={updateTask || (async () => {})}
-        />
-      </div>
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveId(null)}
+    >
+      <div className="w-full">
+        <div className="mb-6 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tablero de tareas</h1>
+          <button 
+            onClick={() => handleAddTask('pending')}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center"
+          >
+            <Plus size={16} className="mr-2" />
+            Nueva tarea
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[calc(100vh-12rem)]">
+          <div id="column-pending" className="w-full">
+            <Column 
+              title="Pendientes" 
+              tasks={pendingTasks} 
+              status="pending"
+              onAddTask={handleAddTask}
+              onDeleteTask={handleDeleteTask}
+              onStatusChange={handleStatusChange}
+              onEdit={handleEditTask}
+              onUpdateTask={updateTask || (async () => {})}
+            />
+          </div>
+          <div id="column-in_progress" className="w-full">
+            <Column 
+              title="En progreso" 
+              tasks={inProgressTasks} 
+              status="in_progress"
+              onAddTask={handleAddTask}
+              onDeleteTask={handleDeleteTask}
+              onStatusChange={handleStatusChange}
+              onEdit={handleEditTask}
+              onUpdateTask={updateTask || (async () => {})}
+            />
+          </div>
+          <div id="column-completed" className="w-full">
+            <Column 
+              title="Completadas" 
+              tasks={completedTasks} 
+              status="completed"
+              onAddTask={handleAddTask}
+              onDeleteTask={handleDeleteTask}
+              onStatusChange={handleStatusChange}
+              onEdit={handleEditTask}
+              onUpdateTask={updateTask || (async () => {})}
+            />
+          </div>
+        </div>
 
-      <TaskFormModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        onSubmit={handleSubmitTask}
-        initialStatus={currentStatus}
-        initialData={editingTask || undefined}
-      />
-    </div>
+        <TaskFormModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          onSubmit={handleSubmitTask}
+          initialStatus={currentStatus}
+          initialData={editingTask || undefined}
+        />
+
+        <DragOverlay>
+          {activeId ? (
+            <div className="opacity-50">
+              <TaskCard
+                task={tasks.find(t => t.id === activeId)!}
+                onDelete={handleDeleteTask}
+                onStatusChange={handleStatusChange}
+                onEdit={handleEditTask}
+                onUpdateTask={updateTask || (async () => {})}
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </div>
+    </DndContext>
   );
 } 
