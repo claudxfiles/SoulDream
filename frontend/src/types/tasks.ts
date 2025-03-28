@@ -5,6 +5,9 @@ export interface Task {
   status: 'pending' | 'in_progress' | 'completed';
   priority: 'low' | 'medium' | 'high';
   due_date?: string;
+  due_time?: string;
+  timezone?: string;
+  duration_minutes?: number;
   tags: string[];
   created_at?: string;
   updated_at?: string;

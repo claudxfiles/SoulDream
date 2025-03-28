@@ -35,6 +35,9 @@ export function TaskFormModal({
   const [priority, setPriority] = useState<Task['priority']>(initialData?.priority || 'medium');
   const [status, setStatus] = useState<Task['status']>(initialData?.status || initialStatus || 'pending');
   const [dueDate, setDueDate] = useState(initialData?.due_date || '');
+  const [dueTime, setDueTime] = useState(initialData?.due_time || '09:00');
+  const [timezone, setTimezone] = useState(initialData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [duration, setDuration] = useState<number>(initialData?.duration_minutes || 60);
   const [tags, setTags] = useState<string[]>(initialData?.tags || []);
   const [newTag, setNewTag] = useState('');
 
@@ -45,6 +48,9 @@ export function TaskFormModal({
       setPriority(initialData.priority || 'medium');
       setStatus(initialData.status || initialStatus || 'pending');
       setDueDate(initialData.due_date || '');
+      setDueTime(initialData.due_time || '09:00');
+      setTimezone(initialData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+      setDuration(initialData.duration_minutes || 60);
       setTags(initialData.tags || []);
     } else if (!open) {
       // Limpiar campos cuando se cierra el modal
@@ -53,6 +59,9 @@ export function TaskFormModal({
       setPriority('medium');
       setStatus(initialStatus || 'pending');
       setDueDate('');
+      setDueTime('09:00');
+      setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+      setDuration(60);
       setTags([]);
       setNewTag('');
     }
@@ -66,6 +75,9 @@ export function TaskFormModal({
       status,
       priority,
       due_date: dueDate || undefined,
+      due_time: dueTime,
+      timezone,
+      duration_minutes: duration,
       tags: tags
     });
   };
@@ -152,28 +164,68 @@ export function TaskFormModal({
 
           <div className="grid gap-2">
             <Label>Fecha límite</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "justify-start text-left font-normal",
-                    !dueDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate ? format(new Date(dueDate), "PPP", { locale: es }) : "Seleccionar fecha"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={new Date(dueDate)}
-                  onSelect={(date) => setDueDate(date?.toISOString() || '')}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "justify-start text-left font-normal flex-1",
+                      !dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dueDate ? format(new Date(dueDate), "PPP", { locale: es }) : "Seleccionar fecha"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate ? new Date(dueDate) : undefined}
+                    onSelect={(date) => setDueDate(date?.toISOString() || '')}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <Input
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+                className="w-[120px]"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Zona horaria</Label>
+            <Select value={timezone} onValueChange={setTimezone}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar zona horaria" />
+              </SelectTrigger>
+              <SelectContent>
+                {Intl.supportedValuesOf('timeZone').map((tz) => (
+                  <SelectItem key={tz} value={tz}>
+                    {tz}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Duración</Label>
+            <Select value={duration.toString()} onValueChange={(value) => setDuration(parseInt(value))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar duración" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">30 minutos</SelectItem>
+                <SelectItem value="60">1 hora</SelectItem>
+                <SelectItem value="120">2 horas</SelectItem>
+                <SelectItem value="180">3 horas</SelectItem>
+                <SelectItem value="240">4 horas</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

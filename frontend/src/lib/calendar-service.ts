@@ -13,20 +13,15 @@ type GoogleCalendarCredentials = {
 };
 
 type CalendarEventInput = {
-  title: string;
-  description: string;
-  startDateTime: string;
-  endDateTime: string;
-  goalId?: string;
-  taskId?: string;
-  habitId?: string;
-  workoutId?: string;
+  summary: string;
+  description?: string;
+  startDateTime: Date;
+  endDateTime: Date;
   location?: string;
-  recurrenceRule?: string;
-  isAllDay?: boolean;
-  color?: string;
+  colorId?: string;
   type?: 'task' | 'goal' | 'habit' | 'workout' | 'custom';
   source?: 'local' | 'google';
+  timezone?: string;
 };
 
 type GoogleEventInput = {
@@ -387,11 +382,11 @@ export async function createGoogleCalendarEvent(
       summary: eventData.title,
       description: eventData.description,
       start: {
-        dateTime: eventData.startDateTime,
+        dateTime: eventData.startDateTime.toISOString(),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
       },
       end: {
-        dateTime: eventData.endDateTime,
+        dateTime: eventData.endDateTime.toISOString(),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
       }
     };
@@ -423,8 +418,8 @@ export async function createGoogleCalendarEvent(
       habit_id: eventData.habitId || null,
       workout_id: eventData.workoutId || null,
       event_title: eventData.title,
-      start_time: eventData.startDateTime,
-      end_time: eventData.endDateTime
+      start_time: eventData.startDateTime.toISOString(),
+      end_time: eventData.endDateTime.toISOString()
     };
 
     const { error } = await supabase
@@ -461,135 +456,47 @@ export async function addWorkoutToCalendar(eventData: CalendarEventInput): Promi
 }
 
 // Función para crear un evento en el calendario
-export async function createCalendarEvent(event: {
-  summary: string;
-  description?: string;
-  startDateTime: Date;
-  endDateTime: Date;
-  location?: string;
-  colorId?: string;
-  calendarId?: string;
-  recurrence?: string[];
-  type?: 'task' | 'goal' | 'habit' | 'workout' | 'custom';
-  source?: 'local' | 'google';
-}) {
+export async function createCalendarEvent({
+  summary,
+  description,
+  startDateTime,
+  endDateTime,
+  location,
+  colorId,
+  type = 'custom',
+  source = 'local',
+  timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+}: CalendarEventInput) {
   try {
-    // Obtener el ID del usuario actual
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('Error al obtener usuario:', userError);
-      throw new Error('No se pudo obtener el usuario actual');
-    }
+    const event: GoogleEventInput = {
+      summary,
+      description,
+      start: {
+        dateTime: startDateTime.toISOString(),
+        timeZone: timezone
+      },
+      end: {
+        dateTime: endDateTime.toISOString(),
+        timeZone: timezone
+      },
+      location,
+      colorId
+    };
 
-    const { calendarId = 'primary', ...eventData } = event;
-    
-    // Definir el estado inicial de sincronización
-    const initialSyncStatus: SyncStatus = 'local';
-    
-    // Log detallado del evento a crear
-    console.log('Intentando crear evento en Supabase:', {
-      datosEvento: {
-        user_id: user.id,
-        title: eventData.summary,
-        description: eventData.description || '',
-        start_time: eventData.startDateTime.toISOString(),
-        end_time: eventData.endDateTime.toISOString(),
-        location: eventData.location || '',
-        color: eventData.colorId || null,
-        sync_status: initialSyncStatus,
-        is_all_day: false,
-        recurrence_rule: eventData.recurrence ? eventData.recurrence[0] : null,
-        is_recurring: !!eventData.recurrence,
-        type: eventData.type || 'custom',
-        source: eventData.source || 'local'
-      }
-    });
-    
-    // Primero crear el evento en Supabase con todos los campos requeridos
-    const { data: localEvent, error: supabaseError } = await supabase
-      .from('calendar_events')
-      .insert({
-        user_id: user.id,
-        title: eventData.summary,
-        description: eventData.description || '',
-        start_time: eventData.startDateTime.toISOString(),
-        end_time: eventData.endDateTime.toISOString(),
-        location: eventData.location || '',
-        color: eventData.colorId || null,
-        sync_status: initialSyncStatus,
-        is_all_day: false,
-        recurrence_rule: eventData.recurrence ? eventData.recurrence[0] : null,
-        is_recurring: !!eventData.recurrence,
-        type: eventData.type || 'custom',
-        source: eventData.source || 'local'
-      })
-      .select()
-      .single();
-
-    if (supabaseError) {
-      // Log detallado del error
-      console.error('Error detallado al crear evento en Supabase:', {
-        código: supabaseError.code,
-        mensaje: supabaseError.message,
-        detalles: supabaseError.details,
-        hint: supabaseError.hint,
-        errorCompleto: supabaseError
-      });
-      
-      // Si es un error de restricción, mostrar más detalles
-      if (supabaseError.code === '23514') {
-        console.error('Violación de restricción CHECK:', {
-          restricción: supabaseError.message.match(/check constraint "([^"]+)"/)?.[1],
-          columnaAfectada: supabaseError.message.includes('sync_status') ? 'sync_status' : 'desconocida',
-          valorIntentoInsertar: initialSyncStatus
-        });
-      }
-      
-      throw new Error('Error al crear evento en el calendario local');
-    }
-
-    // Log de éxito
-    console.log('Evento creado exitosamente en Supabase:', localEvent);
-
-    // Luego crear el evento en Google Calendar
     const response = await fetch('/api/v1/calendar', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        ...eventData,
-        startDateTime: eventData.startDateTime.toISOString(),
-        endDateTime: eventData.endDateTime.toISOString(),
-        calendarId,
-      }),
+      body: JSON.stringify(event),
     });
-    
+
     if (!response.ok) {
-      // Si falla Google Calendar, actualizar el estado en Supabase
-      await supabase
-        .from('calendar_events')
-        .update({ sync_status: 'sync_failed' })
-        .eq('id', localEvent.id);
-
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Error al crear evento en Google Calendar');
+      throw new Error(errorData.error || 'Error al crear evento en el calendario');
     }
-    
-    const googleEvent = await response.json();
 
-    // Actualizar el evento local con el ID de Google
-    await supabase
-      .from('calendar_events')
-      .update({
-        google_event_id: googleEvent.id,
-        sync_status: 'synced',
-        last_synced_at: new Date().toISOString()
-      })
-      .eq('id', localEvent.id);
-    
-    return googleEvent;
+    return await response.json();
   } catch (error) {
     console.error('Error al crear evento en el calendario:', error);
     throw error;
@@ -682,6 +589,9 @@ export async function syncTaskWithCalendar(task: {
   title: string;
   description?: string;
   due_date: string;
+  due_time?: string;
+  timezone?: string;
+  duration_minutes?: number;
   status: string;
   priority: string;
 }) {
@@ -690,19 +600,26 @@ export async function syncTaskWithCalendar(task: {
   }
 
   try {
+    // Combinar fecha y hora
+    const dueDateTime = task.due_time 
+      ? `${task.due_date.split('T')[0]}T${task.due_time}:00` 
+      : task.due_date;
+
     // Validar y parsear la fecha usando parseISO para asegurar consistencia
-    const startDateTime = parseISO(task.due_date);
+    const startDateTime = parseISO(dueDateTime);
     if (isNaN(startDateTime.getTime())) {
       throw new Error('Fecha inválida');
     }
 
-    // Crear fecha de fin (1 hora después)
-    const endDateTime = addHours(startDateTime, 1);
+    // Crear fecha de fin usando la duración especificada o por defecto 1 hora
+    const endDateTime = addMinutes(startDateTime, task.duration_minutes || 60);
 
     // Formatear la descripción con emojis y detalles
     const description = `🎯 Tarea: ${task.description || task.title}
 📊 Prioridad: ${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
 📌 Estado: ${task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+⏱️ Duración: ${task.duration_minutes || 60} minutos
+🌐 Zona horaria: ${task.timezone || 'Local'}
 🔗 ID: ${task.id}`;
 
     // Asignar color según prioridad
@@ -723,7 +640,8 @@ export async function syncTaskWithCalendar(task: {
       endDateTime: endDateTime,
       colorId,
       type: 'task',
-      source: 'local'
+      source: 'local',
+      timezone: task.timezone
     });
 
     return event;
