@@ -2,11 +2,16 @@
 
 import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { TasksProvider } from '@/providers/TasksProvider';
 
 export default function DashboardLayoutWrapper({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return (
+    <TasksProvider>
+      <DashboardLayout>{children}</DashboardLayout>
+    </TasksProvider>
+  );
 } 

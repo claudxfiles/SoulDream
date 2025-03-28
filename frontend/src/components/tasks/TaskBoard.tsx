@@ -2,10 +2,15 @@
 
 import React, { useState, Suspense } from 'react';
 import { Card } from '@/components/ui/card';
-import { Plus, MoreVertical, Clock, Tag, Calendar } from 'lucide-react';
+import { Plus, MoreVertical, Tag, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
+import { Task } from '@/types/tasks';
+import { useTasks } from '@/providers/TasksProvider';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { TaskFormModal } from './TaskFormModal';
 
 // Importar dinámicamente los componentes relacionados con Google Calendar
 const AddTaskToCalendarButton = dynamic(
@@ -18,19 +23,14 @@ const CalendarStatusWrapper = dynamic(
   { ssr: false }
 );
 
-// Tipos para las tareas
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
-  dueDate?: string;
-  tags: string[];
-}
-
 // Componente para una tarea individual
-const TaskCard = ({ task }: { task: Task }) => {
+const TaskCard = ({ task, onDelete, onStatusChange }: { 
+  task: Task; 
+  onDelete: (id: string) => void;
+  onStatusChange: (id: string, status: Task['status']) => void;
+}) => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -57,67 +57,96 @@ const TaskCard = ({ task }: { task: Task }) => {
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      await onDelete(task.id);
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
+  };
+
   return (
-    <Card className="mb-3 p-3 cursor-pointer hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start">
-        <h3 className="font-medium text-gray-900 dark:text-white">{task.title}</h3>
-        <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-          <MoreVertical size={16} />
-        </button>
-      </div>
-      
-      {task.description && (
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-          {task.description}
-        </p>
-      )}
-      
-      <div className="mt-3 flex flex-wrap gap-2">
-        {task.tags.map((tag, index) => (
-          <span 
-            key={index} 
-            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200"
+    <>
+      <Card className="mb-3 p-3 cursor-pointer hover:shadow-md transition-shadow">
+        <div className="flex justify-between items-start">
+          <h3 className="font-medium text-gray-900 dark:text-white">{task.title}</h3>
+          <button 
+            onClick={() => setShowDeleteDialog(true)}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
           >
-            <Tag size={12} className="mr-1" />
-            {tag}
-          </span>
-        ))}
-      </div>
-      
-      <div className="mt-3 flex justify-between items-center text-xs">
-        {task.dueDate && (
-          <span className="flex items-center text-gray-500 dark:text-gray-400">
-            <Calendar size={12} className="mr-1" />
-            {format(new Date(task.dueDate), 'dd MMM', { locale: es })}
-          </span>
+            <MoreVertical size={16} />
+          </button>
+        </div>
+        
+        {task.description && (
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+            {task.description}
+          </p>
         )}
         
-        <span className={`px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
-          {getPriorityText(task.priority)}
-        </span>
-      </div>
-      
-      {task.dueDate && (
-        <Suspense fallback={null}>
-          <CalendarStatusWrapper>
-            {(isConnected) => isConnected && (
-              <div className="mt-3 flex justify-end">
-                <AddTaskToCalendarButton 
-                  task={{
-                    id: task.id,
-                    title: task.title,
-                    description: task.description,
-                    due_date: task.dueDate,
-                    status: task.status,
-                    priority: task.priority
-                  }} 
-                />
-              </div>
-            )}
-          </CalendarStatusWrapper>
-        </Suspense>
-      )}
-    </Card>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {task.tags.map((tag, index) => (
+            <span 
+              key={index} 
+              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200"
+            >
+              <Tag size={12} className="mr-1" />
+              {tag}
+            </span>
+          ))}
+        </div>
+        
+        <div className="mt-3 flex justify-between items-center text-xs">
+          {task.dueDate && (
+            <span className="flex items-center text-gray-500 dark:text-gray-400">
+              <Calendar size={12} className="mr-1" />
+              {format(new Date(task.dueDate), 'dd MMM', { locale: es })}
+            </span>
+          )}
+          
+          <span className={`px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
+            {getPriorityText(task.priority)}
+          </span>
+        </div>
+        
+        {task.dueDate && (
+          <Suspense fallback={null}>
+            <CalendarStatusWrapper>
+              {(isConnected) => isConnected && (
+                <div className="mt-3 flex justify-end">
+                  <AddTaskToCalendarButton 
+                    task={{
+                      id: task.id,
+                      title: task.title,
+                      description: task.description,
+                      due_date: task.dueDate,
+                      status: task.status,
+                      priority: task.priority
+                    }} 
+                  />
+                </div>
+              )}
+            </CalendarStatusWrapper>
+          </Suspense>
+        )}
+      </Card>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente la tarea.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
@@ -126,12 +155,16 @@ const Column = ({
   title, 
   tasks, 
   status,
-  onAddTask 
+  onAddTask,
+  onDeleteTask,
+  onStatusChange
 }: { 
   title: string; 
   tasks: Task[]; 
-  status: 'pending' | 'in_progress' | 'completed';
-  onAddTask: (status: 'pending' | 'in_progress' | 'completed') => void;
+  status: Task['status'];
+  onAddTask: (status: Task['status']) => void;
+  onDeleteTask: (id: string) => void;
+  onStatusChange: (id: string, status: Task['status']) => void;
 }) => {
   return (
     <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 w-full min-w-[300px]">
@@ -152,7 +185,12 @@ const Column = ({
       
       <div className="space-y-3 min-h-[200px]">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard 
+            key={task.id} 
+            task={task} 
+            onDelete={onDeleteTask}
+            onStatusChange={onStatusChange}
+          />
         ))}
         
         {tasks.length === 0 && (
@@ -169,62 +207,44 @@ const Column = ({
 
 // Componente principal del tablero
 export function TaskBoard() {
-  // Datos de ejemplo
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Crear diseño de la aplicación',
-      description: 'Diseñar la interfaz de usuario para la nueva aplicación móvil',
-      status: 'completed',
-      priority: 'high',
-      dueDate: '2023-05-15',
-      tags: ['Diseño', 'UI/UX']
-    },
-    {
-      id: '2',
-      title: 'Implementar autenticación',
-      description: 'Integrar sistema de autenticación con Firebase',
-      status: 'in_progress',
-      priority: 'high',
-      dueDate: '2023-05-20',
-      tags: ['Backend', 'Seguridad']
-    },
-    {
-      id: '3',
-      title: 'Optimizar rendimiento',
-      description: 'Mejorar tiempos de carga y optimizar consultas a la base de datos',
-      status: 'pending',
-      priority: 'medium',
-      dueDate: '2023-05-25',
-      tags: ['Performance']
-    },
-    {
-      id: '4',
-      title: 'Escribir documentación',
-      description: 'Documentar APIs y componentes principales',
-      status: 'pending',
-      priority: 'low',
-      dueDate: '2023-05-30',
-      tags: ['Documentación']
-    },
-    {
-      id: '5',
-      title: 'Pruebas de integración',
-      description: 'Crear y ejecutar pruebas de integración para los módulos principales',
-      status: 'in_progress',
-      priority: 'medium',
-      dueDate: '2023-05-22',
-      tags: ['Testing', 'QA']
-    }
-  ]);
-
+  const { tasks, isLoading, error, deleteTask, updateTask, createTask } = useTasks();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState<'pending' | 'in_progress' | 'completed'>('pending');
+  const [currentStatus, setCurrentStatus] = useState<Task['status']>('pending');
 
-  const handleAddTask = (status: 'pending' | 'in_progress' | 'completed') => {
+  const handleAddTask = (status: Task['status']) => {
     setCurrentStatus(status);
     setIsModalOpen(true);
   };
+
+  const handleDeleteTask = async (id: string) => {
+    await deleteTask(id);
+  };
+
+  const handleStatusChange = async (id: string, newStatus: Task['status']) => {
+    await updateTask(id, { status: newStatus });
+  };
+
+  const handleSubmitTask = async (task: Omit<Task, 'id'>) => {
+    await createTask(task);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton key={index} className="h-24 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+        <p className="text-red-600 dark:text-red-400">Error: {error.message}</p>
+      </div>
+    );
+  }
 
   // Filtrar tareas por estado
   const pendingTasks = tasks.filter(task => task.status === 'pending');
@@ -249,23 +269,34 @@ export function TaskBoard() {
           title="Pendientes" 
           tasks={pendingTasks} 
           status="pending"
-          onAddTask={handleAddTask} 
+          onAddTask={handleAddTask}
+          onDeleteTask={handleDeleteTask}
+          onStatusChange={handleStatusChange}
         />
         <Column 
           title="En progreso" 
           tasks={inProgressTasks} 
           status="in_progress"
-          onAddTask={handleAddTask} 
+          onAddTask={handleAddTask}
+          onDeleteTask={handleDeleteTask}
+          onStatusChange={handleStatusChange}
         />
         <Column 
           title="Completadas" 
           tasks={completedTasks} 
           status="completed"
-          onAddTask={handleAddTask} 
+          onAddTask={handleAddTask}
+          onDeleteTask={handleDeleteTask}
+          onStatusChange={handleStatusChange}
         />
       </div>
-      
-      {/* Aquí iría el modal para añadir/editar tareas */}
+
+      <TaskFormModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onSubmit={handleSubmitTask}
+        initialStatus={currentStatus}
+      />
     </div>
   );
 } 
