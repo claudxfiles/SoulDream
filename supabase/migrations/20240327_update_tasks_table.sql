@@ -72,4 +72,19 @@ COMMENT ON COLUMN tasks.due_date IS 'Optional due date for the task';
 COMMENT ON COLUMN tasks.tags IS 'Array of tags associated with the task';
 COMMENT ON COLUMN tasks.user_id IS 'Reference to the user who owns this task';
 COMMENT ON COLUMN tasks.created_at IS 'Timestamp when the task was created';
-COMMENT ON COLUMN tasks.updated_at IS 'Timestamp when the task was last updated'; 
+COMMENT ON COLUMN tasks.updated_at IS 'Timestamp when the task was last updated';
+
+-- Agregar la columna category a la tabla tasks
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS category text;
+
+-- Actualizar las políticas RLS para incluir la nueva columna
+CREATE POLICY "Users can update their own tasks category"
+ON tasks
+FOR UPDATE
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+-- Permitir que la columna category sea null
+ALTER TABLE tasks
+ALTER COLUMN category DROP NOT NULL; 

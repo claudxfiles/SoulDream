@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from 'react';
 import { Card } from '@/components/ui/card';
-import { Plus, MoreVertical, Tag, Calendar } from 'lucide-react';
+import { Plus, MoreVertical, Tag, Calendar, Trash2, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
@@ -12,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { TaskFormModal } from './TaskFormModal';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 // Importar dinámicamente los componentes relacionados con Google Calendar
 const AddTaskToCalendarButton = dynamic(
@@ -25,42 +27,15 @@ const CalendarStatusWrapper = dynamic(
 );
 
 // Componente para una tarea individual
-const TaskCard = ({ task, onDelete, onStatusChange }: { 
+const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: { 
   task: Task; 
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: Task['status']) => void;
+  onEdit: (task: Task) => void;
+  onUpdateTask: (id: string, data: Partial<Task>) => Promise<void>;
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
-  const getCategoryStyle = (category?: string) => {
-    switch (category) {
-      case 'performance':
-        return 'bg-purple-900/50 text-purple-200';
-      case 'feature':
-        return 'bg-blue-900/50 text-blue-200';
-      case 'bug':
-        return 'bg-red-900/50 text-red-200';
-      case 'documentation':
-        return 'bg-green-900/50 text-green-200';
-      default:
-        return 'bg-gray-900/50 text-gray-200';
-    }
-  };
-
-  const getCategoryLabel = (category?: string) => {
-    switch (category) {
-      case 'performance':
-        return 'Performance';
-      case 'feature':
-        return 'Feature';
-      case 'bug':
-        return 'Bug';
-      case 'documentation':
-        return 'Documentación';
-      default:
-        return 'Otro';
-    }
-  };
+  const { user } = useAuthContext();
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -102,12 +77,24 @@ const TaskCard = ({ task, onDelete, onStatusChange }: {
       <Card className="mb-3 p-4 cursor-pointer hover:shadow-md transition-shadow bg-gray-900/90 border-gray-800">
         <div className="flex justify-between items-start mb-3">
           <h3 className="font-medium text-gray-100">{task.title}</h3>
-          <button 
-            onClick={() => setShowDeleteDialog(true)}
-            className="text-gray-400 hover:text-gray-200"
-          >
-            <MoreVertical size={16} />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="text-gray-400 hover:text-gray-200">
+                <MoreVertical size={16} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => onEdit(task)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configuración
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         
         {task.description && (
@@ -117,18 +104,12 @@ const TaskCard = ({ task, onDelete, onStatusChange }: {
         )}
         
         <div className="flex flex-wrap gap-2 mb-3">
-          {task.category && (
-            <span 
-              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getCategoryStyle(task.category)}`}
-            >
-              {getCategoryLabel(task.category)}
-            </span>
-          )}
           {task.tags && task.tags.map((tag, index) => (
             <span 
               key={index} 
-              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-indigo-900/50 text-indigo-200"
+              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-900/50 text-indigo-200"
             >
+              <Tag className="h-3 w-3 mr-1" />
               {tag}
             </span>
           ))}
@@ -148,27 +129,15 @@ const TaskCard = ({ task, onDelete, onStatusChange }: {
             {getPriorityText(task.priority)}
           </span>
         </div>
-        
-        {task.due_date && (
-          <div className="mt-3 flex justify-end">
-            <Button 
-              variant="secondary" 
-              size="sm" 
-              className="text-xs bg-gray-800 text-gray-300 hover:bg-gray-700"
-            >
-              <Calendar className="h-3 w-3 mr-1" />
-              Añadir al calendario
-            </Button>
-          </div>
-        )}
       </Card>
 
+      {/* Diálogo de eliminación */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminará permanentemente la tarea.
+              Esta acción no se puede deshacer. Esto eliminará permanentemente la tarea.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -188,7 +157,9 @@ const Column = ({
   status,
   onAddTask,
   onDeleteTask,
-  onStatusChange
+  onStatusChange,
+  onEdit,
+  onUpdateTask
 }: { 
   title: string; 
   tasks: Task[]; 
@@ -196,6 +167,8 @@ const Column = ({
   onAddTask: (status: Task['status']) => void;
   onDeleteTask: (id: string) => void;
   onStatusChange: (id: string, status: Task['status']) => void;
+  onEdit: (task: Task) => void;
+  onUpdateTask: (id: string, data: Partial<Task>) => Promise<void>;
 }) => {
   return (
     <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 w-full min-w-[300px]">
@@ -221,6 +194,8 @@ const Column = ({
             task={task} 
             onDelete={onDeleteTask}
             onStatusChange={onStatusChange}
+            onEdit={onEdit}
+            onUpdateTask={onUpdateTask}
           />
         ))}
         
@@ -238,25 +213,42 @@ const Column = ({
 
 // Componente principal del tablero
 export function TaskBoard() {
-  const { tasks, isLoading, error, deleteTask, updateTask, createTask } = useTasks();
+  const { tasks = [], isLoading, error, deleteTask, updateTask, createTask } = useTasks() || {};
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<Task['status']>('pending');
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const handleAddTask = (status: Task['status']) => {
     setCurrentStatus(status);
+    setEditingTask(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
     setIsModalOpen(true);
   };
 
   const handleDeleteTask = async (id: string) => {
-    await deleteTask(id);
+    if (deleteTask) {
+      await deleteTask(id);
+    }
   };
 
   const handleStatusChange = async (id: string, newStatus: Task['status']) => {
-    await updateTask(id, { status: newStatus });
+    if (updateTask) {
+      await updateTask(id, { status: newStatus });
+    }
   };
 
-  const handleSubmitTask = async (task: Omit<Task, 'id'>) => {
-    await createTask(task);
+  const handleSubmitTask = async (taskData: Omit<Task, 'id'>) => {
+    if (editingTask && updateTask) {
+      await updateTask(editingTask.id, taskData);
+    } else if (createTask) {
+      await createTask(taskData);
+    }
+    setIsModalOpen(false);
+    setEditingTask(null);
   };
 
   if (isLoading) {
@@ -303,6 +295,8 @@ export function TaskBoard() {
           onAddTask={handleAddTask}
           onDeleteTask={handleDeleteTask}
           onStatusChange={handleStatusChange}
+          onEdit={handleEditTask}
+          onUpdateTask={updateTask || (async () => {})}
         />
         <Column 
           title="En progreso" 
@@ -311,6 +305,8 @@ export function TaskBoard() {
           onAddTask={handleAddTask}
           onDeleteTask={handleDeleteTask}
           onStatusChange={handleStatusChange}
+          onEdit={handleEditTask}
+          onUpdateTask={updateTask || (async () => {})}
         />
         <Column 
           title="Completadas" 
@@ -319,6 +315,8 @@ export function TaskBoard() {
           onAddTask={handleAddTask}
           onDeleteTask={handleDeleteTask}
           onStatusChange={handleStatusChange}
+          onEdit={handleEditTask}
+          onUpdateTask={updateTask || (async () => {})}
         />
       </div>
 
@@ -327,6 +325,7 @@ export function TaskBoard() {
         onOpenChange={setIsModalOpen}
         onSubmit={handleSubmitTask}
         initialStatus={currentStatus}
+        initialData={editingTask || undefined}
       />
     </div>
   );

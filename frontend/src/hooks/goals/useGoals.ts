@@ -62,14 +62,14 @@ export function useGoals(userId: string) {
       
       // Invalidar consultas solo si queryClient está disponible
       if (queryClient) {
-        queryClient.invalidateQueries({ queryKey: ['goals', userId] });
+        queryClient.invalidateQueries({ queryKey: ['goals', userId], exact: true });
       }
     },
   });
 
   const updateGoal = useMutation({
     mutationFn: async (data: { id: string; goal: Partial<Goal> }) => {
-      const { data, error } = await supabase
+      const { data: response, error } = await supabase
         .from('goals')
         .update(data.goal)
         .eq('id', data.id)
@@ -77,7 +77,7 @@ export function useGoals(userId: string) {
         .single();
 
       if (error) throw error;
-      return data;
+      return response;
     },
     onSuccess: (updatedGoal: Goal) => {
       toast({
@@ -85,11 +85,11 @@ export function useGoals(userId: string) {
         description: 'La meta se ha actualizado con éxito',
       });
       
-      updateGoalInStore(updatedGoal);
+      updateGoalInStore(updatedGoal.id, updatedGoal);
       
       // Invalidar consultas solo si queryClient está disponible
       if (queryClient) {
-        queryClient.invalidateQueries({ queryKey: ['goals', userId] });
+        queryClient.invalidateQueries({ queryKey: ['goals', userId], exact: true });
       }
     },
   });
@@ -113,7 +113,7 @@ export function useGoals(userId: string) {
       
       // Invalidar consultas solo si queryClient está disponible
       if (queryClient) {
-        queryClient.invalidateQueries({ queryKey: ['goals', userId] });
+        queryClient.invalidateQueries({ queryKey: ['goals', userId], exact: true });
       }
     },
   });
@@ -127,7 +127,7 @@ export function useGoals(userId: string) {
     mutationFn: (subGoal) => GoalsService.createSubGoal(subGoal),
     onSuccess: (data) => {
       addSubGoalToStore(data);
-      queryClient?.invalidateQueries({ queryKey: ['goals', userId] });
+      queryClient?.invalidateQueries({ queryKey: ['goals', userId], exact: true });
       toast({
         title: 'Success',
         description: 'Sub-goal created successfully',
@@ -152,7 +152,7 @@ export function useGoals(userId: string) {
     mutationFn: (goalStep) => GoalsService.createGoalStep(goalStep),
     onSuccess: (data) => {
       addGoalStepToStore(data);
-      queryClient?.invalidateQueries({ queryKey: ['goalSteps', data.goalId] });
+      queryClient?.invalidateQueries({ queryKey: ['goalSteps', data.goalId], exact: true });
       toast({
         title: 'Success',
         description: 'Goal step created successfully',
@@ -177,7 +177,7 @@ export function useGoals(userId: string) {
     mutationFn: ({ id, updates }) => GoalsService.updateGoalStep(id, updates),
     onSuccess: (data) => {
       updateGoalStepInStore(data.id, data);
-      queryClient?.invalidateQueries({ queryKey: ['goalSteps', data.goalId] });
+      queryClient?.invalidateQueries({ queryKey: ['goalSteps', data.goalId], exact: true });
       toast({
         title: 'Success',
         description: 'Goal step updated successfully',
@@ -195,32 +195,16 @@ export function useGoals(userId: string) {
 
   // Fetch goal steps
   const getGoalSteps = (goalId: string) =>
-    useQuery<GoalStep[], Error>({
+    useQuery({
       queryKey: ['goalSteps', goalId],
       queryFn: () => GoalsService.getGoalSteps(goalId),
-      onError: (error: Error) => {
-        setError(error.message);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch goal steps',
-          variant: 'destructive',
-        });
-      },
     });
 
   // Fetch sub-goals
   const getSubGoals = (parentGoalId: string) =>
-    useQuery<SubGoal[], Error>({
+    useQuery({
       queryKey: ['subGoals', parentGoalId],
       queryFn: () => GoalsService.getSubGoals(parentGoalId),
-      onError: (error: Error) => {
-        setError(error.message);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch sub-goals',
-          variant: 'destructive',
-        });
-      },
     });
 
   return {

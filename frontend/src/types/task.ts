@@ -15,7 +15,7 @@ export interface Task {
   updated_at: string;
   is_deleted?: boolean;
   related_goal_id?: string;
-  category?: string;
+  category?: 'performance' | 'feature' | 'bug' | 'documentation' | 'other';
   tags?: string[];
   estimated_time_minutes?: number;
   completed_at?: string;
@@ -28,7 +28,7 @@ export interface TaskCreateDTO {
   priority?: 'low' | 'medium' | 'high';
   due_date?: string;
   related_goal_id?: string;
-  category?: string;
+  category?: 'performance' | 'feature' | 'bug' | 'documentation' | 'other';
   tags?: string[];
   estimated_time_minutes?: number;
 }
