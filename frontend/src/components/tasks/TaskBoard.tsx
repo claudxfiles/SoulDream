@@ -30,6 +30,14 @@ const CalendarStatusWrapper = dynamic(
   { ssr: false }
 );
 
+// Definir la interfaz para el evento del calendario
+interface CalendarEventData {
+  summary: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+}
+
 // Componente para una tarea individual con soporte para drag and drop
 const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: { 
   task: Task; 
@@ -40,6 +48,14 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { user } = useAuthContext();
+
+  // Crear el evento del calendario
+  const calendarEvent: CalendarEventData = {
+    summary: task.title,
+    description: task.description || '',
+    startDate: task.due_date ? new Date(task.due_date) : new Date(),
+    endDate: task.due_date ? new Date(task.due_date) : new Date(),
+  };
 
   const {
     attributes,
@@ -62,13 +78,13 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'bg-red-500/20 text-red-400';
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        return 'bg-amber-500/20 text-amber-400';
       case 'low':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        return 'bg-green-500/20 text-green-400';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+        return 'bg-gray-500/20 text-gray-400';
     }
   };
 
@@ -99,12 +115,12 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
       <Card 
         ref={setNodeRef}
         style={style}
-        className="mb-3 p-4 hover:shadow-md transition-shadow bg-gray-900/90 border-gray-800"
+        className="mb-3 p-4 hover:shadow-md transition-shadow bg-[#0f172a] border-gray-800"
         {...attributes}
       >
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1 cursor-move" {...listeners}>
-            <h3 className="font-medium text-gray-100">{task.title}</h3>
+            <h3 className="font-medium text-gray-200">{task.title}</h3>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -112,21 +128,21 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
                 <MoreVertical size={16} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48 bg-[#1e293b] border-gray-700">
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
                 onEdit(task);
-              }}>
+              }} className="text-gray-200 hover:bg-gray-700/50">
                 <Settings className="mr-2 h-4 w-4" />
                 Configuración
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="bg-gray-700" />
               <DropdownMenuItem 
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowDeleteDialog(true);
                 }} 
-                className="text-red-600"
+                className="text-red-400 hover:bg-gray-700/50 hover:text-red-300"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
@@ -145,12 +161,28 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
           {task.tags && task.tags.map((tag, index) => (
             <span 
               key={index} 
-              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-900/50 text-indigo-200"
+              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#4f46e5]/20 text-[#818cf8]"
             >
               <Tag className="h-3 w-3 mr-1" />
               {tag}
             </span>
           ))}
+        </div>
+        
+        <div className="flex items-center justify-between mb-3">
+          <CalendarStatusWrapper>
+            {(isConnected: boolean) => (
+              <AddTaskToCalendarButton
+                task={task}
+                disabled={!isConnected}
+              >
+                <div className="flex items-center w-full">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  {isConnected ? 'Añadir al calendario' : 'Conectar calendario'}
+                </div>
+              </AddTaskToCalendarButton>
+            )}
+          </CalendarStatusWrapper>
         </div>
         
         <div className="flex justify-between items-center text-xs">

@@ -688,27 +688,49 @@ export async function syncTaskWithCalendar(task: {
   if (!task.due_date) {
     throw new Error('La tarea no tiene fecha límite definida');
   }
-  
-  // Crear fecha de inicio (fecha límite de la tarea)
-  const startDateTime = new Date(task.due_date);
-  
-  // Crear fecha de fin (1 hora después por defecto)
-  const endDateTime = new Date(startDateTime);
-  endDateTime.setHours(endDateTime.getHours() + 1);
-  
-  // Crear el evento
-  return createCalendarEvent({
-    summary: task.title,
-    description: `Tarea de SoulDream: ${task.description || ''}
-Prioridad: ${task.priority}
-Estado: ${task.status}`,
-    startDateTime,
-    endDateTime,
+
+  try {
+    // Validar y parsear la fecha usando parseISO para asegurar consistencia
+    const startDateTime = parseISO(task.due_date);
+    if (isNaN(startDateTime.getTime())) {
+      throw new Error('Fecha inválida');
+    }
+
+    // Crear fecha de fin (1 hora después)
+    const endDateTime = addHours(startDateTime, 1);
+
+    // Formatear la descripción con emojis y detalles
+    const description = `🎯 Tarea: ${task.description || task.title}
+📊 Prioridad: ${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+📌 Estado: ${task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+🔗 ID: ${task.id}`;
+
     // Asignar color según prioridad
-    colorId: task.priority === 'high' ? '4' : (task.priority === 'medium' ? '5' : '9'),
-    type: 'task',
-    source: 'local'
-  });
+    const colorId = (() => {
+      switch (task.priority.toLowerCase()) {
+        case 'high': return '4';    // Rojo
+        case 'medium': return '5';   // Amarillo
+        case 'low': return '9';     // Verde
+        default: return '1';         // Azul
+      }
+    })();
+
+    // Crear el evento asegurando que las fechas estén en formato ISO
+    const event = await createCalendarEvent({
+      summary: `📋 ${task.title}`,
+      description,
+      startDateTime: startDateTime,
+      endDateTime: endDateTime,
+      colorId,
+      type: 'task',
+      source: 'local'
+    });
+
+    return event;
+  } catch (error: any) {
+    console.error('Error al sincronizar tarea con calendario:', error);
+    throw new Error(error.message || 'Error al crear el evento en el calendario');
+  }
 }
 
 // Función para sincronizar calendarios

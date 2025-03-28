@@ -6,19 +6,22 @@ import { useSyncTaskWithCalendar, useGoogleCalendarStatus } from '@/hooks/useGoo
 import { Calendar } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { parseISO, addHours, isValid } from 'date-fns';
 
 interface AddTaskToCalendarButtonProps {
   task: {
     id: string;
     title: string;
     description?: string;
-    due_date: string;
+    due_date?: string;
     status: string;
     priority: string;
   };
+  children?: React.ReactNode;
+  disabled?: boolean;
 }
 
-export function AddTaskToCalendarButton({ task }: AddTaskToCalendarButtonProps) {
+export function AddTaskToCalendarButton({ task, children, disabled }: AddTaskToCalendarButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { mutateAsync: syncTask } = useSyncTaskWithCalendar();
   const { isConnected, needsReconnect } = useGoogleCalendarStatus();
@@ -48,8 +51,22 @@ export function AddTaskToCalendarButton({ task }: AddTaskToCalendarButtonProps) 
         return;
       }
 
+      // Validar y parsear la fecha
+      const dueDate = parseISO(task.due_date);
+      if (!isValid(dueDate)) {
+        toast({
+          title: 'Error de fecha',
+          description: 'El formato de la fecha no es válido.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       // Crear evento en Google Calendar
-      const event = await syncTask(task);
+      const event = await syncTask({
+        ...task,
+        due_date: dueDate.toISOString(), // Asegurar que la fecha esté en formato ISO
+      });
 
       toast({
         title: 'Evento creado',
@@ -68,8 +85,23 @@ export function AddTaskToCalendarButton({ task }: AddTaskToCalendarButtonProps) 
     }
   };
 
+  // Si no hay conexión con Google Calendar, mostrar botón para conectar
   if (!isConnected) {
-    return null; // No mostrar el botón si no hay conexión con Google
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={(e) => {
+          e.preventDefault();
+          requestGoogleCalendarPermission();
+        }}
+        disabled={isLoading}
+        className="w-full justify-start"
+      >
+        <Calendar className="h-4 w-4 mr-2" />
+        Conectar calendario
+      </Button>
+    );
   }
 
   return (
@@ -77,14 +109,10 @@ export function AddTaskToCalendarButton({ task }: AddTaskToCalendarButtonProps) 
       variant="outline"
       size="sm"
       onClick={handleAddToCalendar}
-      disabled={isLoading || !task.due_date}
+      disabled={isLoading || !task.due_date || disabled}
+      className="w-full justify-start text-gray-400 hover:text-gray-200 bg-transparent border-gray-800 hover:bg-gray-800"
     >
-      {isLoading ? (
-        <span className="animate-spin mr-1">⚪</span>
-      ) : (
-        <Calendar className="h-4 w-4 mr-1" />
-      )}
-      Añadir al calendario
+      {children}
     </Button>
   );
 } 
