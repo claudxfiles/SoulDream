@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -394,6 +394,9 @@ export const SubscriptionManager: React.FC = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Suscripción</DialogTitle>
+              <DialogDescription>
+                Actualiza los detalles de tu suscripción recurrente.
+              </DialogDescription>
             </DialogHeader>
             <SubscriptionForm
               initialData={editingSubscription}

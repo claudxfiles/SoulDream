@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Card,
@@ -127,6 +128,9 @@ const AssetForm: React.FC<AssetFormProps> = ({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar activo financiero' : 'Nuevo activo financiero'}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? 'Actualiza los detalles de tu activo financiero.' : 'Registra un nuevo activo financiero para tu planificación.'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">

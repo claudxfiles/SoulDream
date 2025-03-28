@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -81,6 +81,9 @@ export function GoalFormModal({ isOpen, onClose, onSave, initialGoal }: GoalForm
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{initialGoal ? 'Editar Meta' : 'Crear Nueva Meta'}</DialogTitle>
+          <DialogDescription>
+            {initialGoal ? 'Modifica los detalles de tu meta existente.' : 'Define una nueva meta para alcanzar tus objetivos.'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
