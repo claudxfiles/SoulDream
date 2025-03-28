@@ -9,4 +9,5 @@ export interface Task {
   created_at?: string;
   updated_at?: string;
   user_id?: string;
+  category?: 'performance' | 'feature' | 'bug' | 'documentation' | 'other';
 } 

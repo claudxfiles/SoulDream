@@ -11,6 +11,7 @@ import { useTasks } from '@/providers/TasksProvider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { TaskFormModal } from './TaskFormModal';
+import { Button } from '@/components/ui/button';
 
 // Importar dinámicamente los componentes relacionados con Google Calendar
 const AddTaskToCalendarButton = dynamic(
@@ -30,6 +31,36 @@ const TaskCard = ({ task, onDelete, onStatusChange }: {
   onStatusChange: (id: string, status: Task['status']) => void;
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const getCategoryStyle = (category?: string) => {
+    switch (category) {
+      case 'performance':
+        return 'bg-purple-900/50 text-purple-200';
+      case 'feature':
+        return 'bg-blue-900/50 text-blue-200';
+      case 'bug':
+        return 'bg-red-900/50 text-red-200';
+      case 'documentation':
+        return 'bg-green-900/50 text-green-200';
+      default:
+        return 'bg-gray-900/50 text-gray-200';
+    }
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    switch (category) {
+      case 'performance':
+        return 'Performance';
+      case 'feature':
+        return 'Feature';
+      case 'bug':
+        return 'Bug';
+      case 'documentation':
+        return 'Documentación';
+      default:
+        return 'Otro';
+    }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -68,67 +99,67 @@ const TaskCard = ({ task, onDelete, onStatusChange }: {
 
   return (
     <>
-      <Card className="mb-3 p-3 cursor-pointer hover:shadow-md transition-shadow">
-        <div className="flex justify-between items-start">
-          <h3 className="font-medium text-gray-900 dark:text-white">{task.title}</h3>
+      <Card className="mb-3 p-4 cursor-pointer hover:shadow-md transition-shadow bg-gray-900/90 border-gray-800">
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="font-medium text-gray-100">{task.title}</h3>
           <button 
             onClick={() => setShowDeleteDialog(true)}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+            className="text-gray-400 hover:text-gray-200"
           >
             <MoreVertical size={16} />
           </button>
         </div>
         
         {task.description && (
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+          <p className="text-sm text-gray-400 line-clamp-2 mb-3">
             {task.description}
           </p>
         )}
         
-        <div className="mt-3 flex flex-wrap gap-2">
-          {task.tags.map((tag, index) => (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {task.category && (
+            <span 
+              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getCategoryStyle(task.category)}`}
+            >
+              {getCategoryLabel(task.category)}
+            </span>
+          )}
+          {task.tags && task.tags.map((tag, index) => (
             <span 
               key={index} 
-              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200"
+              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-indigo-900/50 text-indigo-200"
             >
-              <Tag size={12} className="mr-1" />
               {tag}
             </span>
           ))}
         </div>
         
-        <div className="mt-3 flex justify-between items-center text-xs">
-          {task.dueDate && (
-            <span className="flex items-center text-gray-500 dark:text-gray-400">
-              <Calendar size={12} className="mr-1" />
-              {format(new Date(task.dueDate), 'dd MMM', { locale: es })}
-            </span>
-          )}
+        <div className="flex justify-between items-center text-xs">
+          <div className="flex items-center space-x-2">
+            {task.due_date && (
+              <div className="flex items-center text-gray-400">
+                <Calendar size={14} className="mr-1" />
+                {format(new Date(task.due_date), 'dd MMM', { locale: es })}
+              </div>
+            )}
+          </div>
           
-          <span className={`px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
+          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(task.priority)}`}>
             {getPriorityText(task.priority)}
           </span>
         </div>
         
-        {task.dueDate && (
-          <Suspense fallback={null}>
-            <CalendarStatusWrapper>
-              {(isConnected) => isConnected && (
-                <div className="mt-3 flex justify-end">
-                  <AddTaskToCalendarButton 
-                    task={{
-                      id: task.id,
-                      title: task.title,
-                      description: task.description,
-                      due_date: task.dueDate,
-                      status: task.status,
-                      priority: task.priority
-                    }} 
-                  />
-                </div>
-              )}
-            </CalendarStatusWrapper>
-          </Suspense>
+        {task.due_date && (
+          <div className="mt-3 flex justify-end">
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className="text-xs bg-gray-800 text-gray-300 hover:bg-gray-700"
+            >
+              <Calendar className="h-3 w-3 mr-1" />
+              Añadir al calendario
+            </Button>
+          </div>
         )}
       </Card>
 

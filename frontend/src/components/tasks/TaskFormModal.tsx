@@ -36,8 +36,17 @@ export function TaskFormModal({
   const [dueDate, setDueDate] = useState<Date | undefined>(
     initialData?.due_date ? new Date(initialData.due_date) : undefined
   );
+  const [category, setCategory] = useState(initialData?.category || '');
   const [tags, setTags] = useState<string[]>(initialData?.tags || []);
   const [newTag, setNewTag] = useState('');
+
+  const categories = [
+    { value: 'performance', label: 'Performance' },
+    { value: 'feature', label: 'Feature' },
+    { value: 'bug', label: 'Bug' },
+    { value: 'documentation', label: 'Documentación' },
+    { value: 'other', label: 'Otro' }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +59,7 @@ export function TaskFormModal({
         description: description.trim(),
         priority,
         status,
+        category,
         due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         tags
       });
@@ -58,6 +68,7 @@ export function TaskFormModal({
       setTitle('');
       setDescription('');
       setPriority('medium');
+      setCategory('');
       setDueDate(undefined);
       setTags([]);
     } catch (error) {
@@ -112,6 +123,23 @@ export function TaskFormModal({
                 placeholder="Descripción de la tarea"
                 rows={3}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="category">Categoría</Label>
+              <select
+                id="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Seleccionar categoría</option>
+                {categories.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div className="grid gap-2">
