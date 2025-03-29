@@ -735,13 +735,14 @@ export default function PricingPage() {
 
 API Routes en Next.js
 Si estás usando Next.js, puedes implementar rutas API que actúan como tu backend:
+```
 /api/paypal/
   ├── create-order.ts       # Crea orden de pago (llamada desde frontend)
   ├── capture-payment.ts    # Captura pago confirmado (llamada desde frontend)
   ├── webhooks.ts           # Recibe notificaciones de PayPal
   ├── create-subscription.ts # Crea suscripción recurrente
   └── cancel-subscription.ts # Cancela suscripción
-
+```
 2. Prueba el flujo completo:
    - Regístrate/inicia sesión
    - Navega a `/pricing`
