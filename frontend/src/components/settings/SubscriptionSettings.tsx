@@ -29,7 +29,7 @@ interface Plan {
 }
 
 const features = [
-  'Gestión de tareas, metas y hábitos',
+  'Tareas, metas y hábitos ilimitados',
   'Asistente IA personalizado 24/7',
   'Gestión financiera completa',
   'Integración con Google Calendar',
@@ -216,8 +216,8 @@ export function SubscriptionSettings() {
 
         {/* Toggle Anual/Mensual */}
         <div className="flex items-center justify-center space-x-4 mb-8">
-          <span className={`text-sm ${isAnnual ? 'text-white font-medium' : 'text-gray-400'}`}>
-            Anual
+          <span className={`text-sm ${!isAnnual ? 'text-white font-medium' : 'text-gray-400'}`}>
+            Mensual
           </span>
           <button 
             className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isAnnual ? 'bg-indigo-600' : 'bg-gray-600'}`}
@@ -228,12 +228,14 @@ export function SubscriptionSettings() {
               className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isAnnual ? 'translate-x-5' : 'translate-x-0'}`}
             />
           </button>
-          <span className={`text-sm flex items-center gap-2 ${!isAnnual ? 'text-white font-medium' : 'text-gray-400'}`}>
-            Mensual
+          <div className="flex items-center gap-2">
+            <span className={`text-sm ${isAnnual ? 'text-white font-medium' : 'text-gray-400'}`}>
+              Anual
+            </span>
             <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400">
               Ahorra 33.3%
             </span>
-          </span>
+          </div>
         </div>
 
         {/* Plan */}
