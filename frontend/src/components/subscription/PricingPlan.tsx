@@ -1,101 +1,108 @@
 'use client';
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check } from 'lucide-react';
-import { paypalService } from '@/lib/paypal';
-import { useToast } from '@/components/ui/use-toast';
-import { useRouter } from 'next/navigation';
+import { Check, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
-interface PlanFeature {
+interface Feature {
   name: string;
   included: boolean;
 }
 
-interface PricingPlanProps {
+interface Plan {
+  id: string;
   name: string;
-  price: number;
   description: string;
-  features: PlanFeature[];
-  planId: string;
-  currentTier?: string;
-  isPopular?: boolean;
+  price: number;
+  interval: string;
+  features: Feature[];
+  buttonText: string;
+  popular?: boolean;
+}
+
+interface PricingPlanProps {
+  plan: Plan;
+  isCurrentPlan: boolean;
+  isLoading: boolean;
+  onSelectPlan: (planId: string) => void;
 }
 
 export function PricingPlan({
-  name,
-  price,
-  description,
-  features,
-  planId,
-  currentTier,
-  isPopular = false,
+  plan,
+  isCurrentPlan,
+  isLoading,
+  onSelectPlan,
 }: PricingPlanProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const router = useRouter();
-
-  const handleSubscribe = async () => {
-    try {
-      setIsLoading(true);
-      const { subscriptionId, status, error } = await paypalService.createSubscription(planId);
-
-      if (error || status === 'error') {
-        throw new Error(error || 'Error al procesar la suscripción');
-      }
-
-      // Redirigir a la página de éxito con el ID de suscripción
-      router.push(`/subscription/success?subscriptionId=${subscriptionId}`);
-    } catch (error) {
-      console.error('Error en la suscripción:', error);
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Error al procesar la suscripción',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isCurrentPlan = currentTier?.toLowerCase() === name.toLowerCase();
-
   return (
-    <Card className={`w-full max-w-sm ${isPopular ? 'border-primary shadow-lg' : ''}`}>
-      <CardHeader>
-        {isPopular && (
-          <div className="px-3 py-1 text-sm text-primary-foreground bg-primary rounded-full w-fit mb-4">
-            Más Popular
-          </div>
-        )}
-        <CardTitle className="text-2xl font-bold">{name}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-6">
-          <span className="text-4xl font-bold">${price}</span>
-          <span className="text-muted-foreground">/mes</span>
+    <Card className={`relative flex flex-col justify-between overflow-hidden ${
+      plan.popular 
+        ? 'border-primary shadow-lg shadow-primary/10' 
+        : 'border-border'
+    }`}>
+      {plan.popular && (
+        <div className="absolute top-0 right-0">
+          <Badge className="rounded-none rounded-bl bg-primary text-primary-foreground px-3 py-1">
+            Más popular
+          </Badge>
         </div>
-        <ul className="space-y-3">
-          {features.map((feature, index) => (
-            <li key={index} className="flex items-center">
-              <Check className={`h-5 w-5 mr-2 ${feature.included ? 'text-primary' : 'text-muted-foreground'}`} />
-              <span className={feature.included ? '' : 'text-muted-foreground line-through'}>
-                {feature.name}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-      <CardFooter>
+      )}
+      
+      <div>
+        <CardHeader className="pb-8">
+          <div className="space-y-2">
+            <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
+            <CardDescription className="text-base">
+              {plan.description}
+            </CardDescription>
+          </div>
+          <div className="mt-4 flex items-baseline text-5xl font-extrabold">
+            {plan.price === 0 ? (
+              'Gratis'
+            ) : (
+              <>
+                €{plan.price}
+                <span className="ml-1 text-base font-medium text-muted-foreground">
+                  /{plan.interval}
+                </span>
+              </>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="pb-8">
+          <ul className="space-y-3">
+            {plan.features.map((feature, index) => (
+              <li key={index} className="flex items-center gap-3">
+                {feature.included ? (
+                  <Check className="h-5 w-5 flex-shrink-0 text-primary" />
+                ) : (
+                  <X className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                )}
+                <span className={feature.included ? '' : 'text-muted-foreground'}>
+                  {feature.name}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </div>
+
+      <CardFooter className="pt-8">
         <Button
-          className="w-full"
-          variant={isPopular ? 'default' : 'outline'}
+          className={`w-full ${
+            plan.popular
+              ? 'bg-primary hover:bg-primary/90'
+              : 'bg-secondary hover:bg-secondary/90'
+          }`}
           disabled={isLoading || isCurrentPlan}
-          onClick={handleSubscribe}
+          onClick={() => onSelectPlan(plan.id)}
         >
-          {isLoading ? 'Procesando...' : isCurrentPlan ? 'Plan Actual' : 'Suscribirse'}
+          {isLoading 
+            ? 'Procesando...' 
+            : isCurrentPlan 
+            ? 'Plan Actual' 
+            : plan.buttonText}
         </Button>
       </CardFooter>
     </Card>
