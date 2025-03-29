@@ -1,79 +1,101 @@
 'use client';
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check } from "lucide-react";
-import { SubscriptionPlan } from "@/services/subscription.service";
-import { cn } from "@/lib/utils";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Check } from 'lucide-react';
+import { paypalService } from '@/lib/paypal';
+import { useToast } from '@/components/ui/use-toast';
+import { useRouter } from 'next/navigation';
 
-interface PricingPlanProps {
-  plan: SubscriptionPlan;
-  isCurrentPlan: boolean;
-  onSelectPlan: (planId: string) => void;
-  isLoading?: boolean;
+interface PlanFeature {
+  name: string;
+  included: boolean;
 }
 
-export function PricingPlan({ 
-  plan, 
-  isCurrentPlan, 
-  onSelectPlan, 
-  isLoading 
-}: PricingPlanProps) {
-  // Convertir las características del plan (JSONB) a un array
-  const features = Array.isArray(plan.features) ? plan.features : [];
+interface PricingPlanProps {
+  name: string;
+  price: number;
+  description: string;
+  features: PlanFeature[];
+  planId: string;
+  currentTier?: string;
+  isPopular?: boolean;
+}
 
-  // Determinar la clase para destacar el plan actual o recomendado
-  const isHighlighted = isCurrentPlan || plan.name === 'Pro';
-  
+export function PricingPlan({
+  name,
+  price,
+  description,
+  features,
+  planId,
+  currentTier,
+  isPopular = false,
+}: PricingPlanProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const handleSubscribe = async () => {
+    try {
+      setIsLoading(true);
+      const { subscriptionId, status, error } = await paypalService.createSubscription(planId);
+
+      if (error || status === 'error') {
+        throw new Error(error || 'Error al procesar la suscripción');
+      }
+
+      // Redirigir a la página de éxito con el ID de suscripción
+      router.push(`/subscription/success?subscriptionId=${subscriptionId}`);
+    } catch (error) {
+      console.error('Error en la suscripción:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Error al procesar la suscripción',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isCurrentPlan = currentTier?.toLowerCase() === name.toLowerCase();
+
   return (
-    <Card className={cn(
-      "flex flex-col",
-      isHighlighted && "border-primary shadow-lg"
-    )}>
+    <Card className={`w-full max-w-sm ${isPopular ? 'border-primary shadow-lg' : ''}`}>
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">
-          {plan.name}
-          {isCurrentPlan && (
-            <span className="ml-2 text-xs font-normal text-emerald-600 bg-emerald-100 py-1 px-2 rounded-full">
-              Plan Actual
-            </span>
-          )}
-        </CardTitle>
-        <CardDescription className="text-sm mt-2">
-          {plan.description}
-        </CardDescription>
+        {isPopular && (
+          <div className="px-3 py-1 text-sm text-primary-foreground bg-primary rounded-full w-fit mb-4">
+            Más Popular
+          </div>
+        )}
+        <CardTitle className="text-2xl font-bold">{name}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow">
-        <div className="mb-4">
-          <span className="text-3xl font-bold">
-            {plan.price === 0 ? 'Gratis' : `$${plan.price}`}
-          </span>
-          {plan.price > 0 && (
-            <span className="text-muted-foreground text-sm ml-1">
-              /{plan.interval === 'month' ? 'mes' : 'año'}
-            </span>
-          )}
+      <CardContent>
+        <div className="mb-6">
+          <span className="text-4xl font-bold">${price}</span>
+          <span className="text-muted-foreground">/mes</span>
         </div>
-        
-        <ul className="space-y-2 mt-6">
-          {features.map((feature: any, index: number) => (
-            <li key={index} className="flex items-start">
-              <div className="mr-2 mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20">
-                <Check className="h-3 w-3 text-primary" />
-              </div>
-              <span className="text-sm">{feature.name}</span>
+        <ul className="space-y-3">
+          {features.map((feature, index) => (
+            <li key={index} className="flex items-center">
+              <Check className={`h-5 w-5 mr-2 ${feature.included ? 'text-primary' : 'text-muted-foreground'}`} />
+              <span className={feature.included ? '' : 'text-muted-foreground line-through'}>
+                {feature.name}
+              </span>
             </li>
           ))}
         </ul>
       </CardContent>
       <CardFooter>
         <Button
-          onClick={() => onSelectPlan(plan.id)}
-          variant={isCurrentPlan ? "outline" : isHighlighted ? "default" : "secondary"}
           className="w-full"
-          disabled={isCurrentPlan || isLoading}
+          variant={isPopular ? 'default' : 'outline'}
+          disabled={isLoading || isCurrentPlan}
+          onClick={handleSubscribe}
         >
-          {isCurrentPlan ? 'Plan Actual' : isLoading ? 'Procesando...' : `Seleccionar ${plan.name}`}
+          {isLoading ? 'Procesando...' : isCurrentPlan ? 'Plan Actual' : 'Suscribirse'}
         </Button>
       </CardFooter>
     </Card>

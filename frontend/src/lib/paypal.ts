@@ -2,6 +2,14 @@
  * Servicio para la integración con PayPal
  */
 
+import { createClientComponent } from './supabase';
+
+interface CreateSubscriptionResponse {
+  subscriptionId: string;
+  status: string;
+  error?: string;
+}
+
 // Creamos una orden de PayPal para iniciar el proceso de pago
 export async function createPayPalOrder(
   amount: string,
@@ -56,60 +64,83 @@ export async function capturePayPalPayment(orderId: string): Promise<any> {
 }
 
 // Creamos una suscripción de PayPal
-export async function createPayPalSubscription(
-  planId: string,
-  returnUrl: string,
-  cancelUrl: string
-): Promise<{ id: string; approvalUrl: string }> {
-  try {
-    const response = await fetch('/api/paypal/create-subscription', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        planId,
-        returnUrl,
-        cancelUrl,
-      }),
-    });
+export const paypalService = {
+  async createSubscription(planId: string): Promise<CreateSubscriptionResponse> {
+    try {
+      const response = await fetch('/api/paypal/create-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ planId }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Error al crear la suscripción de PayPal');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al crear la suscripción');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error en createSubscription:', error);
+      return {
+        subscriptionId: '',
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Error desconocido',
+      };
     }
+  },
 
-    return await response.json();
-  } catch (error) {
-    console.error('Error al crear suscripción de PayPal:', error);
-    throw error;
-  }
-}
+  async cancelSubscription(subscriptionId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await fetch('/api/paypal/cancel-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ subscriptionId }),
+      });
 
-// Cancelamos una suscripción de PayPal
-export async function cancelPayPalSubscription(subscriptionId: string): Promise<boolean> {
-  try {
-    const response = await fetch(`/api/paypal/cancel-subscription`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        subscriptionId,
-      }),
-    });
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cancelar la suscripción');
+      }
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Error al cancelar la suscripción de PayPal');
+      return { success: true };
+    } catch (error) {
+      console.error('Error en cancelSubscription:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+      };
     }
+  },
 
-    return (await response.json()).success;
-  } catch (error) {
-    console.error('Error al cancelar suscripción de PayPal:', error);
-    throw error;
-  }
-}
+  async updateUserSubscriptionTier(tier: 'free' | 'pro' | 'premium'): Promise<boolean> {
+    try {
+      const supabase = createClientComponent();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('No hay sesión activa');
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ subscription_tier: tier })
+        .eq('id', session.user.id);
+
+      if (error) throw error;
+
+      return true;
+    } catch (error) {
+      console.error('Error actualizando el tier de suscripción:', error);
+      return false;
+    }
+  },
+};
 
 // Verificar que una suscripción existe y está activa
 export async function verifyPayPalSubscription(subscriptionId: string): Promise<any> {

@@ -36,7 +36,8 @@ import {
   LineChart,
   Cog,
   Star,
-  Compass
+  Compass,
+  Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -367,19 +368,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           "min-h-screen"
         )}
       >
-        {/* Header */}
-        <header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <button
-              onClick={toggleSidebar}
-              className="md:hidden text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-2 mr-2"
-            >
-              <Menu size={20} />
-            </button>
-          </div>
-          {/* Current page title could go here */}
-        </header>
-
         {/* Page Content */}
         <div className="p-6 overflow-y-auto">
           {children}
