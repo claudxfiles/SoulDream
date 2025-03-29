@@ -23,38 +23,31 @@ Sigue las instrucciones en `docs/paypal-setup.md` para:
 1. Crear una cuenta de desarrollador en PayPal
 2. Obtener las credenciales necesarias para el entorno Sandbox
 3. Configurar las variables de entorno en tu proyecto
+## 3. Verificar la Implementación frontend 
+-Interfaces de usuario para selección de planes
+-Formularios de pago
+-Redirección a PayPal cuando sea necesario
+-Visualización del estado de suscripción
 
-## 3. Verificar la Implementación Frontend
+## 3.1 Verificar la Implementación backend 
 
-Asegúrate de que todos los archivos necesarios estén en su lugar:
+-Almacenamiento seguro de claves API de PayPal
+-Creación y gestión de órdenes de pago
+-Verificación de pagos completados
+-Procesamiento de webhooks de PayPal
+-Actualización de la base de datos con estados de suscripción
+-Lógica de negocio para control de acceso
 
-### API Routes
-- `/api/paypal/create-order/route.ts`
-- `/api/paypal/capture-payment/route.ts`
-- `/api/paypal/create-subscription/route.ts`
-- `/api/paypal/cancel-subscription/route.ts`
+## 4. API Routes en Next.js
 
-### Servicios
-- `/lib/paypal.ts`
-- `/services/subscription.service.ts`
-
-### Componentes
-- `/components/subscription/PricingPlan.tsx`
-
-### Páginas
-- `/app/pricing/page.tsx`
-- `/app/subscription/manage/page.tsx`
-- `/app/subscription/success/page.tsx`
-- `/app/subscription/cancel/page.tsx`
-
-## 4. Probar el Sistema
-
-Para probar que todo funciona correctamente:
-
-1. Inicia la aplicación en modo desarrollo:
-   ```bash
-   npm run dev
-   ```
+API Routes en Next.js
+Si estás usando Next.js, puedes implementar rutas API que actúan como tu backend:
+/api/paypal/
+  ├── create-order.ts       # Crea orden de pago (llamada desde frontend)
+  ├── capture-payment.ts    # Captura pago confirmado (llamada desde frontend)
+  ├── webhooks.ts           # Recibe notificaciones de PayPal
+  ├── create-subscription.ts # Crea suscripción recurrente
+  └── cancel-subscription.ts # Cancela suscripción
 
 2. Prueba el flujo completo:
    - Regístrate/inicia sesión
@@ -71,143 +64,115 @@ Para probar que todo funciona correctamente:
    - Confirma la cancelación
    - Verifica que el estado cambie a "Cancelada"
 
-## 5. Integración con las Funcionalidades de la Aplicación
+## 5. Implementación recomendada
 
-Una vez que el sistema de suscripciones está funcionando, puedes integrarlo con las funcionalidades de tu aplicación:
+1. Seguridad de credenciales:
 
-### Hook de Verificación de Suscripción
+  -Almacena las claves secretas de PayPal solo en variables de entorno del servidor
+  -En el frontend usa solo la clave pública (Client ID)
+2. Flujo de pago seguro:
 
-Crea un hook personalizado para verificar el nivel de suscripción de un usuario:
+  -Frontend solicita al backend crear una orden
+  -Backend crea la orden con PayPal y devuelve un ID
+  -Frontend usa ese ID para completar el pago con PayPal
+  -PayPal redirige de vuelta a tu app
+  -Frontend solicita al backend verificar y capturar el pago
+  -Backend verifica y actualiza la base de datos
+3. Gestión de webhooks:
 
+  -Configura endpoints en tu backend para recibir notificaciones de PayPal
+  -Procesa eventos como renovaciones, pagos fallidos, cancelaciones
+  -Actualiza la base de datos y estados de usuario según corresponda
+
+## Ejemplo de estructura correcta
+Backend (API Routes)
 ```tsx
-// hooks/useSubscription.ts
-import { useEffect, useState } from 'react';
-import { createClientComponent } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+// api/paypal/create-subscription.ts
+import { NextApiRequest, NextApiResponse } from 'next';
+import { createClient } from '@supabase/supabase-js';
+import { paypalClient } from '@/lib/paypal-server'; // Librería segura solo en servidor
 
-export function useSubscription(requiredTier?: 'pro' | 'premium') {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
-  const [userTier, setUserTier] = useState<string | null>(null);
-  const router = useRouter();
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método no permitido' });
+  }
 
-  useEffect(() => {
-    const checkSubscription = async () => {
-      setIsLoading(true);
-      
-      const supabase = createClientComponent();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        setHasAccess(false);
-        setIsLoading(false);
-        return;
-      }
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('subscription_tier')
-        .eq('id', session.user.id)
-        .single();
-      
-      if (error || !data) {
-        setHasAccess(false);
-        setIsLoading(false);
-        return;
-      }
-      
-      const tier = data.subscription_tier?.toLowerCase() || 'free';
-      setUserTier(tier);
-      
-      if (!requiredTier) {
-        // Si no se requiere un nivel específico, cualquier usuario tiene acceso
-        setHasAccess(true);
-      } else if (requiredTier === 'pro') {
-        // Para funcionalidades Pro, los usuarios Pro y Premium tienen acceso
-        setHasAccess(tier === 'pro' || tier === 'premium');
-      } else if (requiredTier === 'premium') {
-        // Para funcionalidades Premium, solo los usuarios Premium tienen acceso
-        setHasAccess(tier === 'premium');
-      }
-      
-      setIsLoading(false);
-    };
+  try {
+    const { planId, userId } = req.body;
     
-    checkSubscription();
-  }, [requiredTier]);
-
-  return { isLoading, hasAccess, userTier };
+    // Verificar autenticación
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_KEY! // Clave de servicio solo disponible en el servidor
+    );
+    
+    // Crear suscripción en PayPal
+    const subscription = await paypalClient.createSubscription({
+      plan_id: planId,
+      // otros parámetros necesarios
+    });
+    
+    // Guardar datos en la base de datos
+    await supabase
+      .from('subscriptions')
+      .insert({
+        user_id: userId,
+        paypal_subscription_id: subscription.id,
+        status: subscription.status,
+        plan_id: planId,
+      });
+    
+    return res.status(200).json({ 
+      subscriptionId: subscription.id,
+      approvalUrl: subscription.links.find(link => link.rel === 'approve').href
+    });
+  } catch (error) {
+    console.error('Error al crear suscripción:', error);
+    return res.status(500).json({ error: 'Error al procesar la suscripción' });
+  }
 }
 ```
-
-### Componente de Restricción de Acceso
-
-Crea un componente para restringir el acceso a funcionalidades según el nivel de suscripción:
+## Frontend
 
 ```tsx
-// components/subscription/SubscriptionGate.tsx
-import { useSubscription } from '@/hooks/useSubscription';
-import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+// pages/pricing.tsx
+import { useState } from 'react';
+import { useRouter } from 'next/router';
+import { useUser } from '@/hooks/useUser';
 
-interface SubscriptionGateProps {
-  requiredTier: 'pro' | 'premium';
-  children: React.ReactNode;
-}
-
-export function SubscriptionGate({ requiredTier, children }: SubscriptionGateProps) {
-  const { isLoading, hasAccess, userTier } = useSubscription(requiredTier);
+export default function PricingPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useUser();
   const router = useRouter();
   
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Verificando suscripción...</span>
-      </div>
-    );
-  }
+  const handleSubscribe = async (planId: string) => {
+    setIsLoading(true);
+    
+    try {
+      // Llamar a nuestra API, no directamente a PayPal
+      const response = await fetch('/api/paypal/create-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId, userId: user.id })
+      });
+      
+      const data = await response.json();
+      
+      if (data.approvalUrl) {
+        // Redirigir al usuario a PayPal para confirmar
+        window.location.href = data.approvalUrl;
+      }
+    } catch (error) {
+      console.error('Error al iniciar suscripción:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
-  if (!hasAccess) {
-    return (
-      <div className="rounded-lg border p-8 shadow-sm text-center">
-        <h3 className="text-xl font-bold mb-2">Actualiza tu plan</h3>
-        <p className="text-muted-foreground mb-6">
-          Esta funcionalidad requiere un plan {requiredTier === 'pro' ? 'Pro o Premium' : 'Premium'}.
-          {userTier && userTier !== 'free' ? ' Actualiza tu plan para acceder.' : ' Suscríbete para acceder.'}
-        </p>
-        <Button onClick={() => router.push('/pricing')}>
-          Ver Planes
-        </Button>
-      </div>
-    );
-  }
-  
-  return <>{children}</>;
+  // Resto del componente...
 }
 ```
 
-### Uso en Componentes que Requieren Suscripción
-
-Para proteger las funcionalidades premium:
-
-```tsx
-// components/finance/AdvancedAnalytics.tsx
-import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
-
-export function AdvancedAnalytics() {
-  return (
-    <SubscriptionGate requiredTier="pro">
-      {/* Contenido que solo está disponible para suscriptores Pro o Premium */}
-      <div>
-        <h2>Análisis Financiero Avanzado</h2>
-        {/* ... */}
-      </div>
-    </SubscriptionGate>
-  );
-}
-```
 
 ## 6. Consideraciones para Producción
 
@@ -235,3 +200,12 @@ Si encuentras algún problema:
 4. **Redirecciones fallidas**: Confirma las URLs de retorno configuradas
 
 Para soporte más detallado, consulta la documentación oficial de PayPal y Supabase. 
+
+## Conclusión
+Es crucial implementar un sistema de suscripciones con PayPal utilizando un enfoque cliente-servidor adecuado:
+
+  1. El frontend debe ser responsable solo de la interfaz de usuario y la interacción del usuario
+  2. El backend debe gestionar todas las operaciones sensibles y comunicaciones con PayPal
+  3. Las credenciales secretas deben estar solo en el servidor
+  4. Los webhooks deben procesarse en el backend para mantener sincronizados los estados de suscripción
+Siguiendo estas prácticas, tendrás un sistema de suscripciones seguro, robusto y mantenible que protegerá tanto a tus usuarios como a tu negocio.
