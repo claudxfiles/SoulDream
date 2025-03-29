@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase';
 import { User, Mail, Phone, MapPin, Calendar, Save, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 
 interface Profile {
@@ -21,20 +20,8 @@ interface Profile {
   subscription_tier: string | null;
 }
 
-// Crear un cliente de React Query para este componente
-const queryClient = new QueryClient();
-
 // Componente principal envuelto en QueryClientProvider
 export default function UserProfile() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <UserProfileContent />
-    </QueryClientProvider>
-  );
-}
-
-// Componente interno con la lógica del perfil
-function UserProfileContent() {
   const { user } = useAuthContext();
   const router = useRouter();
   const [loading, setLoading] = useState(true);

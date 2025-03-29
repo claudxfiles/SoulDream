@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
-import { createClientComponent } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 interface UserProfile {
   id: string;
@@ -54,7 +54,6 @@ export const useUserStore = create<UserState>()((set, get) => ({
     
     try {
       set({ loading: true, error: null });
-      const supabase = createClientComponent();
       
       const { data, error } = await supabase
         .from('profiles')
@@ -78,7 +77,6 @@ export const useUserStore = create<UserState>()((set, get) => ({
   refreshUser: async () => {
     try {
       set({ loading: true, error: null });
-      const supabase = createClientComponent();
       
       const { data: { session }, error } = await supabase.auth.getSession();
       

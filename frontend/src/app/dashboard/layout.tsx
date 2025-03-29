@@ -3,6 +3,7 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { TasksProvider } from '@/providers/TasksProvider';
+import { AuthProvider } from '@/providers/AuthProvider';
 
 export default function DashboardLayoutWrapper({
   children,
@@ -10,8 +11,10 @@ export default function DashboardLayoutWrapper({
   children: React.ReactNode;
 }) {
   return (
-    <TasksProvider>
-      <DashboardLayout>{children}</DashboardLayout>
-    </TasksProvider>
+    <AuthProvider>
+      <TasksProvider>
+        <DashboardLayout>{children}</DashboardLayout>
+      </TasksProvider>
+    </AuthProvider>
   );
 } 

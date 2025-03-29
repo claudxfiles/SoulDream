@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { PricingPlan } from '@/components/subscription/PricingPlan';
 import { subscriptionService, SubscriptionPlan, Subscription } from '@/services/subscription.service';
 import { useRouter } from 'next/navigation';
-import { createClientComponent } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { AlertCircle, Check, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -24,7 +24,6 @@ export default function PricingPage() {
         setIsLoading(true);
         
         // Verificar autenticación
-        const supabase = createClientComponent();
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {

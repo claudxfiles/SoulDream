@@ -1,11 +1,11 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@/types/supabase';
 
-// Crear una única instancia del cliente para componentes
+// Create a single client instance for the entire application
 export const supabase = createClientComponentClient<Database>();
 
-// Exportar la instancia del cliente para uso conveniente
-export const supabaseClient = supabase;
+// Export the client creation function for cases where a new instance is needed
+export const createClientComponent = createClientComponentClient<Database>;
 
 // Tipos para las tablas de Supabase
 export type Tables = {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClientComponent } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 // Configuración de PayPal
 const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
@@ -119,7 +119,6 @@ async function createPayPalPlan(planId: string, plan: any, productId: string) {
   }
   
   // Actualizar la base de datos con el ID del plan de PayPal
-  const supabase = createClientComponent();
   await supabase
     .from('subscription_plans')
     .update({ 
@@ -166,7 +165,6 @@ async function createSubscription(paypalPlanId: string, returnUrl: string, cance
 export async function POST(request: Request) {
   try {
     // Verificar autenticación
-    const supabase = createClientComponent();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session?.user) {

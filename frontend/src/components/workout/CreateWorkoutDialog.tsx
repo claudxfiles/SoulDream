@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { CalendarIcon, PlusIcon, Trash2Icon, DumbbellIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase, supabaseClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import WorkoutMuscleSelector from "./WorkoutMuscleSelector";
 
 interface CreateWorkoutDialogProps {
@@ -161,8 +161,8 @@ export default function CreateWorkoutDialog({
         muscle_groups: muscleGroups.length > 0 ? muscleGroups : null,
       };
 
-      // Usar supabaseClient en lugar de supabase para asegurar que tenemos la sesión
-      const { data: createdWorkout, error: workoutError } = await supabaseClient
+      // Usar supabase en lugar de supabaseClient
+      const { data: createdWorkout, error: workoutError } = await supabase
         .from('workouts')
         .insert(workoutData)
         .select()
@@ -186,14 +186,14 @@ export default function CreateWorkoutDialog({
         order_index: index
       }));
 
-      // Insertar los ejercicios - también usando supabaseClient
-      const { error: exercisesError } = await supabaseClient
+      // Insertar los ejercicios - también usando supabase
+      const { error: exercisesError } = await supabase
         .from('workout_exercises')
         .insert(exercisesWithWorkoutId);
 
       if (exercisesError) {
         // Eliminar el workout si hay error al insertar ejercicios
-        await supabaseClient.from('workouts').delete().eq('id', createdWorkout.id);
+        await supabase.from('workouts').delete().eq('id', createdWorkout.id);
         throw exercisesError;
       }
 

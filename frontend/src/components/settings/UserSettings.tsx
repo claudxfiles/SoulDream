@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Check, Loader2 } from 'lucide-react';
-import { createClientComponent } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

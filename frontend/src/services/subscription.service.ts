@@ -1,5 +1,5 @@
-import { createClientComponent } from '@/lib/supabase';
-import type { Database } from '@/types/supabase';
+import { supabase } from '@/lib/supabase';
+import type { Database } from '@/types/database.types';
 import { createPayPalSubscription, cancelPayPalSubscription } from '@/lib/paypal';
 
 export type SubscriptionPlan = Database['public']['Tables']['subscription_plans']['Row'];
@@ -25,8 +25,6 @@ export class SubscriptionService {
    * Obtiene todos los planes de suscripción disponibles
    */
   async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
-    const supabase = createClientComponent();
-    
     const { data, error } = await supabase
       .from('subscription_plans')
       .select('*')
@@ -45,8 +43,6 @@ export class SubscriptionService {
    * Obtiene la suscripción actual del usuario
    */
   async getCurrentSubscription(): Promise<Subscription | null> {
-    const supabase = createClientComponent();
-    
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
       return null;
@@ -71,15 +67,11 @@ export class SubscriptionService {
    * Inicia el proceso de suscripción con PayPal
    */
   async startSubscription(planId: string): Promise<{ subscriptionId: string; approvalUrl: string }> {
-    const supabase = createClientComponent();
-    
-    // Verificar autenticación
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
       throw new Error('Debes iniciar sesión para suscribirte');
     }
     
-    // Obtener detalles del plan
     const { data: plan, error: planError } = await supabase
       .from('subscription_plans')
       .select('*')
@@ -91,11 +83,9 @@ export class SubscriptionService {
       throw new Error('No se encontró el plan seleccionado');
     }
     
-    // URLs de retorno
     const returnUrl = `${window.location.origin}/subscription/success`;
     const cancelUrl = `${window.location.origin}/subscription/cancel`;
     
-    // Crear suscripción en PayPal
     try {
       const paypalSubscription = await createPayPalSubscription(
         planId,
@@ -103,7 +93,6 @@ export class SubscriptionService {
         cancelUrl
       );
       
-      // Registrar suscripción pendiente en la base de datos
       const { data: subscriptionData, error: subscriptionError } = await supabase
         .from('subscriptions')
         .insert({
@@ -135,15 +124,11 @@ export class SubscriptionService {
    * Actualiza una suscripción después de que el usuario la aprueba
    */
   async confirmSubscription(subscriptionId: string): Promise<Subscription> {
-    const supabase = createClientComponent();
-    
-    // Verificar autenticación
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
       throw new Error('Debes iniciar sesión para confirmar tu suscripción');
     }
     
-    // Actualizar estado de la suscripción
     const now = new Date();
     const nextMonth = new Date();
     nextMonth.setMonth(now.getMonth() + 1);
@@ -166,7 +151,6 @@ export class SubscriptionService {
       throw new Error('No se pudo confirmar la suscripción');
     }
     
-    // Actualizar el nivel de suscripción en el perfil del usuario
     const { data: plan } = await supabase
       .from('subscription_plans')
       .select('name')
@@ -189,15 +173,11 @@ export class SubscriptionService {
    * Cancela una suscripción activa
    */
   async cancelSubscription(): Promise<boolean> {
-    const supabase = createClientComponent();
-    
-    // Verificar autenticación
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
       throw new Error('Debes iniciar sesión para cancelar tu suscripción');
     }
     
-    // Obtener suscripción actual
     const { data: subscription, error: subscriptionError } = await supabase
       .from('subscriptions')
       .select('*')
@@ -210,7 +190,6 @@ export class SubscriptionService {
       throw new Error('No se encontró una suscripción activa');
     }
     
-    // Cancelar en PayPal
     if (subscription.subscription_id) {
       try {
         await cancelPayPalSubscription(subscription.subscription_id);
@@ -220,7 +199,6 @@ export class SubscriptionService {
       }
     }
     
-    // Actualizar en la base de datos
     const { error: updateError } = await supabase
       .from('subscriptions')
       .update({
@@ -235,7 +213,6 @@ export class SubscriptionService {
       throw new Error('Error al actualizar el estado de la suscripción');
     }
     
-    // Actualizar el perfil a free
     await supabase
       .from('profiles')
       .update({
@@ -250,8 +227,6 @@ export class SubscriptionService {
    * Obtiene el historial de pagos del usuario
    */
   async getPaymentHistory(): Promise<PaymentHistory[]> {
-    const supabase = createClientComponent();
-    
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
       return [];

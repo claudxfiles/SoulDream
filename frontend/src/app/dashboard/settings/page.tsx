@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserSettings } from '@/components/settings/UserSettings';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
-import { AuthProvider } from '@/providers/AuthProvider';
 import { Bell, PaintBucket, User, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -44,9 +43,7 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <AuthProvider>
-                    <UserSettings />
-                  </AuthProvider>
+                  <UserSettings />
                 </CardContent>
               </Card>
               
@@ -91,9 +88,7 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <AuthProvider>
-                    <NotificationSettings />
-                  </AuthProvider>
+                  <NotificationSettings />
                 </CardContent>
               </Card>
             </TabsContent>

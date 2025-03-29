@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClientComponent } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 // Configuración de PayPal
 const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
@@ -56,7 +56,6 @@ async function cancelPayPalSubscription(subscriptionId: string, reason: string =
 export async function POST(request: Request) {
   try {
     // Verificar autenticación
-    const supabase = createClientComponent();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session?.user) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClientComponent } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 // Configuración de PayPal
 const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
@@ -71,7 +71,6 @@ async function verifyWebhookSignature(req: Request, webhookId: string) {
 
 // Procesar evento de suscripción creada
 async function handleSubscriptionCreated(event: any) {
-  const supabase = createClientComponent();
   const subscription = event.resource;
   
   if (!subscription || !subscription.id) {
@@ -144,7 +143,6 @@ async function handleSubscriptionCreated(event: any) {
 
 // Procesar evento de suscripción cancelada
 async function handleSubscriptionCancelled(event: any) {
-  const supabase = createClientComponent();
   const subscription = event.resource;
   
   if (!subscription || !subscription.id) {
@@ -191,7 +189,6 @@ async function handleSubscriptionCancelled(event: any) {
 
 // Procesar evento de pago completado
 async function handlePaymentCompleted(event: any) {
-  const supabase = createClientComponent();
   const payment = event.resource;
   
   if (!payment || !payment.id) {

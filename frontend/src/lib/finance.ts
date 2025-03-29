@@ -1,4 +1,4 @@
-import { supabaseClient } from './supabase';
+import { supabase } from './supabase';
 import { toast } from '@/components/ui/use-toast';
 
 // Tipos
@@ -123,11 +123,11 @@ export const createTransaction = async (transaction: Transaction): Promise<Trans
   try {
     // Asegurar que tiene un user_id, si no está usando RLS
     if (!transaction.user_id) {
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) transaction.user_id = user.id;
     }
     
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('transactions')
       .insert(transaction)
       .select()
@@ -165,7 +165,7 @@ export const getTransactions = async (
   }
 ): Promise<Transaction[]> => {
   try {
-    let query = supabaseClient
+    let query = supabase
       .from('transactions')
       .select('*')
       .order('date', { ascending: false });
@@ -207,7 +207,7 @@ export const getTransactions = async (
 
 export const updateTransaction = async (id: string, updates: Partial<Transaction>): Promise<boolean> => {
   try {
-    const { error } = await supabaseClient
+    const { error } = await supabase
       .from('transactions')
       .update(updates)
       .eq('id', id);
@@ -236,7 +236,7 @@ export const updateTransaction = async (id: string, updates: Partial<Transaction
 
 export const deleteTransaction = async (id: string): Promise<boolean> => {
   try {
-    const { error } = await supabaseClient
+    const { error } = await supabase
       .from('transactions')
       .delete()
       .eq('id', id);
@@ -267,11 +267,11 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 export const createFinancialGoal = async (goal: FinancialGoal): Promise<FinancialGoal | null> => {
   try {
     if (!goal.user_id) {
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) goal.user_id = user.id;
     }
     
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('financial_goals')
       .insert(goal)
       .select()
@@ -301,7 +301,7 @@ export const createFinancialGoal = async (goal: FinancialGoal): Promise<Financia
 
 export const getFinancialGoals = async (): Promise<FinancialGoal[]> => {
   try {
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('financial_goals')
       .select('*')
       .order('created_at', { ascending: false });
@@ -320,7 +320,7 @@ export const getFinancialGoals = async (): Promise<FinancialGoal[]> => {
 
 export const updateFinancialGoal = async (id: string, updates: Partial<FinancialGoal>): Promise<boolean> => {
   try {
-    const { error } = await supabaseClient
+    const { error } = await supabase
       .from('financial_goals')
       .update(updates)
       .eq('id', id);
@@ -349,7 +349,7 @@ export const updateFinancialGoal = async (id: string, updates: Partial<Financial
 
 export const deleteFinancialGoal = async (id: string): Promise<boolean> => {
   try {
-    const { error } = await supabaseClient
+    const { error } = await supabase
       .from('financial_goals')
       .delete()
       .eq('id', id);
@@ -381,11 +381,11 @@ export const createSubscription = async (subscription: Subscription): Promise<Su
   try {
     // Asegurar que tiene un user_id, si no está usando RLS
     if (!subscription.user_id) {
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) subscription.user_id = user.id;
     }
     
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('subscriptions_tracker')
       .insert(subscription)
       .select()
@@ -415,7 +415,7 @@ export const createSubscription = async (subscription: Subscription): Promise<Su
 
 export const getSubscriptions = async (): Promise<Subscription[]> => {
   try {
-    const { data, error } = await supabaseClient
+    const { data, error } = await supabase
       .from('subscriptions_tracker')
       .select('*')
       .order('next_billing_date', { ascending: true });
@@ -434,7 +434,7 @@ export const getSubscriptions = async (): Promise<Subscription[]> => {
 
 export const updateSubscription = async (id: string, updates: Partial<Subscription>): Promise<boolean> => {
   try {
-    const { error } = await supabaseClient
+    const { error } = await supabase
       .from('subscriptions_tracker')
       .update(updates)
       .eq('id', id);
@@ -463,7 +463,7 @@ export const updateSubscription = async (id: string, updates: Partial<Subscripti
 
 export const deleteSubscription = async (id: string): Promise<boolean> => {
   try {
-    const { error } = await supabaseClient
+    const { error } = await supabase
       .from('subscriptions_tracker')
       .delete()
       .eq('id', id);
@@ -506,7 +506,7 @@ export const getFinancialSummary = async (
     }
     
     // Obtener las transacciones del período
-    const { data: transactions, error: transactionsError } = await supabaseClient
+    const { data: transactions, error: transactionsError } = await supabase
       .from('transactions')
       .select('*')
       .gte('date', startDate.toISOString())
@@ -518,7 +518,7 @@ export const getFinancialSummary = async (
     }
     
     // Obtener las suscripciones
-    const { data: subscriptions, error: subscriptionsError } = await supabaseClient
+    const { data: subscriptions, error: subscriptionsError } = await supabase
       .from('subscriptions_tracker')
       .select('*');
     
@@ -528,7 +528,7 @@ export const getFinancialSummary = async (
     }
     
     // Obtener las metas financieras
-    const { data: goals, error: goalsError } = await supabaseClient
+    const { data: goals, error: goalsError } = await supabase
       .from('financial_goals')
       .select('*');
     

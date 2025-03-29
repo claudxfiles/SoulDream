@@ -4,7 +4,6 @@ import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SubscriptionSettings } from '@/components/settings/SubscriptionSettings';
-import { AuthProvider } from '@/providers/AuthProvider';
 import { CreditCard, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -34,9 +33,7 @@ export default function SubscriptionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <AuthProvider>
-                <SubscriptionSettings />
-              </AuthProvider>
+              <SubscriptionSettings />
             </CardContent>
           </Card>
         </div>

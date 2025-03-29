@@ -3,8 +3,9 @@
 import { useEffect, useCallback, useMemo } from 'react';
 import { useUserStore } from './useUserStore';
 import { useRouter } from 'next/navigation';
-import { createClientComponent } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useMutation, useQuery, useQueryClient, QueryClient } from '@tanstack/react-query';
+import type { Database } from '@/types/database.types';
 
 export const CACHE_TIME = 1000 * 60 * 5; // 5 minutos
 
@@ -37,7 +38,7 @@ export function useUser() {
     console.warn('QueryClient no disponible. Usando fallback sin caching.');
   }
   
-  const supabase = useMemo(() => createClientComponent(), []);
+  const supabase = useMemo(() => createClientComponentClient<Database>(), []);
   
   // Acceso al state global
   const {
