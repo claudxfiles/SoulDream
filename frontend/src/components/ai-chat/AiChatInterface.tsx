@@ -437,7 +437,7 @@ Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que estable
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col rounded-md border bg-background shadow">
+    <div className="flex flex-col h-full rounded-md border bg-background shadow">
       <div className="flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
@@ -476,7 +476,7 @@ Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que estable
         </div>
       </div>
       
-      <div className="flex flex-col h-[calc(100vh-12rem)]">
+      <div className="flex-1 flex flex-col min-h-0">
         <Card className="flex-1 flex flex-col p-4 overflow-hidden">
           {showPlanGenerator ? (
             <div className="flex-1 overflow-y-auto p-2">
