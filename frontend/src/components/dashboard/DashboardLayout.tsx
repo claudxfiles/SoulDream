@@ -143,11 +143,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="h-screen flex">
+    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
       <aside 
         className={cn(
-          "fixed top-0 left-0 z-40 h-screen transition-all duration-300",
+          "fixed top-0 left-0 z-40 h-screen transition-transform duration-300 ease-in-out",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
           sidebarCollapsed ? "w-16" : "w-64",
           "md:translate-x-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700",
@@ -359,49 +359,40 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className={cn(
-        "flex flex-col flex-1",
-        sidebarCollapsed ? "md:ml-16" : "md:ml-64"
-      )}>
+      {/* Main Content */}
+      <main 
+        className={cn(
+          "flex-1 transition-all duration-300 ease-in-out",
+          sidebarCollapsed ? "md:ml-16" : "md:ml-64",
+          "min-h-screen"
+        )}
+      >
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="px-4 py-3 flex justify-between items-center">
-            <div className="flex items-center">
-              <button 
-                onClick={toggleSidebar}
-                className="md:hidden text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-2 mr-2"
-                title="Abrir menú"
-              >
-                <Menu size={20} />
-              </button>
-              {/* Current page title could go here */}
-            </div>
-            
-            <div className="flex items-center">
-              {user && (
-                <div className="flex items-center space-x-3">
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden md:block">
-                    {user.email}
-                  </div>
-                  <Link href="/dashboard/profile">
-                    <div className="relative w-8 h-8 overflow-hidden bg-gray-100 rounded-full dark:bg-gray-600 cursor-pointer hover:ring-2 hover:ring-indigo-500" title="Mi perfil">
-                      <svg className="absolute w-10 h-10 text-gray-400 -left-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
-                      </svg>
-                    </div>
-                  </Link>
-                </div>
-              )}
-            </div>
+        <header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <button
+              onClick={toggleSidebar}
+              className="md:hidden text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-2 mr-2"
+            >
+              <Menu size={20} />
+            </button>
           </div>
+          {/* Current page title could go here */}
         </header>
-        
-        {/* Content */}
-        <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
+
+        {/* Page Content */}
+        <div className="p-6 overflow-y-auto">
           {children}
-        </main>
-      </div>
+        </div>
+      </main>
+
+      {/* Overlay for mobile sidebar */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
     </div>
   );
 } 
