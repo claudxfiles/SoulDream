@@ -1,7 +1,21 @@
 # Guía de Implementación del Sistema de Suscripciones
 
 Esta guía te ayudará a implementar el sistema completo de suscripciones y pagos para SoulDream.
-
+```
+souldream/
+├── frontend/  <- Aquí van los componentes de UI y páginas
+│   └── src/
+│       ├── app/
+│       ├── components/
+│       └── lib/
+└── backend/   <- Aquí va toda la lógica de PayPal y API
+    └── app/
+        ├── api/
+        │   └── v1/
+        ├── core/
+        ├── services/
+        └── utils/
+```
 ## 1. Configuración de la Base de Datos
 
 Primero, necesitas configurar las tablas en Supabase:
