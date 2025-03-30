@@ -1,106 +1,60 @@
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createClientComponent } from '@/lib/supabase';
-
-const PAYPAL_API_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api-m.paypal.com'
-  : 'https://api-m.sandbox.paypal.com';
-
-async function getAccessToken() {
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error('PayPal credentials not configured');
-  }
-
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const response = await fetch(`${PAYPAL_API_URL}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-  });
-
-  const data = await response.json();
-  return data.access_token;
-}
+import { paypalClient } from '@/lib/paypal-client';
 
 export async function POST(request: Request) {
   try {
-    const { subscriptionId } = await request.json();
+    const { subscriptionId, reason } = await request.json();
 
-    // Verificar autenticación
-    const supabase = createClientComponent();
+    if (!subscriptionId) {
+      return new NextResponse('Missing subscription ID', { status: 400 });
+    }
+
+    const supabase = createRouteHandlerClient({ cookies });
+
+    // Get the current user's session
     const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
+    if (!session) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    // Obtener token de acceso de PayPal
-    const accessToken = await getAccessToken();
+    // Get the subscription from our database
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from('subscriptions')
+      .select('id, paypal_subscription_id')
+      .eq('user_id', session.user.id)
+      .eq('paypal_subscription_id', subscriptionId)
+      .single();
 
-    // Cancelar suscripción en PayPal
-    const response = await fetch(`${PAYPAL_API_URL}/v1/billing/subscriptions/${subscriptionId}/cancel`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        reason: 'Cancelled by user',
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('Error de PayPal:', error);
-      return NextResponse.json(
-        { error: 'Error al cancelar la suscripción en PayPal' },
-        { status: response.status }
-      );
+    if (subscriptionError || !subscription) {
+      return new NextResponse('Subscription not found', { status: 404 });
     }
 
-    // Actualizar estado en la base de datos
-    const { error: updateError } = await supabase
+    // Cancel the subscription in PayPal
+    await paypalClient.cancelSubscription(
+      subscriptionId,
+      reason || 'Cancelled by user'
+    );
+
+    // Update the subscription status in our database
+    await supabase
       .from('subscriptions')
       .update({
         status: 'cancelled',
         cancel_at_period_end: true,
+        updated_at: new Date().toISOString()
       })
-      .eq('paypal_subscription_id', subscriptionId)
-      .eq('user_id', session.user.id);
+      .eq('id', subscription.id);
 
-    if (updateError) {
-      console.error('Error actualizando suscripción:', updateError);
-      return NextResponse.json(
-        { error: 'Error al actualizar la suscripción en la base de datos' },
-        { status: 500 }
-      );
-    }
-
-    // Actualizar el perfil del usuario a 'free' al final del período
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ subscription_tier: 'free' })
-      .eq('id', session.user.id);
-
-    if (profileError) {
-      console.error('Error actualizando perfil:', profileError);
-    }
-
-    return NextResponse.json({ success: true });
-
+    return new NextResponse(JSON.stringify({ status: 'success' }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   } catch (error) {
-    console.error('Error en cancel-subscription:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    console.error('Error cancelling subscription:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 } 

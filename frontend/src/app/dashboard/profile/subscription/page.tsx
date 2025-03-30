@@ -1,42 +1,39 @@
 'use client';
 
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { SubscriptionSettings } from '@/components/settings/SubscriptionSettings';
-import { AuthProvider } from '@/providers/AuthProvider';
-import { CreditCard, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { PricingCard } from "@/components/subscription/PricingCard";
 
-export default function ProfileSubscriptionPage() {
+export default function SubscriptionPage() {
+  const proPlan = {
+    name: "Pro",
+    price: "14.99",
+    description: "Desbloquea todo el potencial de SoulDream con funciones ilimitadas y prueba gratuita de 7 días",
+    features: [
+      "Tareas, metas y hábitos ilimitados",
+      "Asistente IA personalizado 24/7",
+      "Gestión financiera completa",
+      "Integración con Google Calendar",
+      "Analítica avanzada y reportes",
+      "Plan de activos financieros",
+      "Workout personalizado con IA",
+      "Soporte prioritario"
+    ],
+    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID || 'P-5ML4271244454362WXNWU5NQ'
+  };
+
   return (
-    <div className="py-6">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard/profile">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Plan de suscripción</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">Plan de suscripción</h1>
+        <div className="flex justify-center">
+          <PricingCard
+            popular={true}
+            name={proPlan.name}
+            price={proPlan.price}
+            description={proPlan.description}
+            features={proPlan.features}
+            planId={proPlan.planId}
+          />
         </div>
-        
-        <Card>
-          <CardHeader className="border-b">
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-primary" />
-              <CardTitle>Gestionar Plan</CardTitle>
-            </div>
-            <CardDescription>
-              Revisa y gestiona tu plan de suscripción actual
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <AuthProvider>
-              <SubscriptionSettings />
-            </AuthProvider>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

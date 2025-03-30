@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createClientComponent } from '@/lib/supabase';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
-const PAYPAL_API_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api-m.paypal.com'
-  : 'https://api-m.sandbox.paypal.com';
+const PAYPAL_API = 'https://api-m.sandbox.paypal.com';
+const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
 
 async function getAccessToken() {
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error('PayPal credentials not configured');
-  }
-
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const response = await fetch(`${PAYPAL_API_URL}/v1/oauth2/token`, {
+  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
+  const response = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
@@ -27,39 +21,39 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { planId } = await request.json();
-
+    const { planId } = await req.json();
+    
     // Verificar autenticación
-    const supabase = createClientComponent();
+    const supabase = createRouteHandlerClient({ cookies });
     const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session?.user) {
+    
+    if (!session) {
       return NextResponse.json(
-        { error: 'No autorizado' },
+        { error: 'Usuario no autenticado' },
         { status: 401 }
       );
     }
 
-    // Obtener token de acceso de PayPal
-    const accessToken = await getAccessToken();
-
     // Crear suscripción en PayPal
-    const response = await fetch(`${PAYPAL_API_URL}/v1/billing/subscriptions`, {
+    const accessToken = await getAccessToken();
+    
+    const response = await fetch(`${PAYPAL_API}/v1/billing/subscriptions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'Prefer': 'return=representation',
+        'PayPal-Request-Id': `${session.user.id}-${Date.now()}`,
       },
       body: JSON.stringify({
         plan_id: planId,
         subscriber: {
           name: {
-            given_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '',
+            given_name: session.user.email?.split('@')[0] || 'Usuario',
+            surname: 'SoulDream'
           },
-          email_address: session.user.email,
+          email_address: session.user.email
         },
         application_context: {
           brand_name: 'SoulDream',
@@ -68,7 +62,7 @@ export async function POST(request: Request) {
           user_action: 'SUBSCRIBE_NOW',
           payment_method: {
             payer_selected: 'PAYPAL',
-            payee_preferred: 'IMMEDIATE_PAYMENT_REQUIRED',
+            payee_preferred: 'IMMEDIATE_PAYMENT_REQUIRED'
           },
           return_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription/success`,
           cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription/cancel`,
@@ -76,61 +70,35 @@ export async function POST(request: Request) {
       }),
     });
 
-    const subscriptionData = await response.json();
-
-    if (!response.ok) {
-      console.error('Error de PayPal:', subscriptionData);
-      return NextResponse.json(
-        { error: 'Error al crear la suscripción' },
-        { status: response.status }
-      );
+    const subscription = await response.json();
+    
+    if (subscription.id) {
+      // Guardar suscripción provisional en la base de datos
+      await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: session.user.id,
+          paypal_subscription_id: subscription.id,
+          status: 'APPROVAL_PENDING',
+          current_period_start: new Date().toISOString(),
+        });
     }
-
-    // Actualizar el nivel de suscripción en Supabase
-    let tier = 'free';
-    if (planId === 'P-5ML4271244454362XMVZEWLY') {
-      tier = 'pro';
-    } else if (planId === 'P-5ML4271244454362XMVZEWLZ') {
-      tier = 'premium';
-    }
-
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ subscription_tier: tier })
-      .eq('id', session.user.id);
-
-    if (updateError) {
-      console.error('Error actualizando perfil:', updateError);
-    }
-
-    // Guardar la suscripción en la base de datos
-    const { error: subscriptionError } = await supabase
-      .from('subscriptions')
-      .insert({
-        user_id: session.user.id,
-        paypal_subscription_id: subscriptionData.id,
-        status: subscriptionData.status,
-        plan_type: tier,
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días
-        price_paid: tier === 'pro' ? 9.99 : 19.99,
-        currency: 'USD',
-      });
-
-    if (subscriptionError) {
-      console.error('Error guardando suscripción:', subscriptionError);
+    
+    // Devolver la URL de aprobación para redirigir al usuario
+    const approvalLink = subscription.links?.find((link: any) => link.rel === 'approve');
+    
+    if (!approvalLink) {
+      throw new Error('No se encontró el enlace de aprobación');
     }
 
     return NextResponse.json({
-      subscriptionId: subscriptionData.id,
-      status: subscriptionData.status,
-      approvalUrl: subscriptionData.links.find((link: any) => link.rel === 'approve')?.href,
+      subscriptionId: subscription.id,
+      approvalUrl: approvalLink.href
     });
-
   } catch (error) {
-    console.error('Error en create-subscription:', error);
+    console.error('Error creating subscription:', error);
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { error: 'Error al crear la suscripción' },
       { status: 500 }
     );
   }

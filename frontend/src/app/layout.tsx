@@ -7,6 +7,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeScript } from './ThemeScript';
+import { PayPalProvider } from "@/components/providers/PayPalProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,18 +18,20 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
         <ThemeScript />
       </head>
       <body className={inter.className}>
-        <Providers>
-          {children}
-        </Providers>
+        <PayPalProvider>
+          <Providers>
+            {children}
+          </Providers>
+        </PayPalProvider>
         <Toaster />
       </body>
     </html>
