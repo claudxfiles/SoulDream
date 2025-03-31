@@ -102,7 +102,7 @@ export async function GET(request: Request) {
     return new NextResponse(null, {
       status: 302,
       headers: {
-        Location: '/subscription/manage?success=true'
+        Location: '/dashboard/profile/subscription?success=true'
       }
     });
   } catch (error) {

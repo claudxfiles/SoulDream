@@ -41,7 +41,7 @@ export default function SubscriptionCancelPage() {
         </p>
         <Button
           className="mt-6"
-          onClick={() => router.push('/subscription')}
+          onClick={() => router.push('/dashboard/profile/subscription')}
         >
           Volver a Planes
         </Button>

@@ -113,8 +113,8 @@ export class PayPalService {
           },
           application_context: {
             brand_name: process.env.NEXT_PUBLIC_APP_NAME || 'Your App',
-            return_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription/success`,
-            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription/cancel`,
+            return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/profile/subscription/success`,
+            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/profile/subscription/cancel`,
           },
         }),
       });

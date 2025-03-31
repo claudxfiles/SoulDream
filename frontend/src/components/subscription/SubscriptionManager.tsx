@@ -141,7 +141,7 @@ export function SubscriptionManager() {
             No tienes una suscripción activa en este momento.
           </p>
           <Button 
-            onClick={() => router.push('/subscription')}
+            onClick={() => router.push('/dashboard/profile/subscription')}
             className="w-full"
           >
             Ver Planes Disponibles
@@ -229,7 +229,7 @@ export function SubscriptionManager() {
             <Button 
               variant="outline"
               className="w-full"
-              onClick={() => router.push('/subscription/history')}
+              onClick={() => router.push('/dashboard/profile/subscription/history')}
             >
               Ver Historial de Pagos
             </Button>
