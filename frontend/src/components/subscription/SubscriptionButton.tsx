@@ -26,8 +26,8 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
             plan_id: planId === ANNUAL_PLAN_ID ? ANNUAL_PLAN_ID : MONTHLY_PLAN_ID,
             application_context: {
               shipping_preference: "NO_SHIPPING",
-              return_url: `${window.location.origin}/dashboard/profile/subscription/success`,
-              cancel_url: `${window.location.origin}/dashboard/profile/subscription/cancel`
+              return_url: `${window.location.origin}/dashboard/profile/success`,
+              cancel_url: `${window.location.origin}/dashboard/profile/cancel`
             }
           });
         }}

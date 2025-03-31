@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
-import { User, Mail, Phone, MapPin, Calendar, Save, CreditCard } from 'lucide-react';
-import { format } from 'date-fns';
+import { User, Mail, Phone, MapPin, Calendar, Save, CreditCard, History, Settings, XCircle, Check } from 'lucide-react';
+import { format, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Profile {
   id: string;
@@ -18,6 +20,10 @@ interface Profile {
   birth_date: string | null;
   created_at: string;
   subscription_tier: string | null;
+  subscription_start_date?: string;
+  next_billing_date?: string;
+  subscription_price?: number;
+  billing_cycle?: 'monthly' | 'annual';
 }
 
 // Componente principal envuelto en QueryClientProvider
@@ -35,6 +41,7 @@ export default function UserProfile() {
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -107,6 +114,32 @@ export default function UserProfile() {
       setError(error.message || 'Error al actualizar el perfil');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          subscription_tier: null,
+          subscription_start_date: null,
+          next_billing_date: null,
+          subscription_price: null,
+          billing_cycle: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user?.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setSuccess('Suscripción cancelada correctamente');
+      fetchProfile(); // Recargar los datos del perfil
+      setShowCancelDialog(false);
+    } catch (error: any) {
+      setError(error.message || 'Error al cancelar la suscripción');
     }
   };
 
@@ -274,38 +307,179 @@ export default function UserProfile() {
         </form>
       </div>
 
-      {/* Subscription Plan Section */}
+      {/* Nueva sección de Plan de suscripción mejorada */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Plan de suscripción</h2>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Plan de suscripción</h2>
             <p className="text-gray-500 dark:text-gray-400">Revisa y actualiza tu plan de suscripción</p>
           </div>
-          <button
-            onClick={() => router.push('/dashboard/profile/subscription')}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <CreditCard className="mr-2 h-4 w-4" />
-            Gestionar suscripción
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/dashboard/profile/subscription')}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Gestionar Suscripción
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/profile/history')}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <History className="h-4 w-4 mr-2" />
+              Historial de Pagos
+            </button>
+          </div>
         </div>
 
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <CreditCard className="h-10 w-10 text-indigo-500" />
-            <div>
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                Plan actual: <span className="text-indigo-600 dark:text-indigo-400">{profile?.subscription_tier ? profile.subscription_tier.charAt(0).toUpperCase() + profile.subscription_tier.slice(1) : 'Free'}</span>
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Información del Plan */}
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Plan {profile?.subscription_tier === 'pro' ? 'Pro' : 'Free'}
+                  </h3>
+                  {profile?.subscription_tier === 'pro' && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Facturación {profile?.billing_cycle === 'annual' ? 'Anual' : 'Mensual'}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  {profile?.subscription_tier === 'pro' && (
+                    <>
+                      <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                        ${profile?.subscription_price}/
+                        <span className="text-sm">{profile?.billing_cycle === 'annual' ? 'año' : 'mes'}</span>
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Próximo cobro: {profile?.next_billing_date ? 
+                          format(new Date(profile.next_billing_date), 'dd/MM/yyyy', { locale: es }) : 
+                          'No disponible'}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-              <p className="text-gray-500 dark:text-gray-400">
-                {profile?.subscription_tier === 'free' 
-                  ? 'Accede a funcionalidades premium actualizando tu plan' 
-                  : 'Estás disfrutando de todas las funcionalidades premium'}
-              </p>
+
+              {/* Características del Plan */}
+              <div className="space-y-3 mt-6">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                  Características incluidas:
+                </h4>
+                {profile?.subscription_tier === 'pro' ? (
+                  <>
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                      <Check className="h-4 w-4 text-green-500 mr-2" />
+                      Acceso ilimitado a todas las funciones
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                      <Check className="h-4 w-4 text-green-500 mr-2" />
+                      Chat con IA sin restricciones
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                      <Check className="h-4 w-4 text-green-500 mr-2" />
+                      Análisis avanzado de datos
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                      <Check className="h-4 w-4 text-green-500 mr-2" />
+                      Soporte prioritario
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                      <Check className="h-4 w-4 text-green-500 mr-2" />
+                      Funciones básicas
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                      <Check className="h-4 w-4 text-green-500 mr-2" />
+                      Chat con IA limitado
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Botón de Cancelación para usuarios Pro */}
+              {profile?.subscription_tier === 'pro' && (
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+                  <button
+                    onClick={() => setShowCancelDialog(true)}
+                    className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Cancelar Suscripción
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Estado de la Suscripción */}
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Estado de la Suscripción
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Miembro desde</p>
+                  <p className="text-base font-medium text-gray-900 dark:text-white">
+                    {profile?.created_at ? 
+                      format(new Date(profile.created_at), 'dd/MM/yyyy', { locale: es }) : 
+                      'No disponible'}
+                  </p>
+                </div>
+                {profile?.subscription_tier === 'pro' && (
+                  <>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Inicio del plan actual</p>
+                      <p className="text-base font-medium text-gray-900 dark:text-white">
+                        {profile?.subscription_start_date ? 
+                          format(new Date(profile.subscription_start_date), 'dd/MM/yyyy', { locale: es }) : 
+                          'No disponible'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Estado</p>
+                      <div className="flex items-center">
+                        <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
+                        <p className="text-base font-medium text-gray-900 dark:text-white">Activo</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Diálogo de Confirmación de Cancelación */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Estás seguro de que quieres cancelar tu suscripción?</DialogTitle>
+            <DialogDescription>
+              Tu suscripción seguirá activa hasta el final del período facturado. 
+              Después de eso, tu cuenta cambiará al plan gratuito.
+              {profile?.next_billing_date && (
+                <p className="mt-2 font-medium">
+                  Tu suscripción estará activa hasta: {format(new Date(profile.next_billing_date), 'dd/MM/yyyy', { locale: es })}
+                </p>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleCancelSubscription}>
+              Confirmar Cancelación
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

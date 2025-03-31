@@ -17,47 +17,49 @@ interface PricingCardProps {
 
 export function PricingCard({ popular, name, price, interval, description, features, planId }: PricingCardProps) {
   return (
-    <Card className={`w-[380px] overflow-hidden ${popular ? 'border-primary shadow-xl shadow-primary/10' : ''} relative`}>
+    <Card className={`w-[420px] overflow-hidden ${popular ? 'border-primary/50 shadow-xl shadow-primary/20 bg-card/50 backdrop-blur-sm' : ''} relative`}>
       {popular && (
         <div className="absolute top-0 right-0">
-          <div className="bg-primary text-primary-foreground text-xs font-medium px-8 py-1 rotate-45 translate-y-4 translate-x-6">
+          <div className="bg-primary text-primary-foreground text-sm font-medium px-10 py-1.5 rotate-45 translate-y-6 translate-x-8 shadow-sm">
             Popular
           </div>
         </div>
       )}
       
-      <div className="p-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h3 className="text-2xl font-bold text-primary">{name}</h3>
+      <div className="p-10">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Sparkles className="h-6 w-6 text-primary" />
+          </div>
+          <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">{name}</h3>
         </div>
 
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
           {description}
         </p>
 
-        <div className="flex items-baseline mb-8">
-          <span className="text-5xl font-extrabold tracking-tight text-gray-900 dark:text-gray-50">
+        <div className="flex items-baseline mb-10">
+          <span className="text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
             ${price}
           </span>
-          <span className="ml-2 text-lg text-gray-500 dark:text-gray-400">
+          <span className="ml-2 text-lg text-muted-foreground">
             /{interval}
           </span>
         </div>
 
-        <div className="relative">
+        <div className="relative mb-8">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
-            <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+            <div className="w-full border-t border-border/50"></div>
           </div>
         </div>
 
-        <ul className="mt-8 space-y-4">
+        <ul className="space-y-5 mb-10">
           {features.map((feature, index) => (
-            <li key={index} className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                <Check className="h-3 w-3 text-primary" aria-hidden="true" />
+            <li key={index} className="flex items-start gap-4 group">
+              <div className="flex-shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <Check className="h-4 w-4 text-primary" aria-hidden="true" />
               </div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
+              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{feature}</span>
             </li>
           ))}
         </ul>
