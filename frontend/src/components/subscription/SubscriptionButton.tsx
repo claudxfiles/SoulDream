@@ -20,9 +20,14 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
   const [loading, setLoading] = useState(false);
   const supabase = createClientComponentClient();
 
-  // Definimos los IDs de los planes
-  const MONTHLY_PLAN_ID = 'P-1H048096T5545353AM7U2EQQ';
-  const ANNUAL_PLAN_ID = 'P-25P774007P7890240M7U2DTA';
+  // Obtenemos los IDs de los planes desde las variables de entorno
+  const MONTHLY_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID;
+  const ANNUAL_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_YEAR_ID;
+
+  if (!MONTHLY_PLAN_ID || !ANNUAL_PLAN_ID) {
+    console.error('Los IDs de los planes de PayPal no están configurados');
+    return null;
+  }
 
   const createSubscriptionRecord = async (data: PayPalSubscriptionData, paypalPlanId: string) => {
     try {
