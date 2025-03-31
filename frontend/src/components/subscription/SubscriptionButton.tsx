@@ -14,12 +14,16 @@ interface SubscriptionButtonProps {
 export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionButtonProps) {
   const [loading, setLoading] = useState(false);
 
+  // Definimos los IDs de los planes
+  const MONTHLY_PLAN_ID = 'P-1H048096T5545353AM7U2EQQ';
+  const ANNUAL_PLAN_ID = 'P-25P774007P7890240M7U2DTA';
+
   return (
     <div className="w-full max-w-sm mx-auto">
       <PayPalButtons
         createSubscription={(data, actions) => {
           return actions.subscription.create({
-            plan_id: planId,
+            plan_id: planId === ANNUAL_PLAN_ID ? ANNUAL_PLAN_ID : MONTHLY_PLAN_ID,
             application_context: {
               shipping_preference: "NO_SHIPPING",
               return_url: `${window.location.origin}/dashboard/profile/subscription/success`,
@@ -58,10 +62,10 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
           });
         }}
         style={{
-          layout: "vertical",
-          color: "blue",
-          shape: "rect",
-          label: "subscribe"
+          shape: 'pill',
+          color: 'blue',
+          layout: 'horizontal',
+          label: 'subscribe'
         }}
         disabled={loading}
       />
