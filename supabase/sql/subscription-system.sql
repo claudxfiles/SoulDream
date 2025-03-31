@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
   interval TEXT NOT NULL DEFAULT 'month' CHECK (interval IN ('month', 'year')),
   features JSONB,
   paypal_product_id TEXT,
-  paypal_plan_id TEXT,
+  paypal_plan_id TEXT NOT NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 );
 
 -- Crear un índice único parcial para evitar duplicados de suscripciones activas
+DROP INDEX IF EXISTS idx_unique_active_subscription;
 CREATE UNIQUE INDEX idx_unique_active_subscription ON subscriptions(user_id) 
 WHERE (status = 'active' OR status = 'trial');
 
@@ -55,6 +56,11 @@ CREATE TABLE IF NOT EXISTS payment_history (
 );
 
 -- Crear índices para búsquedas eficientes
+DROP INDEX IF EXISTS idx_subscriptions_user_id;
+DROP INDEX IF EXISTS idx_subscriptions_status;
+DROP INDEX IF EXISTS idx_payment_history_user_id;
+DROP INDEX IF EXISTS idx_payment_history_subscription_id;
+
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_payment_history_user_id ON payment_history(user_id);
@@ -107,35 +113,36 @@ CREATE POLICY "Solo administradores pueden crear registros de pago"
   ON payment_history FOR INSERT 
   WITH CHECK (auth.uid() = user_id OR auth.jwt()->>'role' = 'admin');
 
--- Datos iniciales para planes de suscripción
-INSERT INTO subscription_plans (name, description, price, currency, interval, features, is_active)
+-- Insertar planes de suscripción
+INSERT INTO subscription_plans (name, description, price, currency, interval, features, is_active, paypal_plan_id)
 VALUES 
-  ('Free', 'Plan básico con funcionalidades limitadas', 0.00, 'USD', 'month', 
-   '[{"name": "Gestión básica de tareas", "included": true}, 
-     {"name": "Seguimiento de hábitos", "included": true}, 
-     {"name": "Registro financiero básico", "included": true}, 
-     {"name": "5 interacciones con IA al día", "included": true}]'::jsonb, 
-   true),
+  ('Pro Monthly', 'Desbloquea todo el potencial de SoulDream con funciones ilimitadas y prueba gratuita de 7 días', 14.99, 'USD', 'month', 
+   '[
+     {"name": "Tareas, metas y hábitos ilimitados", "included": true},
+     {"name": "Asistente IA personalizado 24/7", "included": true},
+     {"name": "Gestión financiera completa", "included": true},
+     {"name": "Integración con Google Calendar", "included": true},
+     {"name": "Analítica avanzada y reportes", "included": true},
+     {"name": "Plan de activos financieros", "included": true},
+     {"name": "Workout personalizado con IA", "included": true},
+     {"name": "Soporte prioritario", "included": true}
+   ]'::jsonb,
+   true,
+   'P-1H048096T5545353AM7U2EQQ'),
   
-  ('Pro', 'Plan profesional con funcionalidades avanzadas', 9.99, 'USD', 'month', 
-   '[{"name": "Gestión básica de tareas", "included": true}, 
-     {"name": "Seguimiento de hábitos", "included": true}, 
-     {"name": "Registro financiero avanzado", "included": true}, 
-     {"name": "50 interacciones con IA al día", "included": true}, 
-     {"name": "Análisis financiero avanzado", "included": true}, 
-     {"name": "Integración con Google Calendar", "included": true}]'::jsonb, 
-   true),
-  
-  ('Premium', 'Plan completo con todas las funcionalidades', 19.99, 'USD', 'month', 
-   '[{"name": "Gestión básica de tareas", "included": true}, 
-     {"name": "Seguimiento de hábitos", "included": true}, 
-     {"name": "Registro financiero avanzado", "included": true}, 
-     {"name": "Interacciones ilimitadas con IA", "included": true}, 
-     {"name": "Análisis financiero avanzado", "included": true}, 
-     {"name": "Integración con Google Calendar", "included": true}, 
-     {"name": "Soporte prioritario", "included": true}, 
-     {"name": "Generación de planes avanzados con IA", "included": true}]'::jsonb, 
-   true);
+  ('Pro Annual', 'Desbloquea todo el potencial de SoulDream con funciones ilimitadas y prueba gratuita de 7 días', 120.00, 'USD', 'year', 
+   '[
+     {"name": "Tareas, metas y hábitos ilimitados", "included": true},
+     {"name": "Asistente IA personalizado 24/7", "included": true},
+     {"name": "Gestión financiera completa", "included": true},
+     {"name": "Integración con Google Calendar", "included": true},
+     {"name": "Analítica avanzada y reportes", "included": true},
+     {"name": "Plan de activos financieros", "included": true},
+     {"name": "Workout personalizado con IA", "included": true},
+     {"name": "Soporte prioritario", "included": true}
+   ]'::jsonb,
+   true,
+   'P-25P774007P7890240M7U2DTA');
 
 -- Función para actualizar subscription_tier en profiles cuando cambia la suscripción
 CREATE OR REPLACE FUNCTION update_profile_subscription_tier()
@@ -162,6 +169,9 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Eliminar trigger existente si existe
+DROP TRIGGER IF EXISTS on_subscription_status_change ON subscriptions;
 
 -- Crear trigger para actualizar profiles cuando cambia una suscripción
 CREATE TRIGGER on_subscription_status_change

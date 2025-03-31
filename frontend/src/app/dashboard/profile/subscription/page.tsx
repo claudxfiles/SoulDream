@@ -17,7 +17,7 @@ export default function SubscriptionPage() {
       "Workout personalizado con IA",
       "Soporte prioritario"
     ],
-    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID || 'P-5ML4271244454362WXNWU5NQ'
+    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID || 'P-1H048096T5545353AM7U2EQQ'
   };
 
   return (

@@ -78,13 +78,18 @@ export function SubscriptionPlans() {
       <Card className="p-6">
         <h3 className="text-2xl font-bold mb-4">Plan Mensual</h3>
         <div className="mb-4">
-          <p className="text-3xl font-bold">$9.99</p>
+          <p className="text-3xl font-bold">$14.99</p>
           <p className="text-gray-600 dark:text-gray-400">por mes</p>
         </div>
         <ul className="space-y-2 mb-6">
-          <li>✓ Acceso a todas las funciones</li>
+          <li>✓ Tareas, metas y hábitos ilimitados</li>
+          <li>✓ Asistente IA personalizado 24/7</li>
+          <li>✓ Gestión financiera completa</li>
+          <li>✓ Integración con Google Calendar</li>
+          <li>✓ Analítica avanzada y reportes</li>
+          <li>✓ Plan de activos financieros</li>
+          <li>✓ Workout personalizado con IA</li>
           <li>✓ Soporte prioritario</li>
-          <li>✓ Sin anuncios</li>
         </ul>
         <Button
           className="w-full"
@@ -105,15 +110,19 @@ export function SubscriptionPlans() {
       <Card className="p-6">
         <h3 className="text-2xl font-bold mb-4">Plan Anual</h3>
         <div className="mb-4">
-          <p className="text-3xl font-bold">$99.99</p>
+          <p className="text-3xl font-bold">$120.00</p>
           <p className="text-gray-600 dark:text-gray-400">por año</p>
-          <p className="text-sm text-green-600 font-medium">¡Ahorra 16%!</p>
+          <p className="text-sm text-green-600 font-medium">¡Prueba gratuita de 7 días!</p>
         </div>
         <ul className="space-y-2 mb-6">
-          <li>✓ Acceso a todas las funciones</li>
+          <li>✓ Tareas, metas y hábitos ilimitados</li>
+          <li>✓ Asistente IA personalizado 24/7</li>
+          <li>✓ Gestión financiera completa</li>
+          <li>✓ Integración con Google Calendar</li>
+          <li>✓ Analítica avanzada y reportes</li>
+          <li>✓ Plan de activos financieros</li>
+          <li>✓ Workout personalizado con IA</li>
           <li>✓ Soporte prioritario</li>
-          <li>✓ Sin anuncios</li>
-          <li>✓ 2 meses gratis</li>
         </ul>
         <Button
           className="w-full"
