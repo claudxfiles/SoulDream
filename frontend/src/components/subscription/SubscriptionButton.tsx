@@ -72,6 +72,7 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
       // 4. Crear el registro de suscripción
       const subscriptionData = {
         user_id: user.id,
+        plan_id: planData.id,
         plan_type: planData.interval === 'month' ? 'month' : 'year',
         status: 'active',
         subscription_id: data.subscriptionID,
