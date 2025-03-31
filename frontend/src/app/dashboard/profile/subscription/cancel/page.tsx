@@ -1,35 +1,33 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from '@/components/ui/use-toast';
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ArrowLeft, XCircle } from "lucide-react";
+import Link from "next/link";
 
-export default function SubscriptionCancelPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    toast({
-      title: "Suscripción cancelada",
-      description: "Has cancelado el proceso de suscripción.",
-      variant: "destructive",
-    });
-    
-    // Redirigir a la página de suscripción después de 3 segundos
-    const timeout = setTimeout(() => {
-      router.push('/dashboard/profile/subscription');
-    }, 3000);
-
-    return () => clearTimeout(timeout);
-  }, [router]);
-
+export default function CancelPage() {
   return (
-    <div className="container mx-auto px-4 py-16">
-      <div className="max-w-md mx-auto text-center">
-        <h1 className="text-3xl font-bold mb-4">Suscripción Cancelada</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
-          Has cancelado el proceso de suscripción. Serás redirigido a la página de suscripción en unos segundos...
+    <div className="container max-w-2xl mx-auto py-12">
+      <Card className="p-8 text-center">
+        <div className="flex justify-center mb-6">
+          <XCircle className="w-16 h-16 text-red-500" />
+        </div>
+        
+        <h1 className="text-2xl font-bold mb-4">
+          Proceso de Suscripción Cancelado
+        </h1>
+        
+        <p className="text-muted-foreground mb-8">
+          Has cancelado el proceso de suscripción. No te preocupes, no se ha realizado ningún cargo.
         </p>
-      </div>
+
+        <Link href="/dashboard/profile/subscription">
+          <Button className="gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Volver a Planes
+          </Button>
+        </Link>
+      </Card>
     </div>
   );
 } 
