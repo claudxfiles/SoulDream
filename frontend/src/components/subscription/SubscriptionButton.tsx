@@ -36,14 +36,17 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
         throw new Error('Usuario no autenticado');
       }
 
-      const { data: existingSubscription } = await supabase
+      const { data: existingSubscriptions, error: subscriptionCheckError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single();
+        .eq('status', 'active');
 
-      if (existingSubscription) {
+      if (subscriptionCheckError) {
+        throw new Error('Error al verificar suscripciones existentes');
+      }
+
+      if (existingSubscriptions && existingSubscriptions.length > 0) {
         throw new Error('Ya existe una suscripción activa para este usuario');
       }
 
@@ -87,7 +90,8 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
         .from('subscriptions')
         .insert(subscriptionData)
         .select()
-        .single();
+        .single()
+        .throwOnError();
 
       if (subscriptionError) {
         console.error('Error al crear la suscripción:', subscriptionError);
