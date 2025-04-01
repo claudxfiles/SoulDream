@@ -3,6 +3,7 @@
  */
 
 import { createClientComponent } from './supabase';
+import { supabase } from './supabase';
 
 interface CreateSubscriptionResponse {
   subscriptionId: string;
@@ -295,6 +296,65 @@ export async function getPayPalSubscriptionTransactions(
     return await response.json();
   } catch (error) {
     console.error('Error al obtener transacciones de suscripción:', error);
+    throw error;
+  }
+}
+
+const PAYPAL_API_URL = process.env.NEXT_PUBLIC_PAYPAL_API_URL || 'https://api-m.sandbox.paypal.com';
+
+async function getPayPalAccessToken() {
+  const { data: { access_token } } = await supabase.functions.invoke('get-paypal-token');
+  return access_token;
+}
+
+export async function pauseSubscription(subscriptionId: string) {
+  try {
+    const accessToken = await getPayPalAccessToken();
+    
+    const response = await fetch(`${PAYPAL_API_URL}/v1/billing/subscriptions/${subscriptionId}/suspend`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({
+        reason: 'Customer-requested pause'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al pausar la suscripción');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error en pauseSubscription:', error);
+    throw error;
+  }
+}
+
+export async function resumeSubscription(subscriptionId: string) {
+  try {
+    const accessToken = await getPayPalAccessToken();
+    
+    const response = await fetch(`${PAYPAL_API_URL}/v1/billing/subscriptions/${subscriptionId}/activate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({
+        reason: 'Reactivating on customer request'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al reactivar la suscripción');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error en resumeSubscription:', error);
     throw error;
   }
 } 

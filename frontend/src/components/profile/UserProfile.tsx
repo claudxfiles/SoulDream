@@ -9,6 +9,7 @@ import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { pauseSubscription, resumeSubscription } from '@/lib/paypal';
 
 interface Profile {
   id: string;
@@ -24,6 +25,7 @@ interface Profile {
   next_billing_date?: string;
   subscription_price?: number;
   billing_cycle?: 'monthly' | 'annual';
+  subscription_status?: 'active' | 'suspended' | null;
 }
 
 // Componente principal envuelto en QueryClientProvider
@@ -140,6 +142,53 @@ export default function UserProfile() {
       setShowCancelDialog(false);
     } catch (error: any) {
       setError(error.message || 'Error al cancelar la suscripción');
+    }
+  };
+
+  const handlePauseSubscription = async () => {
+    try {
+      if (!profile?.subscription_tier) return;
+      
+      await pauseSubscription(profile.subscription_tier);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          subscription_status: 'suspended',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      setSuccess('Suscripción pausada correctamente');
+      fetchProfile();
+      setShowCancelDialog(false);
+    } catch (error: any) {
+      setError(error.message || 'Error al pausar la suscripción');
+    }
+  };
+
+  const handleResumeSubscription = async () => {
+    try {
+      if (!profile?.subscription_tier) return;
+      
+      await resumeSubscription(profile.subscription_tier);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          subscription_status: 'active',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      setSuccess('Suscripción reactivada correctamente');
+      fetchProfile();
+    } catch (error: any) {
+      setError(error.message || 'Error al reactivar la suscripción');
     }
   };
 
@@ -496,19 +545,49 @@ export default function UserProfile() {
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>¿Estás seguro de que deseas cancelar tu suscripción?</DialogTitle>
+            <DialogTitle>Gestionar Suscripción</DialogTitle>
             <DialogDescription>
-              Al cancelar tu suscripción perderás acceso a todas las funcionalidades premium al final del período actual.
+              Puedes pausar tu suscripción temporalmente o cancelarla definitivamente.
+              {profile?.subscription_status === 'suspended' && (
+                <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+                  Tu suscripción está actualmente pausada. Puedes reactivarla cuando lo desees.
+                </p>
+              )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
-              Mantener Suscripción
+          <div className="flex flex-col gap-4">
+            {profile?.subscription_status === 'suspended' ? (
+              <Button
+                variant="default"
+                onClick={handleResumeSubscription}
+                className="w-full"
+              >
+                Reactivar Suscripción
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={handlePauseSubscription}
+                className="w-full"
+              >
+                Pausar Suscripción
+              </Button>
+            )}
+            <Button
+              variant="destructive"
+              onClick={handleCancelSubscription}
+              className="w-full"
+            >
+              Cancelar Definitivamente
             </Button>
-            <Button variant="destructive" onClick={handleCancelSubscription}>
-              Confirmar Cancelación
+            <Button
+              variant="ghost"
+              onClick={() => setShowCancelDialog(false)}
+              className="w-full"
+            >
+              Cerrar
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
