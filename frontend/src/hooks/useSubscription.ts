@@ -1,20 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-interface SubscriptionDetails {
-  plan_value: number;
-  member_since: string;
+interface Subscription {
+  id: string;
+  paypal_subscription_id: string;
+  status: 'active' | 'cancelled' | 'pending';
   plan_type: string;
   plan_interval: string;
   plan_currency: string;
+  plan_value: number;
   plan_status: string;
-  subscription_date: string;
+  member_since: string;
   plan_validity_end: string | null;
   plan_features: string[];
+  payment_method?: string;
 }
 
 export const useSubscription = () => {
-  const fetchSubscription = async (): Promise<SubscriptionDetails> => {
+  const fetchSubscription = async (): Promise<Subscription> => {
     try {
       const supabase = createClientComponentClient();
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -50,7 +53,7 @@ export const useSubscription = () => {
     }
   };
 
-  return useQuery<SubscriptionDetails, Error>({
+  return useQuery<Subscription, Error>({
     queryKey: ['subscription'],
     queryFn: fetchSubscription,
     staleTime: 1000 * 60 * 5, // 5 minutos

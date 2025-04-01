@@ -1,11 +1,62 @@
 import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { Loader2, Clock, X, Settings } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { toast } from '@/components/ui/use-toast';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export const SubscriptionDetails = () => {
-  const { data: subscription, isLoading, error } = useSubscription();
+  const { data: subscription, isLoading, error, refetch } = useSubscription();
+  const router = useRouter();
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleManageSubscription = () => {
+    router.push('/dashboard/profile/subscription');
+  };
+
+  const handleViewHistory = () => {
+    router.push('/dashboard/profile/subscription/history');
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!subscription?.paypal_subscription_id) return;
+
+    try {
+      setIsCancelling(true);
+      const response = await fetch('/api/paypal/cancel-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscriptionId: subscription.paypal_subscription_id,
+          reason: 'Cancelled by user',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al cancelar la suscripción');
+      }
+
+      toast({
+        title: 'Suscripción Cancelada',
+        description: 'Tu suscripción ha sido cancelada exitosamente.',
+      });
+
+      refetch();
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo cancelar la suscripción. Por favor intenta nuevamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -26,30 +77,7 @@ export const SubscriptionDetails = () => {
   }
 
   return (
-    <div className="bg-[#0F1116] text-white p-6 rounded-lg">
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h2 className="text-xl font-semibold">Plan de suscripción</h2>
-          <p className="text-gray-400 text-sm">Revisa y actualiza tu plan de suscripción</p>
-        </div>
-        <div className="space-y-2">
-          <Button className="w-full bg-white text-black hover:bg-gray-200">
-            <Settings className="w-4 h-4 mr-2" />
-            Gestionar Suscripción
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" className="bg-[#1A1D24] text-white border-none hover:bg-[#2A2D34]">
-              <Clock className="w-4 h-4 mr-2" />
-              Historial
-            </Button>
-            <Button variant="destructive" className="bg-[#3A1618] text-red-500 hover:bg-[#4A2628]">
-              <X className="w-4 h-4 mr-2" />
-              Cancelar
-            </Button>
-          </div>
-        </div>
-      </div>
-
+    <div className="bg-[#1A1D24] p-6 rounded-lg">
       <div className="grid grid-cols-2 gap-6">
         <div className="bg-[#1A1D24] p-6 rounded-lg">
           <div className="space-y-4">
@@ -117,6 +145,33 @@ export const SubscriptionDetails = () => {
             <div>
               <p className="text-gray-400 text-sm">Método de pago</p>
               <p>{subscription.payment_method || 'PayPal'}</p>
+            </div>
+
+            <div className="flex flex-col gap-2 mt-4">
+              <Button 
+                className="w-full bg-white text-black hover:bg-gray-200"
+                onClick={handleManageSubscription}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Gestionar Suscripción
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full bg-[#1A1D24] text-white border-none hover:bg-[#2A2D34]"
+                onClick={handleViewHistory}
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Historial
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="w-full bg-[#3A1618] text-red-500 hover:bg-[#4A2628]"
+                onClick={handleCancelSubscription}
+                disabled={isCancelling || subscription.status !== 'active'}
+              >
+                <X className="w-4 h-4 mr-2" />
+                {isCancelling ? 'Cancelando...' : 'Cancelar'}
+              </Button>
             </div>
           </div>
         </div>
