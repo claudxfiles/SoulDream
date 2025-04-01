@@ -310,38 +310,40 @@ export default function UserProfile() {
 
       {/* Plan de suscripción */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-start mb-6">
           <div>
             <h2 className="text-lg font-medium text-gray-900 dark:text-white">Plan de suscripción</h2>
             <p className="text-gray-500 dark:text-gray-400">Revisa y actualiza tu plan de suscripción</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-4">
             <Button
               onClick={() => router.push('/dashboard/profile/subscription')}
               variant="default"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full"
             >
               <CreditCard className="h-4 w-4" />
               Gestionar Suscripción
             </Button>
-            <Button
-              onClick={() => router.push('/dashboard/profile/subscription/history')}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <History className="h-4 w-4" />
-              Historial
-            </Button>
-            {profile?.subscription_tier && (
+            <div className="flex items-center gap-4">
               <Button
-                variant="destructive"
-                onClick={() => setShowCancelDialog(true)}
+                onClick={() => router.push('/dashboard/profile/subscription/history')}
+                variant="outline"
                 className="flex items-center gap-2"
               >
-                <XCircle className="h-4 w-4" />
-                Cancelar
+                <History className="h-4 w-4" />
+                Historial
               </Button>
-            )}
+              {profile?.subscription_tier && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowCancelDialog(true)}
+                  className="flex items-center gap-2"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Cancelar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
