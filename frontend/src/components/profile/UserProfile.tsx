@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
-import { User, Mail, Phone, MapPin, Calendar, Save, CreditCard, History, Settings, XCircle, Check } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Save, CreditCard, History, Settings, XCircle, Check, X } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
@@ -199,128 +199,149 @@ export default function UserProfile() {
   return (
     <div className="space-y-6">
       {/* Sección de Datos Personales */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Información Personal</h2>
-            <p className="text-gray-500 dark:text-gray-400">Actualiza tus datos personales</p>
+      <div className="bg-[#0f172a] shadow-lg rounded-xl p-8 border border-[#4f46e5]/10">
+        <div className="flex justify-between items-start mb-8">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-semibold text-white">Información Personal</h2>
+            <p className="text-gray-400">Actualiza tus datos personales</p>
           </div>
           <Button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-2"
+            className="bg-[#4f46e5] text-white hover:bg-[#4f46e5]/90 transition-all duration-200"
           >
-            <Save className="h-4 w-4" />
-            {saving ? 'Guardando...' : 'Guardar cambios'}
+            {saving ? (
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Guardando...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Save className="h-4 w-4" />
+                Guardar cambios
+              </div>
+            )}
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Campos de información personal */}
-          <div>
-            <Label htmlFor="full_name">Nombre completo</Label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User className="h-4 w-4 text-gray-400" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="full_name" className="text-gray-300">Nombre completo</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-[#4f46e5]" />
+                </div>
+                <Input
+                  type="text"
+                  id="full_name"
+                  value={formData.full_name || ''}
+                  onChange={(e) => handleInputChange('full_name', e.target.value)}
+                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
+                  placeholder="Ingresa tu nombre completo"
+                />
               </div>
-              <Input
-                type="text"
-                id="full_name"
-                value={formData.full_name || ''}
-                onChange={(e) => handleInputChange('full_name', e.target.value)}
-                className="pl-10"
-              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-gray-300">Correo electrónico</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-[#4f46e5]" />
+                </div>
+                <Input
+                  type="email"
+                  id="email"
+                  value={user?.email || ''}
+                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white opacity-70 cursor-not-allowed"
+                  disabled
+                />
+                <p className="text-xs text-gray-400 mt-1.5">El correo electrónico no se puede modificar</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-gray-300">Teléfono</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-[#4f46e5]" />
+                </div>
+                <Input
+                  type="tel"
+                  id="phone"
+                  value={formData.phone || ''}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
+                  placeholder="Ingresa tu número de teléfono"
+                />
+              </div>
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="email">Correo electrónico</Label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-4 w-4 text-gray-400" />
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="address" className="text-gray-300">Dirección</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <MapPin className="h-5 w-5 text-[#4f46e5]" />
+                </div>
+                <Input
+                  type="text"
+                  id="address"
+                  value={formData.address || ''}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
+                  placeholder="Ingresa tu dirección"
+                />
               </div>
-              <Input
-                type="email"
-                id="email"
-                value={user?.email || ''}
-                className="pl-10"
-                disabled
-              />
-              <p className="text-xs text-gray-500 mt-1">El correo electrónico no se puede modificar</p>
             </div>
-          </div>
 
-          <div>
-            <Label htmlFor="phone">Teléfono</Label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Phone className="h-4 w-4 text-gray-400" />
+            <div className="space-y-2">
+              <Label htmlFor="birth_date" className="text-gray-300">Fecha de nacimiento</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Calendar className="h-5 w-5 text-[#4f46e5]" />
+                </div>
+                <Input
+                  type="date"
+                  id="birth_date"
+                  value={formData.birth_date || ''}
+                  onChange={(e) => handleInputChange('birth_date', e.target.value)}
+                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
+                />
               </div>
-              <Input
-                type="tel"
-                id="phone"
-                value={formData.phone || ''}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="address">Dirección</Label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MapPin className="h-4 w-4 text-gray-400" />
-              </div>
-              <Input
-                type="text"
-                id="address"
-                value={formData.address || ''}
-                onChange={(e) => handleInputChange('address', e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="birth_date">Fecha de nacimiento</Label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Calendar className="h-4 w-4 text-gray-400" />
-              </div>
-              <Input
-                type="date"
-                id="birth_date"
-                value={formData.birth_date || ''}
-                onChange={(e) => handleInputChange('birth_date', e.target.value)}
-                className="pl-10"
-              />
             </div>
           </div>
         </div>
 
         {error && (
-          <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded relative mt-4" role="alert">
-            <span className="block sm:inline">{error}</span>
+          <div className="mt-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+            <p className="text-red-500 text-sm flex items-center gap-2">
+              <X className="h-4 w-4" />
+              {error}
+            </p>
           </div>
         )}
 
         {success && (
-          <div className="bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-200 px-4 py-3 rounded relative mt-4" role="alert">
-            <span className="block sm:inline">{success}</span>
+          <div className="mt-6 p-4 rounded-lg bg-[#10b981]/10 border border-[#10b981]/20">
+            <p className="text-[#10b981] text-sm flex items-center gap-2">
+              <Check className="h-4 w-4" />
+              {success}
+            </p>
           </div>
         )}
       </div>
 
       {/* Diálogo de Confirmación de Cancelación */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent>
+        <DialogContent className="bg-[#0f172a] border border-[#4f46e5]/10">
           <DialogHeader>
-            <DialogTitle>Gestionar Suscripción</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-white">Gestionar Suscripción</DialogTitle>
+            <DialogDescription className="text-gray-400">
               Puedes pausar tu suscripción temporalmente o cancelarla definitivamente.
               {profile?.subscription_status === 'suspended' && (
-                <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+                <p className="mt-2 text-[#f59e0b] text-sm">
                   Tu suscripción está actualmente pausada. Puedes reactivarla cuando lo desees.
                 </p>
               )}
@@ -331,7 +352,7 @@ export default function UserProfile() {
               <Button
                 variant="default"
                 onClick={handleResumeSubscription}
-                className="w-full"
+                className="w-full bg-[#4f46e5] text-white hover:bg-[#4f46e5]/90"
               >
                 Reactivar Suscripción
               </Button>
@@ -339,7 +360,7 @@ export default function UserProfile() {
               <Button
                 variant="outline"
                 onClick={handlePauseSubscription}
-                className="w-full"
+                className="w-full border-[#4f46e5] text-white hover:bg-[#4f46e5]/10"
               >
                 Pausar Suscripción
               </Button>
@@ -347,14 +368,14 @@ export default function UserProfile() {
             <Button
               variant="destructive"
               onClick={handleCancelSubscription}
-              className="w-full"
+              className="w-full bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20"
             >
               Cancelar Definitivamente
             </Button>
             <Button
               variant="ghost"
               onClick={() => setShowCancelDialog(false)}
-              className="w-full"
+              className="w-full text-gray-400 hover:text-white hover:bg-white/5"
             >
               Cerrar
             </Button>
