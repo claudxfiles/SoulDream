@@ -4,55 +4,55 @@ from typing import Optional
 from app.db.session import get_db
 from app.core.auth import get_current_user
 from app.schemas.subscription import SubscriptionResponse
+from pydantic import BaseModel
+from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/current", response_model=SubscriptionResponse)
+class SubscriptionDetails(BaseModel):
+    plan_value: float
+    member_since: datetime
+    plan_type: str
+    plan_interval: str
+    plan_currency: str
+    plan_status: str
+    subscription_date: datetime
+    plan_validity_end: datetime
+    plan_features: list
+
+@router.get("/current", response_model=SubscriptionDetails)
 async def get_current_subscription(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene los detalles completos de la suscripción actual del usuario,
-    incluyendo información del plan.
+    Obtiene los detalles de la suscripción actual del usuario
     """
-    try:
-        # Consulta para obtener la suscripción actual con detalles del plan
-        query = """
-            SELECT 
-                s.*,
-                sp.name as plan_name,
-                sp.description as plan_description,
-                sp.price as plan_price,
-                sp.currency as plan_currency,
-                sp.interval as plan_interval,
-                sp.features as plan_features
-            FROM subscriptions s
-            LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
-            WHERE s.user_id = :user_id 
-            AND s.status = 'active'
-            ORDER BY s.created_at DESC
-            LIMIT 1
-        """
-        
-        result = db.execute(
-            query,
-            {"user_id": current_user["id"]}
-        ).fetchone()
-
-        if not result:
-            raise HTTPException(
-                status_code=404,
-                detail="No se encontró una suscripción activa"
-            )
-
-        # Convertir el resultado a un diccionario
-        subscription_data = dict(result)
-        
-        return subscription_data
-
-    except Exception as e:
+    query = """
+        SELECT 
+            sp.price as plan_value,
+            p.created_at as member_since,
+            sp.name as plan_type,
+            sp.interval as plan_interval,
+            sp.currency as plan_currency,
+            s.status as plan_status,
+            s.created_at as subscription_date,
+            s.current_period_ends_at as plan_validity_end,
+            sp.features as plan_features
+        FROM subscriptions s
+        LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
+        LEFT JOIN profiles p ON s.user_id = p.id
+        WHERE s.user_id = :user_id
+        ORDER BY s.created_at DESC
+        LIMIT 1
+    """
+    
+    result = db.execute(query, {"user_id": current_user["id"]}).first()
+    
+    if not result:
         raise HTTPException(
-            status_code=500,
-            detail=f"Error al obtener la suscripción: {str(e)}"
-        ) 
+            status_code=404,
+            detail="No se encontró suscripción activa para el usuario"
+        )
+    
+    return SubscriptionDetails(**result._asdict()) 

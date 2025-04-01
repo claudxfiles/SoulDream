@@ -8,6 +8,7 @@ import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeScript } from './ThemeScript';
 import { PayPalProvider } from "@/components/providers/PayPalProvider";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,11 +28,13 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body className={inter.className}>
-        <PayPalProvider>
-          <Providers>
-            {children}
-          </Providers>
-        </PayPalProvider>
+        <QueryProvider>
+          <PayPalProvider>
+            <Providers>
+              {children}
+            </Providers>
+          </PayPalProvider>
+        </QueryProvider>
         <Toaster />
       </body>
     </html>
