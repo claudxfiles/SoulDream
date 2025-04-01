@@ -317,6 +317,14 @@ export default function UserProfile() {
           </div>
           <div className="flex items-center gap-4">
             <Button
+              onClick={() => router.push('/dashboard/profile/subscription')}
+              variant="default"
+              className="flex items-center gap-2"
+            >
+              <CreditCard className="h-4 w-4" />
+              Gestionar Suscripción
+            </Button>
+            <Button
               onClick={() => router.push('/dashboard/profile/subscription/history')}
               variant="outline"
               className="flex items-center gap-2"
