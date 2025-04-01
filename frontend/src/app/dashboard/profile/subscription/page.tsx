@@ -6,18 +6,53 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Sparkles, CreditCard, CheckCircle2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { motion } from 'framer-motion';
 import { CheckCircle } from 'lucide-react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function SubscriptionPage() {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const isSuccess = searchParams.get('success') === 'true';
   const { toast } = useToast();
+  const supabase = createClientComponentClient();
+
+  // Verificar suscripción activa al cargar la página
+  useEffect(() => {
+    async function checkSubscription() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        // Obtener la suscripción del usuario
+        const { data: subscription, error } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .single();
+
+        if (error) throw error;
+
+        // Si tiene suscripción activa y no estamos en la página de éxito, redirigir
+        if (subscription && !isSuccess) {
+          router.push('/dashboard/profile/subscription?success=true');
+        }
+      } catch (error) {
+        console.error('Error al verificar suscripción:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    checkSubscription();
+  }, [router, isSuccess]);
 
   const monthlyPlan = {
     name: "Pro",
@@ -54,6 +89,14 @@ export default function SubscriptionPage() {
       });
     }
   }, [isSuccess, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (isSuccess) {
     return (
