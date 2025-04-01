@@ -199,11 +199,11 @@ export default function UserProfile() {
   return (
     <div className="space-y-6">
       {/* Sección de Datos Personales */}
-      <div className="bg-[#0f172a] shadow-lg rounded-xl p-8 border border-[#4f46e5]/10">
+      <div className="bg-white dark:bg-[#0f172a] shadow-lg rounded-xl p-8 border border-gray-200 dark:border-[#4f46e5]/10">
         <div className="flex justify-between items-start mb-8">
           <div className="space-y-1">
-            <h2 className="text-2xl font-semibold text-white">Información Personal</h2>
-            <p className="text-gray-400">Actualiza tus datos personales</p>
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Información Personal</h2>
+            <p className="text-gray-500 dark:text-gray-400">Actualiza tus datos personales</p>
           </div>
           <Button
             onClick={handleSubmit}
@@ -227,7 +227,7 @@ export default function UserProfile() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="full_name" className="text-gray-300">Nombre completo</Label>
+              <Label htmlFor="full_name" className="text-gray-700 dark:text-gray-300">Nombre completo</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <User className="h-5 w-5 text-[#4f46e5]" />
@@ -237,14 +237,14 @@ export default function UserProfile() {
                   id="full_name"
                   value={formData.full_name || ''}
                   onChange={(e) => handleInputChange('full_name', e.target.value)}
-                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
+                  className="pl-10 bg-white dark:bg-[#1e293b] border-gray-200 dark:border-[#4f46e5]/20 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
                   placeholder="Ingresa tu nombre completo"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-300">Correo electrónico</Label>
+              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">Correo electrónico</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-[#4f46e5]" />
@@ -253,15 +253,15 @@ export default function UserProfile() {
                   type="email"
                   id="email"
                   value={user?.email || ''}
-                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white opacity-70 cursor-not-allowed"
+                  className="pl-10 bg-gray-50 dark:bg-[#1e293b] border-gray-200 dark:border-[#4f46e5]/20 text-gray-500 dark:text-gray-400 opacity-70 cursor-not-allowed"
                   disabled
                 />
-                <p className="text-xs text-gray-400 mt-1.5">El correo electrónico no se puede modificar</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">El correo electrónico no se puede modificar</p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-gray-300">Teléfono</Label>
+              <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300">Teléfono</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Phone className="h-5 w-5 text-[#4f46e5]" />
@@ -271,7 +271,7 @@ export default function UserProfile() {
                   id="phone"
                   value={formData.phone || ''}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
+                  className="pl-10 bg-white dark:bg-[#1e293b] border-gray-200 dark:border-[#4f46e5]/20 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
                   placeholder="Ingresa tu número de teléfono"
                 />
               </div>
@@ -280,7 +280,7 @@ export default function UserProfile() {
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="address" className="text-gray-300">Dirección</Label>
+              <Label htmlFor="address" className="text-gray-700 dark:text-gray-300">Dirección</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <MapPin className="h-5 w-5 text-[#4f46e5]" />
@@ -290,14 +290,14 @@ export default function UserProfile() {
                   id="address"
                   value={formData.address || ''}
                   onChange={(e) => handleInputChange('address', e.target.value)}
-                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
+                  className="pl-10 bg-white dark:bg-[#1e293b] border-gray-200 dark:border-[#4f46e5]/20 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
                   placeholder="Ingresa tu dirección"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="birth_date" className="text-gray-300">Fecha de nacimiento</Label>
+              <Label htmlFor="birth_date" className="text-gray-700 dark:text-gray-300">Fecha de nacimiento</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Calendar className="h-5 w-5 text-[#4f46e5]" />
@@ -307,7 +307,7 @@ export default function UserProfile() {
                   id="birth_date"
                   value={formData.birth_date || ''}
                   onChange={(e) => handleInputChange('birth_date', e.target.value)}
-                  className="pl-10 bg-[#1e293b] border-[#4f46e5]/20 text-white placeholder-gray-400 focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
+                  className="pl-10 bg-white dark:bg-[#1e293b] border-gray-200 dark:border-[#4f46e5]/20 text-gray-900 dark:text-white focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
                 />
               </div>
             </div>
@@ -315,8 +315,8 @@ export default function UserProfile() {
         </div>
 
         {error && (
-          <div className="mt-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-            <p className="text-red-500 text-sm flex items-center gap-2">
+          <div className="mt-6 p-4 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20">
+            <p className="text-red-600 dark:text-red-500 text-sm flex items-center gap-2">
               <X className="h-4 w-4" />
               {error}
             </p>
@@ -324,8 +324,8 @@ export default function UserProfile() {
         )}
 
         {success && (
-          <div className="mt-6 p-4 rounded-lg bg-[#10b981]/10 border border-[#10b981]/20">
-            <p className="text-[#10b981] text-sm flex items-center gap-2">
+          <div className="mt-6 p-4 rounded-lg bg-emerald-50 dark:bg-[#10b981]/10 border border-emerald-200 dark:border-[#10b981]/20">
+            <p className="text-emerald-600 dark:text-[#10b981] text-sm flex items-center gap-2">
               <Check className="h-4 w-4" />
               {success}
             </p>
@@ -335,10 +335,10 @@ export default function UserProfile() {
 
       {/* Diálogo de Confirmación de Cancelación */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent className="bg-[#0f172a] border border-[#4f46e5]/10">
+        <DialogContent className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-[#4f46e5]/10">
           <DialogHeader>
-            <DialogTitle className="text-white">Gestionar Suscripción</DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogTitle className="text-gray-900 dark:text-white">Gestionar Suscripción</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-gray-400">
               Puedes pausar tu suscripción temporalmente o cancelarla definitivamente.
               {profile?.subscription_status === 'suspended' && (
                 <p className="mt-2 text-[#f59e0b] text-sm">
@@ -360,7 +360,7 @@ export default function UserProfile() {
               <Button
                 variant="outline"
                 onClick={handlePauseSubscription}
-                className="w-full border-[#4f46e5] text-white hover:bg-[#4f46e5]/10"
+                className="w-full border-[#4f46e5] text-gray-900 dark:text-white hover:bg-[#4f46e5]/10"
               >
                 Pausar Suscripción
               </Button>
@@ -368,14 +368,14 @@ export default function UserProfile() {
             <Button
               variant="destructive"
               onClick={handleCancelSubscription}
-              className="w-full bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20"
+              className="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 border-red-200 dark:border-red-500/20"
             >
               Cancelar Definitivamente
             </Button>
             <Button
               variant="ghost"
               onClick={() => setShowCancelDialog(false)}
-              className="w-full text-gray-400 hover:text-white hover:bg-white/5"
+              className="w-full text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
             >
               Cerrar
             </Button>
