@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { pauseSubscription, resumeSubscription } from '@/lib/paypal';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface Profile {
   id: string;
@@ -35,12 +37,7 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [formData, setFormData] = useState({
-    full_name: '',
-    phone: '',
-    address: '',
-    birth_date: '',
-  });
+  const [formData, setFormData] = useState<Partial<Profile>>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -80,11 +77,10 @@ export default function UserProfile() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleInputChange = (field: keyof Profile, value: string) => {
     setFormData({
       ...formData,
-      [name]: value,
+      [field]: value,
     });
   };
 
@@ -204,197 +200,116 @@ export default function UserProfile() {
     <div className="space-y-6">
       {/* Sección de Datos Personales */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        <p className="text-gray-500 dark:text-gray-400 mb-6">Actualiza tus datos personales</p>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex-1 space-y-4">
-              <div>
-                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Nombre completo
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    name="full_name"
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={handleChange}
-                    className="pl-10 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Tu nombre completo"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Correo electrónico
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    value={user?.email || ''}
-                    disabled
-                    className="pl-10 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white cursor-not-allowed"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  El correo electrónico no se puede cambiar
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Teléfono
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="tel"
-                    name="phone"
-                    id="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="pl-10 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Tu número de teléfono"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 space-y-4">
-              <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Dirección
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    name="address"
-                    id="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    className="pl-10 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Tu dirección"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Fecha de nacimiento
-                </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="date"
-                    name="birth_date"
-                    id="birth_date"
-                    value={formData.birth_date}
-                    onChange={handleChange}
-                    className="pl-10 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Miembro desde
-                </label>
-                <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {profile?.created_at ? format(new Date(profile.created_at), 'dd/MM/yyyy', { locale: es }) : 'N/A'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded relative" role="alert">
-              <span className="block sm:inline">{error}</span>
-            </div>
-          )}
-
-          {success && (
-            <div className="bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-200 px-4 py-3 rounded relative" role="alert">
-              <span className="block sm:inline">{success}</span>
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-white rounded-full"></div>
-                  Guardando...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Guardar cambios
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Plan de suscripción */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Plan de suscripción</h2>
-            <p className="text-gray-500 dark:text-gray-400">Revisa y actualiza tu plan de suscripción</p>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Información Personal</h2>
+            <p className="text-gray-500 dark:text-gray-400">Actualiza tus datos personales</p>
           </div>
-          <div className="flex flex-col gap-4">
-            <Button
-              onClick={() => router.push('/dashboard/profile/subscription')}
-              variant="default"
-              className="flex items-center gap-2 w-full"
-            >
-              <CreditCard className="h-4 w-4" />
-              Gestionar Suscripción
-            </Button>
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={() => router.push('/dashboard/profile/subscription/history')}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <History className="h-4 w-4" />
-                Historial
-              </Button>
-              {profile?.subscription_tier && (
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowCancelDialog(true)}
-                  className="flex items-center gap-2"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Cancelar
-                </Button>
-              )}
+          <Button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="flex items-center gap-2"
+          >
+            <Save className="h-4 w-4" />
+            {saving ? 'Guardando...' : 'Guardar cambios'}
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Campos de información personal */}
+          <div>
+            <Label htmlFor="full_name">Nombre completo</Label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User className="h-4 w-4 text-gray-400" />
+              </div>
+              <Input
+                type="text"
+                id="full_name"
+                value={formData.full_name || ''}
+                onChange={(e) => handleInputChange('full_name', e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="email">Correo electrónico</Label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Mail className="h-4 w-4 text-gray-400" />
+              </div>
+              <Input
+                type="email"
+                id="email"
+                value={user?.email || ''}
+                className="pl-10"
+                disabled
+              />
+              <p className="text-xs text-gray-500 mt-1">El correo electrónico no se puede modificar</p>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="phone">Teléfono</Label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Phone className="h-4 w-4 text-gray-400" />
+              </div>
+              <Input
+                type="tel"
+                id="phone"
+                value={formData.phone || ''}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="address">Dirección</Label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MapPin className="h-4 w-4 text-gray-400" />
+              </div>
+              <Input
+                type="text"
+                id="address"
+                value={formData.address || ''}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="birth_date">Fecha de nacimiento</Label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Calendar className="h-4 w-4 text-gray-400" />
+              </div>
+              <Input
+                type="date"
+                id="birth_date"
+                value={formData.birth_date || ''}
+                onChange={(e) => handleInputChange('birth_date', e.target.value)}
+                className="pl-10"
+              />
             </div>
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded relative mt-4" role="alert">
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-200 px-4 py-3 rounded relative mt-4" role="alert">
+            <span className="block sm:inline">{success}</span>
+          </div>
+        )}
       </div>
 
       {/* Diálogo de Confirmación de Cancelación */}
