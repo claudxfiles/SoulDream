@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 
 class SubscriptionBase(BaseModel):
@@ -39,4 +39,29 @@ class SubscriptionInDB(SubscriptionBase):
         from_attributes = True
 
 class Subscription(SubscriptionInDB):
-    pass 
+    pass
+
+class SubscriptionResponse(BaseModel):
+    # Campos de la suscripción
+    id: str
+    user_id: str
+    status: str
+    payment_provider: str
+    payment_id: Optional[str]
+    subscription_id: Optional[str]
+    current_period_start: Optional[datetime]
+    current_period_end: Optional[datetime]
+    cancel_at_period_end: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    # Campos del plan
+    plan_name: str
+    plan_description: Optional[str]
+    plan_price: float
+    plan_currency: str
+    plan_interval: str
+    plan_features: List[Union[str, dict]]
+
+    class Config:
+        orm_mode = True 
