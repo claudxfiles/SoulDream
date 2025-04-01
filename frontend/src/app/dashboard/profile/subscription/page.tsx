@@ -7,14 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Sparkles, CreditCard, CheckCircle2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from 'next/navigation';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { motion } from 'framer-motion';
+import { CheckCircle } from 'lucide-react';
 
 export default function SubscriptionPage() {
   const [isAnnual, setIsAnnual] = useState(false);
   const searchParams = useSearchParams();
-  const success = searchParams.get('success');
+  const isSuccess = searchParams.get('success') === 'true';
+  const { toast } = useToast();
 
   const monthlyPlan = {
     name: "Pro",
@@ -44,36 +47,85 @@ export default function SubscriptionPage() {
   const activePlan = isAnnual ? annualPlan : monthlyPlan;
 
   useEffect(() => {
-    if (success === 'true') {
+    if (isSuccess) {
       toast({
         title: "¡Suscripción Activada!",
         description: "Tu suscripción ha sido activada correctamente. ¡Disfruta de todas las funcionalidades premium!",
       });
     }
-  }, [success]);
+  }, [isSuccess, toast]);
+
+  if (isSuccess) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Card className="max-w-2xl mx-auto p-8 text-center">
+            <div className="flex flex-col items-center gap-6">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              >
+                <CheckCircle className="w-20 h-20 text-emerald-500" />
+              </motion.div>
+              
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                ¡Suscripción Activada con Éxito!
+              </h1>
+              
+              <p className="text-lg text-gray-600 dark:text-gray-300">
+                Gracias por confiar en SoulDream. Estamos emocionados de tenerte como miembro premium y ayudarte a alcanzar tus metas personales.
+              </p>
+              
+              <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <p className="text-emerald-700 dark:text-emerald-300">
+                  Tu plan premium está activo y puedes comenzar a disfrutar de todos los beneficios inmediatamente.
+                </p>
+              </div>
+              
+              <div className="flex gap-4 mt-6">
+                <Button asChild>
+                  <Link href="/dashboard">
+                    Ir al Dashboard
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/profile">
+                    Ver mi Perfil
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto">
           {/* Sección de Gestión */}
-          {success !== 'true' && (
-            <div className="mb-16 animate-fade-in">
-              <div className="flex items-center mb-6">
-                <Link href="/dashboard/profile">
-                  <Button variant="ghost" size="lg" className="gap-2 hover:bg-primary/10">
-                    <ArrowLeft className="w-5 h-5" />
-                    Volver a mi Perfil
-                  </Button>
-                </Link>
-              </div>
-
-              <Card className="p-8 bg-card/50 backdrop-blur-sm border-border/50 mb-16">
-                <h1 className="text-2xl font-bold mb-4">Gestionar Suscripción</h1>
-                {/* Contenido de gestión de suscripción */}
-              </Card>
+          <div className="mb-16 animate-fade-in">
+            <div className="flex items-center mb-6">
+              <Link href="/dashboard/profile">
+                <Button variant="ghost" size="lg" className="gap-2 hover:bg-primary/10">
+                  <ArrowLeft className="w-5 h-5" />
+                  Volver a mi Perfil
+                </Button>
+              </Link>
             </div>
-          )}
+
+            <Card className="p-8 bg-card/50 backdrop-blur-sm border-border/50 mb-16">
+              <h1 className="text-2xl font-bold mb-4">Gestionar Suscripción</h1>
+              {/* Contenido de gestión de suscripción */}
+            </Card>
+          </div>
 
           {/* Header Section */}
           <div className="text-center mb-16 space-y-6 animate-fade-in">
@@ -154,35 +206,6 @@ export default function SubscriptionPage() {
               </div>
             </div>
           </div>
-
-          {success === 'true' && (
-            <div className="mt-16 text-center animate-fade-up delay-200">
-              <Card className="p-12 text-center bg-card/50 backdrop-blur-sm border-border/50">
-                <div className="flex justify-center mb-8">
-                  <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-full">
-                    <CheckCircle2 className="w-16 h-16 text-green-500" />
-                  </div>
-                </div>
-                
-                <h1 className="text-3xl font-bold mb-4">
-                  ¡Suscripción Activada con Éxito!
-                </h1>
-                
-                <p className="text-muted-foreground mb-8 text-lg">
-                  Tu suscripción ha sido activada correctamente. Ya puedes disfrutar de todas las funcionalidades premium de SoulDream AI.
-                </p>
-
-                <div className="space-x-4">
-                  <Link href="/dashboard">
-                    <Button size="lg" className="gap-2">
-                      <ArrowLeft className="w-5 h-5" />
-                      Ir al Dashboard
-                    </Button>
-                  </Link>
-                </div>
-              </Card>
-            </div>
-          )}
         </div>
       </div>
     </div>
