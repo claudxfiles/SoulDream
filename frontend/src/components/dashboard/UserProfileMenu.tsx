@@ -8,12 +8,12 @@ import {
   Settings,
   CreditCard
 } from 'lucide-react';
-import { useUser } from '@/hooks/useUser';
+import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/store/useStore';
 
 export function UserProfileMenu() {
   const router = useRouter();
-  const { user, signOut, profile, loading } = useUser();
+  const { user, signOut, loading } = useAuth();
   const { theme, setTheme } = useStore();
   
   // Manejar cierre de sesión
