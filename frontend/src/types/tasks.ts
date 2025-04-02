@@ -4,8 +4,8 @@ export interface Task {
   description: string;
   status: 'pending' | 'in_progress' | 'completed';
   priority: 'low' | 'medium' | 'high';
-  due_date?: string;
-  due_time?: string;
+  due_date?: string | null;
+  due_time?: string | null;
   timezone?: string;
   duration_minutes?: number;
   tags: string[];

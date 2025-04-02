@@ -39,8 +39,8 @@ export interface CalendarEvent {
 export interface CalendarEventInput {
   title: string;
   description?: string;
-  startDateTime: string;
-  endDateTime: string;
+  startDateTime: string | undefined;
+  endDateTime: string | undefined;
   location?: string;
   isAllDay?: boolean;
   goalId?: string;

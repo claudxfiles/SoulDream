@@ -8,6 +8,9 @@ import { parseISO, addHours } from 'date-fns';
 export const calendarAdapter = {
   // Convertir tarea a evento de calendario
   taskToEvent(task: Task): CalendarEventInput {
+    if (!task.due_date) {
+      throw new Error('La tarea debe tener una fecha límite definida');
+    }
     return {
       title: task.title,
       description: task.description,
