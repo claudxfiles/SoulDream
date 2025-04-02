@@ -59,6 +59,19 @@ export interface LearningAdaptationRequest {
     feedback?: string;
     timestamp: Date;
   }>;
+  current_preferences?: {
+    suggestionsFrequency: number;
+    detailLevel: number;
+    adaptivitySpeed: number;
+    learningStyle: string;
+    feedbackType: string;
+    aiPersonality: string;
+    topicPreferences: string[];
+    enableAutonomousLearning: boolean;
+    enableAdvancedPatternRecognition: boolean;
+    enablePersonalizedSuggestions: boolean;
+    enableContextualAwareness: boolean;
+  };
 }
 
 export const aiService = {

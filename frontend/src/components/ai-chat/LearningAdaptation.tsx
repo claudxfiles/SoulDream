@@ -19,6 +19,25 @@ interface LearningAdaptationProps {
   onSettingsUpdated?: (settings: any) => void;
 }
 
+interface TimeBlock {
+  time: string;
+  score: number;
+}
+
+interface LearningCurvePoint {
+  week: number;
+  score: number;
+}
+
+interface UserInsights {
+  preferredTimeBlocks: TimeBlock[];
+  learningCurve: LearningCurvePoint[];
+  topicEngagement: Record<string, number>;
+  responsePatterns: Record<string, string>;
+  completionRate: number;
+  adaptationScore: number;
+}
+
 export function LearningAdaptation({ userData, interactionHistory, onClose, onSettingsUpdated }: LearningAdaptationProps) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('preferences');
@@ -38,7 +57,7 @@ export function LearningAdaptation({ userData, interactionHistory, onClose, onSe
     enableContextualAwareness: true
   });
   
-  const [userInsights, setUserInsights] = useState({
+  const [userInsights, setUserInsights] = useState<UserInsights>({
     preferredTimeBlocks: [],
     learningCurve: [],
     topicEngagement: {},
