@@ -23,12 +23,19 @@ interface PersonalizedPlanProps {
   onPlanCreated?: (plan: any) => void;
 }
 
+interface PlanPreferences {
+  preferred_time_blocks: string[];
+  difficulty_preference: 'easy' | 'moderate' | 'challenging' | 'balanced';
+  priority_areas: string[];
+  learning_style: 'visual' | 'auditory' | 'kinesthetic' | 'balanced';
+}
+
 export function PersonalizedPlanGenerator({ userData, onClose, onPlanCreated }: PersonalizedPlanProps) {
   const [selectedGoalType, setSelectedGoalType] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('configuracion');
-  const [preferences, setPreferences] = useState({
+  const [preferences, setPreferences] = useState<PlanPreferences>({
     preferred_time_blocks: [],
     difficulty_preference: 'balanced',
     priority_areas: [],
@@ -85,11 +92,11 @@ export function PersonalizedPlanGenerator({ userData, onClose, onPlanCreated }: 
   };
   
   const handleDifficultyChange = (value: string) => {
-    setPreferences(prev => ({ ...prev, difficulty_preference: value }));
+    setPreferences(prev => ({ ...prev, difficulty_preference: value as 'easy' | 'moderate' | 'challenging' | 'balanced' }));
   };
   
   const handleLearningStyleChange = (value: string) => {
-    setPreferences(prev => ({ ...prev, learning_style: value }));
+    setPreferences(prev => ({ ...prev, learning_style: value as 'visual' | 'auditory' | 'kinesthetic' | 'balanced' }));
   };
   
   // Generar plan personalizado
