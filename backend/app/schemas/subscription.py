@@ -1,67 +1,76 @@
 from datetime import datetime
 from typing import Optional, List, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, UUID4
+from enum import Enum
 
-class SubscriptionBase(BaseModel):
+class SubscriptionStatus(str, Enum):
+    ACTIVE = "active"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+    PENDING = "pending"
+    SUSPENDED = "suspended"
+
+class PlanInterval(str, Enum):
+    MONTHLY = "monthly"
+    YEARLY = "yearly"
+
+class SubscriptionPlanBase(BaseModel):
     name: str
-    description: Optional[str] = None
-    amount: float = Field(gt=0)
+    description: str
+    price: float
     currency: str = "USD"
-    billing_cycle: str = Field(pattern="^(monthly|annual)$")
-    next_billing_date: datetime
-    category: str
-    status: str = Field(pattern="^(active|cancelled|pending)$", default="active")
-    auto_renewal: bool = True
-    payment_method: str
+    interval: PlanInterval
+    features: List[str]
 
-class SubscriptionCreate(SubscriptionBase):
+class SubscriptionPlanCreate(SubscriptionPlanBase):
     pass
 
-class SubscriptionUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    amount: Optional[float] = Field(None, gt=0)
-    currency: Optional[str] = None
-    billing_cycle: Optional[str] = Field(None, pattern="^(monthly|annual)$")
-    next_billing_date: Optional[datetime] = None
-    category: Optional[str] = None
-    status: Optional[str] = Field(None, pattern="^(active|cancelled|pending)$")
-    auto_renewal: Optional[bool] = None
-    payment_method: Optional[str] = None
-
-class SubscriptionInDB(SubscriptionBase):
-    id: str
-    user_id: str
+class SubscriptionPlanResponse(SubscriptionPlanBase):
+    id: UUID4
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime
 
     class Config:
         from_attributes = True
 
-class Subscription(SubscriptionInDB):
-    pass
+class SubscriptionBase(BaseModel):
+    plan_id: UUID4
+    user_id: UUID4
 
-class SubscriptionResponse(BaseModel):
-    # Campos de la suscripción
-    id: str
-    user_id: str
-    status: str
-    payment_provider: str
-    payment_id: Optional[str]
-    subscription_id: Optional[str]
-    current_period_start: Optional[datetime]
-    current_period_end: Optional[datetime]
+class SubscriptionCreate(SubscriptionBase):
+    paypal_subscription_id: Optional[str] = None
+    cancel_at_period_end: bool = False
+
+class SubscriptionUpdate(BaseModel):
+    status: Optional[SubscriptionStatus] = None
+    cancel_at_period_end: Optional[bool] = None
+    cancellation_reason: Optional[str] = None
+
+class SubscriptionResponse(SubscriptionBase):
+    id: UUID4
+    status: SubscriptionStatus
+    current_period_start: datetime
+    current_period_end: datetime
     cancel_at_period_end: bool
+    cancelled_at: Optional[datetime] = None
+    cancellation_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    
-    # Campos del plan
-    plan_name: str
-    plan_description: Optional[str]
-    plan_price: float
-    plan_currency: str
-    plan_interval: str
-    plan_features: List[Union[str, dict]]
+    plan: SubscriptionPlanResponse
 
     class Config:
-        orm_mode = True 
+        from_attributes = True
+
+class SubscriptionDetails(BaseModel):
+    plan_value: float
+    member_since: datetime
+    plan_type: str
+    plan_interval: PlanInterval
+    plan_currency: str
+    plan_status: SubscriptionStatus
+    subscription_date: datetime
+    plan_validity_end: datetime
+    plan_features: List[str]
+
+    class Config:
+        from_attributes = True 

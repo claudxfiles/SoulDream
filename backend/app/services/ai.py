@@ -1,9 +1,9 @@
 import httpx
 import json
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from app.core.config import settings
-from app.schemas.ai import AIChatRequest, AIChatResponse, MessageCreate, MessageSender
+from app.schemas.ai import AIChatRequest, AIChatResponse, MessageCreate, MessageSender, ChatRequest, PlanRequest
 from app.db.database import get_supabase_client
 from datetime import datetime, timedelta
 import uuid
@@ -61,6 +61,113 @@ class AISuggestion(BaseModel):
     user_id: str
     created_at: datetime
     completed_at: Optional[datetime] = None
+
+class AIService:
+    def __init__(self):
+        self.api_key = settings.OPENROUTER_API_KEY
+        self.api_url = "https://openrouter.ai/api/v1"
+        self.default_model = "qwen/qwen-72b"
+
+    async def chat(self, request: ChatRequest) -> Tuple[str, Dict[str, Any]]:
+        """
+        Procesa una solicitud de chat y retorna la respuesta con metadatos
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.api_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": request.model or self.default_model,
+                        "messages": [
+                            {"role": "user", "content": request.message},
+                            *[{"role": m.role, "content": m.content} for m in request.message_history]
+                        ]
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                # Procesar la respuesta
+                ai_response = data["choices"][0]["message"]["content"]
+                metadata = self._analyze_response(request.message, ai_response)
+                
+                return ai_response, metadata
+        except Exception as e:
+            raise Exception(f"Error en el servicio de IA: {str(e)}")
+
+    async def generate_plan(self, request: PlanRequest) -> Dict[str, Any]:
+        """
+        Genera un plan personalizado basado en un objetivo
+        """
+        try:
+            prompt = self._create_plan_prompt(request)
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.api_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.default_model,
+                        "messages": [{"role": "user", "content": prompt}]
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                return self._parse_plan_response(data["choices"][0]["message"]["content"])
+        except Exception as e:
+            raise Exception(f"Error generando plan: {str(e)}")
+
+    def _analyze_response(self, user_message: str, ai_response: str) -> Dict[str, Any]:
+        """
+        Analiza la respuesta para extraer metadatos relevantes
+        """
+        # Implementar análisis de respuesta
+        # Por ahora retornamos un ejemplo
+        return {
+            "area": "productividad",
+            "goal_type": "habito",
+            "confidence": 0.85,
+            "title": "Mejora de productividad",
+            "steps": ["Paso 1", "Paso 2"],
+            "timeframe": {"duration": "2 semanas"}
+        }
+
+    def _create_plan_prompt(self, request: PlanRequest) -> str:
+        """
+        Crea un prompt específico para la generación de planes
+        """
+        return f"""
+        Genera un plan detallado para el siguiente objetivo:
+        Objetivo: {request.goal}
+        Área: {request.area}
+        Timeframe: {request.timeframe or 'flexible'}
+        
+        Por favor, incluye:
+        1. Pasos específicos y accionables
+        2. Duración estimada
+        3. Nivel de dificultad
+        4. Requisitos necesarios
+        """
+
+    def _parse_plan_response(self, response: str) -> Dict[str, Any]:
+        """
+        Parsea la respuesta del modelo para extraer el plan estructurado
+        """
+        # Implementar parsing de respuesta
+        # Por ahora retornamos un ejemplo
+        return {
+            "plan": ["Paso 1: Definir objetivo", "Paso 2: Crear cronograma"],
+            "estimated_duration": "2 semanas",
+            "difficulty_level": "intermedio",
+            "requirements": ["Tiempo diario: 30 minutos", "Herramientas: ninguna"]
+        }
 
 @router.post("/generate", response_model=AIPromptResponse)
 async def generate_ai_response(

@@ -175,4 +175,23 @@ class GoalPlanRequest(BaseModel):
     """
     Solicitud para generar un plan de meta
     """
-    goal_metadata: Dict[str, Any] 
+    goal_metadata: Dict[str, Any]
+
+class PlanRequest(BaseModel):
+    goal: str = Field(..., description="Objetivo para generar el plan")
+    area: str = Field(..., description="Área del objetivo (finanzas, salud, etc.)")
+    timeframe: Optional[str] = None
+
+class AIMetadata(BaseModel):
+    area: str
+    goal_type: str
+    confidence: float
+    title: str
+    steps: List[str]
+    timeframe: Optional[Dict[str, Any]]
+
+class PlanResponse(BaseModel):
+    plan: List[str] = Field(..., description="Pasos del plan generado")
+    estimated_duration: str = Field(..., description="Duración estimada")
+    difficulty_level: str = Field(..., description="Nivel de dificultad")
+    requirements: List[str] = Field(..., description="Requisitos necesarios") 
