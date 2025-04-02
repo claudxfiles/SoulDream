@@ -36,7 +36,6 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import {
-  Calendar,
   Home,
   Car,
   Briefcase,
@@ -53,6 +52,7 @@ import { format, addMonths, addYears } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
 
 // Tipos para activos y planes financieros
 interface FinancialAsset {
@@ -205,14 +205,17 @@ const AssetForm: React.FC<AssetFormProps> = ({
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {targetDate ? format(targetDate, "PPP", { locale: es }) : "Selecciona una fecha"}
+                      {targetDate ? format(targetDate, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
                       selected={targetDate}
-                      onSelect={(date) => date && setTargetDate(date)}
+                      onSelect={(date: Date | undefined) => date && setTargetDate(date)}
+                      disabled={(date: Date) =>
+                        date < new Date() || date > new Date(new Date().setFullYear(new Date().getFullYear() + 10))
+                      }
                       initialFocus
                     />
                   </PopoverContent>
