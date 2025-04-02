@@ -10,6 +10,9 @@ from app.db.database import get_supabase_client
 from app.schemas.user import User
 from app.core.config import settings
 
+# Alias para mantener compatibilidad
+get_supabase = get_supabase_client
+
 # Configuración del logger
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,7 @@ def get_db():
     Crea una sesión de base de datos
     En este caso, al usar Supabase, retornamos el cliente de Supabase
     """
-    return get_supabase_client()
+    return get_supabase()
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
