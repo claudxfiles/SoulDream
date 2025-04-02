@@ -1,3 +1,5 @@
+'use client';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkoutCalendar } from '@/components/workout/WorkoutCalendar';
 import { WorkoutList } from '@/components/workout/WorkoutList';
