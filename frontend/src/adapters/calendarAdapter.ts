@@ -3,7 +3,7 @@ import { Task } from '@/types/task';
 import { Goal } from '@/types/goal';
 import { Habit } from '@/types/habit';
 import { Workout } from '@/types/workout';
-import { parseISO, addHours } from 'date-fns';
+import { parseISO, addHours, format } from 'date-fns';
 
 export const calendarAdapter = {
   // Convertir tarea a evento de calendario
@@ -11,11 +11,31 @@ export const calendarAdapter = {
     if (!task.due_date) {
       throw new Error('La tarea debe tener una fecha límite definida');
     }
+
+    // Crear fecha base desde due_date
+    const baseDate = parseISO(task.due_date);
+    
+    // Si hay due_time, combinar con la fecha
+    let startDate = baseDate;
+    if (task.due_time) {
+      const [hours, minutes] = task.due_time.split(':');
+      startDate = new Date(
+        baseDate.getFullYear(),
+        baseDate.getMonth(),
+        baseDate.getDate(),
+        parseInt(hours),
+        parseInt(minutes)
+      );
+    }
+
+    // Calcular fecha de fin (1 hora después por defecto o duración especificada)
+    const endDate = addHours(startDate, task.duration_minutes ? task.duration_minutes / 60 : 1);
+
     return {
       title: task.title,
       description: task.description,
-      startDateTime: task.due_date,
-      endDateTime: addHours(parseISO(task.due_date), 1).toISOString(),
+      startDateTime: format(startDate, "yyyy-MM-dd'T'HH:mm:ss"),
+      endDateTime: format(endDate, "yyyy-MM-dd'T'HH:mm:ss"),
       taskId: task.id,
       color: getPriorityColor(task.priority),
       reminderMinutes: [30], // Recordatorio por defecto 30 minutos antes
@@ -24,14 +44,22 @@ export const calendarAdapter = {
 
   // Convertir meta a evento de calendario
   goalToEvent(goal: Goal): CalendarEventInput {
+    if (!goal.timeframe?.endDate) {
+      throw new Error('La meta debe tener una fecha límite definida');
+    }
+
     return {
       title: `Meta: ${goal.title}`,
-      description: `${goal.description}\nProgreso: ${goal.progress}%`,
-      startDateTime: goal.deadline,
-      endDateTime: goal.deadline,
+      description: `${goal.description}\nProgreso: ${goal.progressPercentage || 0}%`,
+      startDateTime: typeof goal.timeframe.startDate === 'string' 
+        ? goal.timeframe.startDate 
+        : goal.timeframe.startDate.toISOString(),
+      endDateTime: typeof goal.timeframe.endDate === 'string'
+        ? goal.timeframe.endDate
+        : goal.timeframe.endDate.toISOString(),
       goalId: goal.id,
       isAllDay: true,
-      color: getProgressColor(goal.progress),
+      color: getProgressColor(goal.progressPercentage || 0),
     };
   },
 
@@ -45,26 +73,30 @@ export const calendarAdapter = {
       habitId: habit.id,
       isAllDay: true,
       recurrenceRule: habit.frequency,
-      color: getHabitColor(habit.category),
+      color: getHabitColor(habit.category || 'other'),
     };
   },
 
   // Convertir entrenamiento a evento de calendario
   workoutToEvent(workout: Workout): CalendarEventInput {
+    if (!workout.date) {
+      throw new Error('El entrenamiento debe tener una fecha programada');
+    }
+
     return {
-      title: `Entrenamiento: ${workout.title}`,
-      description: `${workout.description}\nDuración: ${workout.duration} minutos`,
-      startDateTime: workout.scheduledDate,
-      endDateTime: addHours(parseISO(workout.scheduledDate), 1).toISOString(),
+      title: `Entrenamiento: ${workout.name}`,
+      description: `${workout.description || ''}\nDuración: ${workout.duration_minutes || 60} minutos`,
+      startDateTime: workout.date,
+      endDateTime: addHours(parseISO(workout.date), (workout.duration_minutes || 60) / 60).toISOString(),
       workoutId: workout.id,
-      color: getWorkoutColor(workout.type),
+      color: getWorkoutColor(workout.workout_type || 'other'),
     };
   },
 };
 
 // Funciones auxiliares para colores
 function getPriorityColor(priority: string): string {
-  const colors = {
+  const colors: Record<string, string> = {
     high: '#ef4444',
     medium: '#f59e0b',
     low: '#10b981',
@@ -79,7 +111,7 @@ function getProgressColor(progress: number): string {
 }
 
 function getHabitColor(category: string): string {
-  const colors = {
+  const colors: Record<string, string> = {
     health: '#10b981',
     productivity: '#3b82f6',
     learning: '#8b5cf6',
@@ -89,7 +121,7 @@ function getHabitColor(category: string): string {
 }
 
 function getWorkoutColor(type: string): string {
-  const colors = {
+  const colors: Record<string, string> = {
     strength: '#ef4444',
     cardio: '#3b82f6',
     flexibility: '#8b5cf6',

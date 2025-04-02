@@ -4,21 +4,19 @@
 
 export interface Task {
   id: string;
-  user_id: string;
   title: string;
-  description?: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'canceled';
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed';
   priority: 'low' | 'medium' | 'high';
   due_date?: string;
-  column_order?: number;
-  created_at: string;
-  updated_at: string;
-  is_deleted?: boolean;
+  due_time?: string;
+  timezone?: string;
+  duration_minutes?: number;
+  tags: string[];
+  created_at?: string;
+  updated_at?: string;
+  user_id?: string;
   related_goal_id?: string;
-  category?: 'performance' | 'feature' | 'bug' | 'documentation' | 'other';
-  tags?: string[];
-  estimated_time_minutes?: number;
-  completed_at?: string;
 }
 
 export interface TaskCreateDTO {

@@ -70,18 +70,15 @@ export enum DifficultyLevel {
 // Interfaces para la aplicación
 export interface Workout {
   id: string;
-  user_id: string;
   name: string;
   description?: string;
-  duration_minutes: number;
   date: string;
-  created_at: string;
-  calories_burned?: number;
+  duration_minutes: number;
   workout_type: WorkoutType;
-  related_goal_id?: string;
-  rating?: number;
   muscle_groups?: string[];
-  notes?: string;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface WorkoutExercise {
@@ -109,11 +106,9 @@ export interface WorkoutWithExercises extends Workout {
 }
 
 // Tipos para inserciones
-export type WorkoutInsert = Omit<Workout, 'id' | 'created_at'> & {
-  calories_burned?: number | null;
-  notes?: string | null;
-  muscle_groups?: string[] | null;
-};
+export type WorkoutInsert extends Omit<Workout, 'id' | 'created_at' | 'updated_at'> {
+  user_id: string;
+}
 
 export type WorkoutExerciseInsert = Omit<WorkoutExercise, 'id' | 'created_at' | 'updated_at'>;
 

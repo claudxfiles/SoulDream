@@ -39,8 +39,8 @@ export interface CalendarEvent {
 export interface CalendarEventInput {
   title: string;
   description?: string;
-  startDateTime: string | undefined;
-  endDateTime: string | undefined;
+  startDateTime: string; // Formato: "yyyy-MM-dd'T'HH:mm:ss"
+  endDateTime: string; // Formato: "yyyy-MM-dd'T'HH:mm:ss"
   location?: string;
   isAllDay?: boolean;
   goalId?: string;
