@@ -106,9 +106,9 @@ export interface WorkoutWithExercises extends Workout {
 }
 
 // Tipos para inserciones
-export type WorkoutInsert extends Omit<Workout, 'id' | 'created_at' | 'updated_at'> {
+export type WorkoutInsert = Omit<Workout, 'id' | 'created_at' | 'updated_at'> & {
   user_id: string;
-}
+};
 
 export type WorkoutExerciseInsert = Omit<WorkoutExercise, 'id' | 'created_at' | 'updated_at'>;
 
