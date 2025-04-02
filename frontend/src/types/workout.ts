@@ -103,6 +103,7 @@ export interface WorkoutWithExercises extends Workout {
   duration?: string;
   last_performed?: string;
   created_at: string;
+  notes?: string;
 }
 
 // Tipos para inserciones
