@@ -39,6 +39,37 @@ interface Message {
   status?: 'sending' | 'sent' | 'error';
 }
 
+interface PersonalizedPlan {
+  title: string;
+  summary: string;
+  focus_areas: string[];
+  duration_weeks: number;
+  num_tasks: number;
+  num_habits: number;
+  num_milestones: number;
+  productivity_style: string;
+  preferences: string[];
+  behavioral_insights: string[];
+  adapted_steps: Array<{
+    title: string;
+    description: string;
+  }>;
+  reinforcement_mechanisms: string[];
+}
+
+interface Analysis {
+  patterns: string[];
+  insights: string[];
+  improvement_factors: string[];
+}
+
+interface AISettings {
+  suggestionsFrequency: number;
+  detailLevel: number;
+  aiPersonality: string;
+  [key: string]: any;
+}
+
 // Componente para un mensaje individual
 const ChatMessage = ({ message }: { message: Message }) => {
   const isUser = message.sender === 'user';
@@ -366,74 +397,79 @@ Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que estable
   ];
   
   // Manejador para la creación de un plan personalizado
-  const handlePlanCreated = (plan) => {
-    // Crear un mensaje que resume el plan generado
+  const handlePlanCreated = (plan: PersonalizedPlan) => {
     const planSummary = `
-      He generado un plan personalizado para ti:
-      
-      **${plan.title}**
-      
-      Este plan se enfoca en ${plan.focus_areas.join(', ')} y tiene una duración de ${plan.duration_weeks} semanas.
-      
-      Incluye:
-      - ${plan.num_tasks} tareas
-      - ${plan.num_habits} hábitos recomendados
-      - ${plan.num_milestones} hitos principales
-      
-      El plan está diseñado considerando tu estilo de productividad ${plan.productivity_style} y tus preferencias de ${plan.preferences.join(', ')}.
+He generado un plan personalizado para ti:
+
+**${plan.title}**
+
+Este plan se enfoca en ${plan.focus_areas.join(', ')} y tiene una duración de ${plan.duration_weeks} semanas.
+
+Incluye:
+- ${plan.num_tasks} tareas
+- ${plan.num_habits} hábitos recomendados
+- ${plan.num_milestones} hitos principales
+
+El plan está diseñado considerando tu estilo de productividad ${plan.productivity_style} y tus preferencias de ${plan.preferences.join(', ')}.
     `;
     
-    // Añadir mensaje a la conversación
-    setMessages(prev => [
-      ...prev, 
-      { role: 'assistant', content: planSummary }
-    ]);
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      content: planSummary,
+      sender: 'ai',
+      timestamp: new Date()
+    };
     
-    // Cerrar el generador de planes
+    setMessages(prev => [...prev, newMessage]);
     setShowPlanGenerator(false);
   };
   
   // Manejador para cuando se completa el análisis de patrones
-  const handleAnalysisComplete = (analysis) => {
-    // Crear un mensaje con los insights principales del análisis
-    const analysisSummary = `
-      He analizado tus patrones de actividad y estos son los principales insights:
-      
-      **Resumen:**
-      ${analysis.summary}
-      
-      **Patrones Clave:**
-      ${analysis.key_insights.slice(0, 3).map(insight => `- ${insight}`).join('\n')}
-      
-      **Factores de Éxito:**
-      ${analysis.success_factors.slice(0, 2).map(factor => `- ${factor.factor}: ${factor.recommendation}`).join('\n')}
+  const handleAnalysisComplete = (analysis: Analysis) => {
+    const analysisMessage = `
+He completado el análisis de tus patrones:
+
+**Patrones Identificados:**
+${analysis.patterns.join('\n')}
+
+**Insights Clave:**
+${analysis.insights.join('\n')}
+
+**Factores de Mejora:**
+${analysis.improvement_factors.join('\n')}
     `;
     
-    // Añadir mensaje a la conversación
-    setMessages(prev => [
-      ...prev, 
-      { role: 'assistant', content: analysisSummary }
-    ]);
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      content: analysisMessage,
+      sender: 'ai',
+      timestamp: new Date()
+    };
     
-    // Cerrar el analizador de patrones
+    setMessages(prev => [...prev, newMessage]);
     setShowPatternAnalyzer(false);
   };
   
   // Manejador para cuando se actualizan los ajustes de IA
-  const handleSettingsUpdated = (newSettings) => {
-    setAiSettings(prev => ({
-      ...prev,
-      ...newSettings
-    }));
+  const handleSettingsUpdated = (newSettings: AISettings) => {
+    setAiSettings(newSettings);
     
-    // Mensaje de confirmación opcional
-    setMessages(prev => [
-      ...prev, 
-      { 
-        role: 'assistant', 
-        content: `He actualizado mis preferencias de interacción según tus necesidades. Ahora te proporcionaré ${['menos', 'pocas', 'algunas', 'más'][newSettings.suggestionsFrequency || 2]} sugerencias y respuestas ${['concisas', 'balanceadas', 'detalladas'][newSettings.detailLevel || 1]}.` 
-      }
-    ]);
+    const settingsMessage = `
+He actualizado mis ajustes según tus preferencias:
+- Frecuencia de sugerencias: ${newSettings.suggestionsFrequency}
+- Nivel de detalle: ${newSettings.detailLevel}
+- Personalidad: ${newSettings.aiPersonality}
+    `;
+    
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      content: settingsMessage,
+      sender: 'ai',
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+    setShowLearningSystem(false);
   };
 
   return (
