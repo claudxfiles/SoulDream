@@ -1,10 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkoutCalendar } from '@/components/workout/WorkoutCalendar';
 import WorkoutList from '@/components/workout/WorkoutList';
 
 export default function WorkoutPage() {
+  const [refreshKey, setRefreshKey] = useState<number>(0);
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
   return (
     <div className="container py-6">
       <h1 className="text-3xl font-bold mb-6">Workout</h1>
@@ -21,7 +28,7 @@ export default function WorkoutPage() {
         </TabsList>
 
         <TabsContent value="historial">
-          <WorkoutList />
+          <WorkoutList onRefresh={handleRefresh} key={`list-${refreshKey}`} />
         </TabsContent>
 
         <TabsContent value="calendario">
