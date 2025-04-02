@@ -2,7 +2,7 @@ import { CalendarEvent, CalendarEventInput } from '@/types/calendar';
 import { Task } from '@/types/task';
 import { Goal } from '@/types/goal';
 import { Habit } from '@/types/habit';
-import { Workout } from '@/types/workout';
+import { Workout, WorkoutType } from '@/types/workout';
 import { parseISO, addHours, format } from 'date-fns';
 
 export const calendarAdapter = {
@@ -142,6 +142,7 @@ export const workoutToCalendarEvent = (workout: Workout): CalendarEvent => {
     start: startDate.toISOString(),
     end: endDate.toISOString(),
     type: 'workout',
+    source: 'workout',
     metadata: {
       workoutType: workout.workout_type,
       muscleGroups: workout.muscle_groups,
