@@ -15,12 +15,14 @@ python-jose[cryptography]==3.3.0
 cryptography==42.0.5  # Requerido para JWT y encriptación
 
 # Base de datos y ORM
-supabase==2.3.4
+sqlalchemy>=1.4.42,<1.5
+databases[postgresql]==0.8.0
 psycopg2-binary==2.9.9
-sqlalchemy==2.0.27
 alembic==1.13.1
 asyncpg==0.29.0
-databases[postgresql]==0.8.0  # Soporte para PostgreSQL async
+
+# Supabase
+supabase==2.3.4
 
 # Google Calendar API y OAuth
 google-api-python-client==2.121.0
