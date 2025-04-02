@@ -97,22 +97,27 @@ export function AIAssistant() {
 
       // Convertir y ordenar mensajes
       if (data && data.length > 0) {
-        const formattedMessages: Message[] = data.map(item => ({
+        const userMessages = data.map(item => ({
           id: item.id,
-          content: item.query,
-          sender: 'user',
+          content: item.query || '',
+          sender: 'user' as const,
           timestamp: new Date(item.created_at),
-          context: item.context || 'general',
-          status: 'sent'
-        })).concat(data.map(item => ({
+          context: (item.context as Message['context']) || 'general',
+          status: 'sent' as const
+        }));
+
+        const aiMessages = data.map(item => ({
           id: `response-${item.id}`,
-          content: item.response,
-          sender: 'ai',
+          content: item.response || '',
+          sender: 'ai' as const,
           timestamp: new Date(item.created_at),
-          context: item.context || 'general',
-          status: 'sent',
+          context: (item.context as Message['context']) || 'general',
+          status: 'sent' as const,
           metadata: item.metadata
-        }))).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        }));
+
+        const formattedMessages: Message[] = [...userMessages, ...aiMessages]
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
         setMessages(formattedMessages);
       }
