@@ -6,10 +6,12 @@ import { createClientComponent } from '@/lib/supabase';
 
 const plans = [
   {
+    id: 'free_plan',
     name: 'Free',
     price: 0,
     description: 'Para usuarios que buscan productividad personal básica',
-    planId: 'free_plan',
+    interval: 'mes',
+    buttonText: 'Comenzar gratis',
     features: [
       { name: 'Hasta 10 tareas activas', included: true },
       { name: '3 hábitos personalizados', included: true },
@@ -22,10 +24,12 @@ const plans = [
     ],
   },
   {
+    id: 'P-5ML4271244454362XMVZEWLY',
     name: 'Pro',
     price: 9.99,
     description: 'Para usuarios que buscan productividad avanzada',
-    planId: 'P-5ML4271244454362XMVZEWLY',
+    interval: 'mes',
+    buttonText: 'Actualizar a Pro',
     features: [
       { name: 'Tareas ilimitadas', included: true },
       { name: 'Hábitos ilimitados', included: true },
@@ -36,13 +40,15 @@ const plans = [
       { name: 'Analítica personalizada', included: true },
       { name: 'Prioridad en el soporte técnico', included: false },
     ],
-    isPopular: true,
+    popular: true,
   },
   {
+    id: 'P-5ML4271244454362XMVZEWLZ',
     name: 'Premium',
     price: 19.99,
     description: 'Para equipos y empresas que buscan máxima productividad',
-    planId: 'P-5ML4271244454362XMVZEWLZ',
+    interval: 'mes',
+    buttonText: 'Actualizar a Premium',
     features: [
       { name: 'Todo lo incluido en Pro', included: true },
       { name: 'Plantillas de productividad', included: true },
@@ -58,6 +64,7 @@ const plans = [
 
 export default function PricingPage() {
   const [currentTier, setCurrentTier] = useState<string>('free');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchUserTier = async () => {
@@ -80,6 +87,12 @@ export default function PricingPage() {
     fetchUserTier();
   }, []);
 
+  const handleSelectPlan = async (planId: string) => {
+    setIsLoading(true);
+    // Aquí iría la lógica para manejar la selección del plan
+    setIsLoading(false);
+  };
+
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="text-center mb-12">
@@ -92,14 +105,11 @@ export default function PricingPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
         {plans.map((plan) => (
           <PricingPlan
-            key={plan.name}
-            name={plan.name}
-            price={plan.price}
-            description={plan.description}
-            features={plan.features}
-            planId={plan.planId}
-            currentTier={currentTier}
-            isPopular={plan.isPopular}
+            key={plan.id}
+            plan={plan}
+            isCurrentPlan={currentTier === plan.id}
+            isLoading={isLoading}
+            onSelectPlan={handleSelectPlan}
           />
         ))}
       </div>
