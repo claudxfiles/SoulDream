@@ -2,7 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkoutCalendar } from '@/components/workout/WorkoutCalendar';
-import { WorkoutList } from '@/components/workout/WorkoutList';
+import WorkoutList from '@/components/workout/WorkoutList';
 
 export default function WorkoutPage() {
   return (
