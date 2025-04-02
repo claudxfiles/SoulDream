@@ -1,13 +1,14 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { paypalClient } from '@/lib/paypal-client';
 
-export async function GET(request: Request) {
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const subscriptionId = searchParams.get('subscription_id');
-    const token = searchParams.get('token');
+    const subscriptionId = request.nextUrl.searchParams.get('subscription_id');
+    const token = request.nextUrl.searchParams.get('token');
 
     if (!subscriptionId || !token) {
       return new NextResponse('Missing required parameters', { status: 400 });

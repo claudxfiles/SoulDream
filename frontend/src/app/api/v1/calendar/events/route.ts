@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET: Obtener eventos del calendario de Google para un rango de fechas específico
  */

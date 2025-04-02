@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
 
-export default function ReconnectPage() {
+function ReconnectContent() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<string | null>(null);
@@ -129,5 +129,24 @@ export default function ReconnectPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function ReconnectPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-center">Cargando...</CardTitle>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <RefreshCw className="h-8 w-8 animate-spin" />
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <ReconnectContent />
+    </Suspense>
   );
 } 

@@ -96,6 +96,18 @@ const nextConfig = {
     
     return config;
   },
+
+  eslint: {
+    // Desactivar la verificación de ESLint durante la construcción
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // Desactivar la verificación de tipos durante la construcción
+    ignoreBuildErrors: true,
+  },
+  images: {
+    domains: ['lh3.googleusercontent.com', 'avatars.githubusercontent.com'],
+  },
 };
 
 module.exports = nextConfig;

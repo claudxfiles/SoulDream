@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FinanceDashboard } from '@/components/finance/FinanceDashboard';
 import { TransactionManager } from '@/components/finance/TransactionManager';
@@ -19,7 +19,7 @@ import {
   ArrowRight 
 } from 'lucide-react';
 
-export default function FinancePage() {
+function FinanceContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -114,5 +114,23 @@ export default function FinancePage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function FinancePage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <div className="flex flex-col space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Gestión Financiera</h1>
+          <p className="text-muted-foreground">Cargando...</p>
+        </div>
+        <div className="flex justify-center p-8">
+          <ArrowRight className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    }>
+      <FinanceContent />
+    </Suspense>
   );
 } 

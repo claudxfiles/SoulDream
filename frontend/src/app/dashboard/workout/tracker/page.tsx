@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { ArrowLeftIcon, TimerIcon } from "lucide-react";
 import WorkoutTracker from "@/components/workout/WorkoutTracker";
 import { DumbbellIcon, LineChartIcon } from "lucide-react";
 
-export default function WorkoutTrackerPage() {
+function WorkoutTrackerContent() {
   const searchParams = useSearchParams();
   const workoutParam = searchParams.get('workout');
   const [workoutData, setWorkoutData] = useState(null);
@@ -97,5 +97,26 @@ export default function WorkoutTrackerPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function WorkoutTrackerPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col gap-6 p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <PageHeader
+            title="Rastreador de Entrenamiento"
+            description="Cargando..."
+            icon={<TimerIcon className="h-6 w-6 text-amber-500 animate-spin" />}
+          />
+        </div>
+        <div className="flex justify-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    }>
+      <WorkoutTrackerContent />
+    </Suspense>
   );
 } 

@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 // Cliente de Supabase con service_role para acceso administrativo
 // Esto permite bypassear RLS y acceder directamente a los datos del usuario
 const supabaseAdmin = createClient(
@@ -10,8 +12,7 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const userId = request.nextUrl.searchParams.get('userId');
     
     // Validar que se proporcionó un userId
     if (!userId) {
