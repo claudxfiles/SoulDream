@@ -152,7 +152,7 @@ export const workoutToCalendarEvent = (workout: Workout): CalendarEvent => {
 };
 
 // Función para convertir un evento del calendario a entrenamiento
-export const calendarEventToWorkout = (event: CalendarEvent): Partial<WorkoutInsert> => {
+export const calendarEventToWorkout = (event: CalendarEvent): Partial<Workout> => {
   const startDate = new Date(event.start);
   
   return {
@@ -160,7 +160,7 @@ export const calendarEventToWorkout = (event: CalendarEvent): Partial<WorkoutIns
     description: event.description,
     date: startDate.toISOString(),
     duration_minutes: event.metadata?.duration || 60,
-    workout_type: event.metadata?.workoutType || WorkoutType.CUSTOM,
+    workout_type: (event.metadata?.workoutType as WorkoutType) || 'other',
     muscle_groups: event.metadata?.muscleGroups || []
   };
 }; 
