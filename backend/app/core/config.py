@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     PAYPAL_MODE: str = os.getenv("PAYPAL_MODE", "sandbox")
     PAYPAL_WEBHOOK_URL: str = os.getenv("PAYPAL_WEBHOOK_URL", "https://www.presentandflow.cl/api/v1/payments/webhook")
     PAYPAL_WEBHOOK_ID: str = os.getenv("PAYPAL_WEBHOOK_ID", "")
-    PAYPAL_WEBHOOK_SECRET: str = os.getenv("PAYPAL_WEBHOOK_SECRET", "")
+    PAYPAL_API_URL: str = "https://api-m.sandbox.paypal.com" if os.getenv("PAYPAL_MODE", "sandbox") == "sandbox" else "https://api-m.paypal.com"
     
     # Frontend
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
