@@ -28,20 +28,26 @@ function SubscriptionContent() {
     async function checkSubscription() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        if (!session) {
+          setIsLoading(false);
+          return;
+        }
 
         // Obtener la suscripción del usuario
-        const { data: subscription, error } = await supabase
+        const { data: subscriptions, error } = await supabase
           .from('subscriptions')
           .select('*')
           .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .single();
+          .eq('status', 'active');
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error al consultar suscripciones:', error);
+          setIsLoading(false);
+          return;
+        }
 
         // Si tiene suscripción activa y no estamos en la página de éxito, redirigir
-        if (subscription && !isSuccess) {
+        if (subscriptions && subscriptions.length > 0 && !isSuccess) {
           router.push('/dashboard/profile/subscription?success=true');
         }
       } catch (error) {

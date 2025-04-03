@@ -7,7 +7,6 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeScript } from './ThemeScript';
-import { PayPalProvider } from "@/components/providers/PayPalProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -29,11 +28,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <QueryProvider>
-          <PayPalProvider>
-            <Providers>
-              {children}
-            </Providers>
-          </PayPalProvider>
+          <Providers>
+            {children}
+          </Providers>
         </QueryProvider>
         <Toaster />
       </body>
