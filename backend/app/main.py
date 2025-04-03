@@ -99,7 +99,7 @@ async def global_exception_handler(request, exc):
 # Incluir router principal que contiene todos los endpoints
 app.include_router(
     api_router,
-    prefix="/api/v1",
+    prefix="/api",
 )
 
 # Servir archivos estáticos si existe la carpeta
