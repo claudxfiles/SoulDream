@@ -90,32 +90,40 @@ async def verify_paypal_webhook(request: Request) -> bool:
     try:
         # Log de la URL completa
         url = str(request.url)
-        logger.info(f"PayPal Webhook - Solicitud recibida en: {url}")
+        print(f"[PayPal Debug] URL recibida: {url}")
         
         # Obtener headers necesarios
         headers = dict(request.headers)
-        logger.info(f"PayPal Webhook - Headers recibidos: {json.dumps(headers, indent=2)}")
+        print(f"[PayPal Debug] Headers completos recibidos: {json.dumps(headers, indent=2)}")
 
         # Obtener el body como string
         body = await request.body()
         body_str = body.decode()
         
         # Log del body recibido
-        logger.info(f"PayPal Webhook - Body recibido: {body_str[:200]}...")
+        print(f"[PayPal Debug] Body recibido: {body_str}")
+
+        # Extraer headers específicos de PayPal
+        webhook_id = settings.PAYPAL_WEBHOOK_ID
+        print(f"[PayPal Debug] Webhook ID configurado: {webhook_id}")
 
         # Construir el objeto de verificación
         webhook_event = {
-            "auth_algo": request.headers.get("PAYPAL-AUTH-ALGO"),
-            "cert_url": request.headers.get("PAYPAL-CERT-URL"),
-            "transmission_id": request.headers.get("PAYPAL-TRANSMISSION-ID"),
-            "transmission_sig": request.headers.get("PAYPAL-TRANSMISSION-SIG"),
-            "transmission_time": request.headers.get("PAYPAL-TRANSMISSION-TIME"),
-            "webhook_id": settings.PAYPAL_WEBHOOK_ID,
+            "auth_algo": request.headers.get("paypal-auth-algo"),
+            "cert_url": request.headers.get("paypal-cert-url"),
+            "transmission_id": request.headers.get("paypal-transmission-id"),
+            "transmission_sig": request.headers.get("paypal-transmission-sig"),
+            "transmission_time": request.headers.get("paypal-transmission-time"),
+            "webhook_id": webhook_id,
             "webhook_event": json.loads(body_str)
         }
 
+        print(f"[PayPal Debug] Objeto de verificación: {json.dumps(webhook_event, indent=2)}")
+
         # Obtener el token de acceso
         auth = (settings.PAYPAL_CLIENT_ID, settings.PAYPAL_CLIENT_SECRET)
+        print(f"[PayPal Debug] Obteniendo token con Client ID: {settings.PAYPAL_CLIENT_ID[:10]}...")
+        
         token_response = requests.post(
             f"{settings.PAYPAL_API_URL}/v1/oauth2/token",
             auth=auth,
@@ -123,15 +131,22 @@ async def verify_paypal_webhook(request: Request) -> bool:
             data="grant_type=client_credentials"
         )
         
+        print(f"[PayPal Debug] Respuesta de token: Status={token_response.status_code}")
+        print(f"[PayPal Debug] Respuesta de token completa: {token_response.text}")
+        
         if token_response.status_code != 200:
-            logger.error(f"Error obteniendo token de acceso: {token_response.text}")
+            print(f"[PayPal Debug] Error obteniendo token: {token_response.text}")
             return False
             
         access_token = token_response.json()["access_token"]
+        print("[PayPal Debug] Token de acceso obtenido correctamente")
 
         # Verificar con la API de PayPal
+        verify_url = f"{settings.PAYPAL_API_URL}/v1/notifications/verify-webhook-signature"
+        print(f"[PayPal Debug] URL de verificación: {verify_url}")
+        
         verify_response = requests.post(
-            f"{settings.PAYPAL_API_URL}/v1/notifications/verify-webhook-signature",
+            verify_url,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {access_token}"
@@ -139,23 +154,29 @@ async def verify_paypal_webhook(request: Request) -> bool:
             json=webhook_event
         )
 
+        print(f"[PayPal Debug] Respuesta de verificación: Status={verify_response.status_code}")
+        print(f"[PayPal Debug] Respuesta de verificación completa: {verify_response.text}")
+
         if verify_response.status_code == 200:
             verification_status = verify_response.json().get("verification_status")
             is_valid = verification_status == "SUCCESS"
             
+            print(f"[PayPal Debug] Estado de verificación: {verification_status}")
             if is_valid:
-                logger.info("PayPal Webhook - Firma verificada correctamente")
+                print("[PayPal Debug] Verificación exitosa")
             else:
-                logger.error(f"PayPal Webhook - Verificación falló: {verification_status}")
+                print("[PayPal Debug] Verificación fallida")
             
             return is_valid
         
-        logger.error(f"PayPal Webhook - Error en verificación: {verify_response.text}")
+        print(f"[PayPal Debug] Error en verificación: {verify_response.text}")
         return False
 
     except Exception as e:
-        logger.error(f"PayPal Webhook - Error verificando webhook: {str(e)}")
-        logger.exception("PayPal Webhook - Stacktrace completo:")
+        print(f"[PayPal Debug] Error en verificación: {str(e)}")
+        print("[PayPal Debug] Stacktrace completo:")
+        import traceback
+        print(traceback.format_exc())
         return False
 
 @router.post("/webhook")
@@ -169,15 +190,14 @@ async def handle_paypal_webhook(request: Request):
     2. Solo procesamos el webhook si la verificación es exitosa
     """
     try:
-        # Log inicial
-        logger.info("PayPal Webhook - Solicitud recibida")
+        print("[PayPal Debug] ====== INICIO DE PROCESAMIENTO DE WEBHOOK ======")
         
         # Obtener el payload primero para asegurar que podemos leerlo
         try:
             payload = await request.json()
-            logger.info(f"PayPal Webhook - Payload recibido: {json.dumps(payload, indent=2)}")
+            print(f"[PayPal Debug] Payload recibido: {json.dumps(payload, indent=2)}")
         except json.JSONDecodeError as e:
-            logger.error(f"PayPal Webhook - Error decodificando JSON: {str(e)}")
+            print(f"[PayPal Debug] Error decodificando JSON: {str(e)}")
             # Retornamos 200 pero con error en el contenido
             return JSONResponse(
                 status_code=200,
@@ -190,11 +210,11 @@ async def handle_paypal_webhook(request: Request):
             )
 
         # Verificar autenticidad del webhook
-        logger.info("PayPal Webhook - Verificando firma...")
+        print("[PayPal Debug] Iniciando verificación de webhook...")
         is_valid = await verify_paypal_webhook(request)
         
         if not is_valid:
-            logger.error("PayPal Webhook - Firma inválida")
+            print("[PayPal Debug] Verificación de webhook fallida")
             # Retornamos 200 pero indicamos error de verificación
             return JSONResponse(
                 status_code=200,
@@ -205,18 +225,18 @@ async def handle_paypal_webhook(request: Request):
                 }
             )
 
-        logger.info("PayPal Webhook - Firma verificada correctamente")
+        print("[PayPal Debug] Verificación de webhook exitosa")
         
         # Procesar el evento
         event_type = payload.get("event_type")
-        logger.info(f"PayPal Webhook - Procesando evento tipo: {event_type}")
+        print(f"[PayPal Debug] Tipo de evento recibido: {event_type}")
 
         # Obtener cliente de Supabase
         try:
             supabase = get_supabase_client()
-            logger.info("PayPal Webhook - Cliente Supabase obtenido")
+            print("[PayPal Debug] Cliente Supabase obtenido")
         except Exception as e:
-            logger.error(f"PayPal Webhook - Error obteniendo cliente Supabase: {str(e)}")
+            print(f"[PayPal Debug] Error obteniendo cliente Supabase: {str(e)}")
             return JSONResponse(
                 status_code=200,  # Aún retornamos 200
                 content={
@@ -240,13 +260,15 @@ async def handle_paypal_webhook(request: Request):
         }
 
         if event_type in event_handlers:
-            logger.info(f"PayPal Webhook - Procesando evento {event_type}...")
+            print(f"[PayPal Debug] Procesando evento {event_type}...")
             try:
                 await event_handlers[event_type](payload.get("resource", {}), supabase)
-                logger.info(f"PayPal Webhook - Evento {event_type} procesado exitosamente")
+                print(f"[PayPal Debug] Evento {event_type} procesado exitosamente")
             except Exception as e:
-                logger.error(f"PayPal Webhook - Error procesando evento {event_type}: {str(e)}")
-                logger.exception("PayPal Webhook - Stacktrace completo:")
+                print(f"[PayPal Debug] Error procesando evento {event_type}: {str(e)}")
+                print("[PayPal Debug] Stacktrace completo:")
+                import traceback
+                print(traceback.format_exc())
                 return JSONResponse(
                     status_code=200,  # Aún retornamos 200
                     content={
@@ -257,7 +279,7 @@ async def handle_paypal_webhook(request: Request):
                     }
                 )
         else:
-            logger.warning(f"PayPal Webhook - Evento no manejado: {event_type}")
+            print(f"[PayPal Debug] Evento no manejado: {event_type}")
             return JSONResponse(
                 status_code=200,  # Aún retornamos 200
                 content={
@@ -268,6 +290,7 @@ async def handle_paypal_webhook(request: Request):
             )
 
         # Si todo salió bien, retornamos éxito
+        print("[PayPal Debug] ====== FIN DE PROCESAMIENTO DE WEBHOOK ======")
         return JSONResponse(
             status_code=200,
             content={
@@ -279,8 +302,10 @@ async def handle_paypal_webhook(request: Request):
         )
 
     except Exception as e:
-        logger.error(f"PayPal Webhook - Error procesando webhook: {str(e)}")
-        logger.exception("PayPal Webhook - Stacktrace completo:")
+        print(f"[PayPal Debug] Error general procesando webhook: {str(e)}")
+        print("[PayPal Debug] Stacktrace completo:")
+        import traceback
+        print(traceback.format_exc())
         # Incluso en caso de error general, retornamos 200
         return JSONResponse(
             status_code=200,
@@ -318,7 +343,7 @@ async def handle_subscription_activated(resource: Dict[str, Any], supabase):
             
             await supabase.table("payment_history").insert(history_data).execute()
     except Exception as e:
-        logger.error(f"Error procesando activación de suscripción: {str(e)}")
+        print(f"[PayPal Debug] Error procesando activación de suscripción: {str(e)}")
         raise
 
 async def handle_subscription_expired(resource: Dict[str, Any], supabase):
@@ -348,7 +373,7 @@ async def handle_subscription_expired(resource: Dict[str, Any], supabase):
             
             await supabase.table("payment_history").insert(history_data).execute()
     except Exception as e:
-        logger.error(f"Error procesando expiración de suscripción: {str(e)}")
+        print(f"[PayPal Debug] Error procesando expiración de suscripción: {str(e)}")
         raise
 
 async def handle_subscription_reactivated(resource: Dict[str, Any], supabase):
@@ -378,7 +403,7 @@ async def handle_subscription_reactivated(resource: Dict[str, Any], supabase):
             
             await supabase.table("payment_history").insert(history_data).execute()
     except Exception as e:
-        logger.error(f"Error procesando reactivación de suscripción: {str(e)}")
+        print(f"[PayPal Debug] Error procesando reactivación de suscripción: {str(e)}")
         raise
 
 async def handle_subscription_updated(resource: Dict[str, Any], supabase):
@@ -410,7 +435,7 @@ async def handle_subscription_updated(resource: Dict[str, Any], supabase):
             
             await supabase.table("payment_history").insert(history_data).execute()
     except Exception as e:
-        logger.error(f"Error procesando actualización de suscripción: {str(e)}")
+        print(f"[PayPal Debug] Error procesando actualización de suscripción: {str(e)}")
         raise
 
 async def handle_payment_denied(resource: Dict[str, Any], supabase):
@@ -449,7 +474,7 @@ async def handle_payment_denied(resource: Dict[str, Any], supabase):
         
         await supabase.table("payment_history").insert(history_data).execute()
     except Exception as e:
-        logger.error(f"Error procesando pago denegado: {str(e)}")
+        print(f"[PayPal Debug] Error procesando pago denegado: {str(e)}")
         raise
 
 async def handle_payment_pending(resource: Dict[str, Any], supabase):
@@ -488,14 +513,15 @@ async def handle_payment_pending(resource: Dict[str, Any], supabase):
         
         await supabase.table("payment_history").insert(history_data).execute()
     except Exception as e:
-        logger.error(f"Error procesando pago pendiente: {str(e)}")
+        print(f"[PayPal Debug] Error procesando pago pendiente: {str(e)}")
         raise
 
 async def handle_payment_completed(resource: Dict[str, Any], supabase):
     """Maneja el evento de pago completado"""
     try:
-        logger.info("PayPal Payment - Iniciando procesamiento de pago completado")
-        logger.info(f"PayPal Payment - Datos del recurso: {json.dumps(resource, indent=2)}")
+        print("[PayPal Debug] ====== INICIO DE PROCESAMIENTO DE PAGO COMPLETADO ======")
+        print("[PayPal Debug] PayPal Payment - Iniciando procesamiento de pago completado")
+        print("[PayPal Debug] PayPal Payment - Datos del recurso: {json.dumps(resource, indent=2)}")
 
         # Extraer datos del recurso
         transaction_id = resource.get("id")
@@ -504,7 +530,7 @@ async def handle_payment_completed(resource: Dict[str, Any], supabase):
         user_id = resource.get("custom_id")  # Asumiendo que enviamos el user_id en custom_id
         subscription_id = resource.get("billing_agreement_id")
         
-        logger.info(f"PayPal Payment - Datos extraídos: transaction_id={transaction_id}, amount={amount}, currency={currency}, user_id={user_id}, subscription_id={subscription_id}")
+        print(f"[PayPal Debug] PayPal Payment - Datos extraídos: transaction_id={transaction_id}, amount={amount}, currency={currency}, user_id={user_id}, subscription_id={subscription_id}")
 
         # Registrar en la tabla payments
         payment_data = {
@@ -517,9 +543,9 @@ async def handle_payment_completed(resource: Dict[str, Any], supabase):
             "created_at": datetime.utcnow().isoformat()
         }
         
-        logger.info(f"PayPal Payment - Intentando guardar en tabla payments: {json.dumps(payment_data, indent=2)}")
+        print(f"[PayPal Debug] PayPal Payment - Intentando guardar en tabla payments: {json.dumps(payment_data, indent=2)}")
         result = await supabase.table("payments").insert(payment_data).execute()
-        logger.info(f"PayPal Payment - Guardado en payments exitoso: {json.dumps(result, indent=2)}")
+        print(f"[PayPal Debug] PayPal Payment - Guardado en payments exitoso: {json.dumps(result, indent=2)}")
         
         # Registrar en payment_history
         history_data = {
@@ -533,15 +559,18 @@ async def handle_payment_completed(resource: Dict[str, Any], supabase):
             "created_at": datetime.utcnow().isoformat()
         }
         
-        logger.info(f"PayPal Payment - Intentando guardar en payment_history: {json.dumps(history_data, indent=2)}")
+        print(f"[PayPal Debug] PayPal Payment - Intentando guardar en payment_history: {json.dumps(history_data, indent=2)}")
         result = await supabase.table("payment_history").insert(history_data).execute()
-        logger.info(f"PayPal Payment - Guardado en payment_history exitoso: {json.dumps(result, indent=2)}")
+        print(f"[PayPal Debug] PayPal Payment - Guardado en payment_history exitoso: {json.dumps(result, indent=2)}")
         
-        logger.info("PayPal Payment - Procesamiento de pago completado exitosamente")
+        print("[PayPal Debug] ====== FIN DE PROCESAMIENTO DE PAGO COMPLETADO ======")
+        print("[PayPal Debug] PayPal Payment - Procesamiento de pago completado exitosamente")
             
     except Exception as e:
-        logger.error(f"PayPal Payment - Error procesando pago completado: {str(e)}")
-        logger.exception("PayPal Payment - Stacktrace completo:")
+        print(f"[PayPal Debug] PayPal Payment - Error procesando pago completado: {str(e)}")
+        print("[PayPal Debug] Stacktrace completo:")
+        import traceback
+        print(traceback.format_exc())
         raise
 
 async def handle_subscription_created(resource: Dict[str, Any], supabase):
@@ -572,7 +601,7 @@ async def handle_subscription_created(resource: Dict[str, Any], supabase):
         await supabase.table("payment_history").insert(history_data).execute()
         
     except Exception as e:
-        logger.error(f"Error procesando suscripción creada: {str(e)}")
+        print(f"[PayPal Debug] Error procesando suscripción creada: {str(e)}")
         raise
 
 async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
@@ -603,7 +632,7 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
             await supabase.table("payment_history").insert(history_data).execute()
         
     except Exception as e:
-        logger.error(f"Error procesando suscripción cancelada: {str(e)}")
+        print(f"[PayPal Debug] Error procesando suscripción cancelada: {str(e)}")
         raise
 
 async def handle_subscription_suspended(resource: Dict[str, Any], supabase):
@@ -634,5 +663,5 @@ async def handle_subscription_suspended(resource: Dict[str, Any], supabase):
             await supabase.table("payment_history").insert(history_data).execute()
         
     except Exception as e:
-        logger.error(f"Error procesando suscripción suspendida: {str(e)}")
+        print(f"[PayPal Debug] Error procesando suscripción suspendida: {str(e)}")
         raise 
