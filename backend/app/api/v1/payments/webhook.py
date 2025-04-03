@@ -22,11 +22,18 @@ from fastapi.responses import JSONResponse
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Configurar el logger específicamente para el webhook
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(console_handler)
+logger.setLevel(logging.INFO)
+
 @router.get("/webhook/test")
 async def test_webhook():
     """
     Endpoint de prueba para verificar que la ruta del webhook está accesible
     """
+    logger.info("PayPal Webhook Test - Endpoint accedido")
     return {
         "status": "success",
         "message": "Webhook endpoint is accessible",
@@ -85,6 +92,10 @@ async def verify_paypal_webhook(
 ) -> bool:
     """Verifica la autenticidad del webhook de PayPal"""
     try:
+        # Log de configuración
+        logger.info(f"PayPal Webhook - ID configurado: {webhook_id[:5]}...")
+        logger.info(f"PayPal Webhook - Secret configurado: {webhook_secret[:5] if webhook_secret else 'NO CONFIGURADO'}...")
+
         # Obtener headers necesarios
         auth_algo = request.headers.get("PAYPAL-AUTH-ALGO")
         cert_url = request.headers.get("PAYPAL-CERT-URL")
@@ -92,12 +103,23 @@ async def verify_paypal_webhook(
         transmission_sig = request.headers.get("PAYPAL-TRANSMISSION-SIG")
         transmission_time = request.headers.get("PAYPAL-TRANSMISSION-TIME")
 
+        logger.info("PayPal Webhook - Headers recibidos:")
+        logger.info(f"  - Auth Algo: {auth_algo}")
+        logger.info(f"  - Cert URL: {cert_url}")
+        logger.info(f"  - Transmission ID: {transmission_id}")
+        logger.info(f"  - Transmission Sig: {transmission_sig}")
+        logger.info(f"  - Transmission Time: {transmission_time}")
+
         # Obtener el body como string
         body = await request.body()
         body_str = body.decode()
+        
+        # Log del body recibido
+        logger.info(f"PayPal Webhook - Body recibido: {body_str[:200]}...")
 
         # Construir el string de verificación
         validation_str = f"{transmission_id}|{transmission_time}|{webhook_id}|{body_str}"
+        logger.info(f"PayPal Webhook - String de validación (primeros 100 chars): {validation_str[:100]}...")
         
         # Calcular la firma usando HMAC SHA256
         hmac_obj = hmac.new(
@@ -106,11 +128,21 @@ async def verify_paypal_webhook(
             hashlib.sha256
         )
         signature = base64.b64encode(hmac_obj.digest()).decode()
+        
+        logger.info(f"PayPal Webhook - Firma calculada: {signature}")
+        logger.info(f"PayPal Webhook - Firma recibida: {transmission_sig}")
 
         # Comparar firmas
-        return hmac.compare_digest(signature, transmission_sig)
+        is_valid = hmac.compare_digest(signature, transmission_sig)
+        if is_valid:
+            logger.info("PayPal Webhook - Firma verificada correctamente")
+        else:
+            logger.error("PayPal Webhook - Las firmas no coinciden")
+            
+        return is_valid
     except Exception as e:
-        logger.error(f"Error verificando webhook: {str(e)}")
+        logger.error(f"PayPal Webhook - Error verificando webhook: {str(e)}")
+        logger.exception("PayPal Webhook - Stacktrace completo:")
         return False
 
 @router.post("/webhook")
