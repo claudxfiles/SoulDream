@@ -161,30 +161,26 @@ async def verify_paypal_webhook(request: Request) -> bool:
 @router.post("/webhook")
 async def handle_paypal_webhook(request: Request):
     """
-    Maneja los eventos del webhook de PayPal
+    Maneja los eventos del webhook de PayPal.
+    
+    PayPal reintentará hasta 25 veces durante 3 días si no recibe un código 2xx.
+    Por lo tanto:
+    1. Siempre devolvemos 200 si recibimos el webhook (incluso si hay error de verificación)
+    2. Solo procesamos el webhook si la verificación es exitosa
     """
     try:
-        # Verificar autenticidad del webhook
-        logger.info("PayPal Webhook - Verificando firma...")
-        if not await verify_paypal_webhook(request):
-            logger.error("PayPal Webhook - Firma inválida")
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "status": "error",
-                    "message": "Invalid webhook signature",
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            )
-        logger.info("PayPal Webhook - Firma verificada correctamente")
-
-        # Obtener el payload
+        # Log inicial
+        logger.info("PayPal Webhook - Solicitud recibida")
+        
+        # Obtener el payload primero para asegurar que podemos leerlo
         try:
             payload = await request.json()
+            logger.info(f"PayPal Webhook - Payload recibido: {json.dumps(payload, indent=2)}")
         except json.JSONDecodeError as e:
             logger.error(f"PayPal Webhook - Error decodificando JSON: {str(e)}")
+            # Retornamos 200 pero con error en el contenido
             return JSONResponse(
-                status_code=400,
+                status_code=200,
                 content={
                     "status": "error",
                     "message": "Invalid JSON payload",
@@ -193,23 +189,87 @@ async def handle_paypal_webhook(request: Request):
                 }
             )
 
-        logger.info(f"PayPal Webhook - Payload recibido: {json.dumps(payload, indent=2)}")
+        # Verificar autenticidad del webhook
+        logger.info("PayPal Webhook - Verificando firma...")
+        is_valid = await verify_paypal_webhook(request)
         
+        if not is_valid:
+            logger.error("PayPal Webhook - Firma inválida")
+            # Retornamos 200 pero indicamos error de verificación
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "error",
+                    "message": "Invalid webhook signature",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+
+        logger.info("PayPal Webhook - Firma verificada correctamente")
+        
+        # Procesar el evento
         event_type = payload.get("event_type")
         logger.info(f"PayPal Webhook - Procesando evento tipo: {event_type}")
 
-        # Aquí procesas los diferentes tipos de eventos
-        if event_type == "PAYMENT.SALE.COMPLETED":
-            logger.info("Procesando pago completado")
-            # Procesar pago completado
-            pass
-        elif event_type == "BILLING.SUBSCRIPTION.ACTIVATED":
-            logger.info("Procesando suscripción activada")
-            # Procesar suscripción activada
-            pass
-        # ... otros tipos de eventos
+        # Obtener cliente de Supabase
+        try:
+            supabase = get_supabase_client()
+            logger.info("PayPal Webhook - Cliente Supabase obtenido")
+        except Exception as e:
+            logger.error(f"PayPal Webhook - Error obteniendo cliente Supabase: {str(e)}")
+            return JSONResponse(
+                status_code=200,  # Aún retornamos 200
+                content={
+                    "status": "error",
+                    "message": "Database connection error",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
 
+        # Manejar diferentes tipos de eventos
+        event_handlers = {
+            "BILLING.SUBSCRIPTION.ACTIVATED": handle_subscription_activated,
+            "BILLING.SUBSCRIPTION.CANCELLED": handle_subscription_cancelled,
+            "BILLING.SUBSCRIPTION.CREATED": handle_subscription_created,
+            "BILLING.SUBSCRIPTION.EXPIRED": handle_subscription_expired,
+            "BILLING.SUBSCRIPTION.REACTIVATED": handle_subscription_reactivated,
+            "BILLING.SUBSCRIPTION.UPDATED": handle_subscription_updated,
+            "PAYMENT.SALE.COMPLETED": handle_payment_completed,
+            "PAYMENT.SALE.DENIED": handle_payment_denied,
+            "PAYMENT.SALE.PENDING": handle_payment_pending
+        }
+
+        if event_type in event_handlers:
+            logger.info(f"PayPal Webhook - Procesando evento {event_type}...")
+            try:
+                await event_handlers[event_type](payload.get("resource", {}), supabase)
+                logger.info(f"PayPal Webhook - Evento {event_type} procesado exitosamente")
+            except Exception as e:
+                logger.error(f"PayPal Webhook - Error procesando evento {event_type}: {str(e)}")
+                logger.exception("PayPal Webhook - Stacktrace completo:")
+                return JSONResponse(
+                    status_code=200,  # Aún retornamos 200
+                    content={
+                        "status": "error",
+                        "message": f"Error processing event {event_type}",
+                        "error": str(e),
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                )
+        else:
+            logger.warning(f"PayPal Webhook - Evento no manejado: {event_type}")
+            return JSONResponse(
+                status_code=200,  # Aún retornamos 200
+                content={
+                    "status": "warning",
+                    "message": f"Unhandled event type: {event_type}",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+
+        # Si todo salió bien, retornamos éxito
         return JSONResponse(
+            status_code=200,
             content={
                 "status": "success",
                 "message": "Webhook processed successfully",
@@ -220,8 +280,10 @@ async def handle_paypal_webhook(request: Request):
 
     except Exception as e:
         logger.error(f"PayPal Webhook - Error procesando webhook: {str(e)}")
+        logger.exception("PayPal Webhook - Stacktrace completo:")
+        # Incluso en caso de error general, retornamos 200
         return JSONResponse(
-            status_code=500,
+            status_code=200,
             content={
                 "status": "error",
                 "message": str(e),
