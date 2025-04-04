@@ -17,7 +17,7 @@ interface WorkoutRecommendationParams {
 }
 
 // URL base del backend
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/$/, '');
 
 export function useAIAssistant(): AIAssistantHook {
   const { user } = useAuth();
@@ -168,8 +168,8 @@ export function useAIAssistant(): AIAssistantHook {
           include_cardio: params.includeCardio,
           username: user.user_metadata?.full_name || user.email
         }),
-        // Importante para enviar cookies y credenciales si es necesario
-        credentials: 'include'
+        // Cambiamos a 'same-origin' ya que no necesitamos enviar cookies
+        credentials: 'same-origin'
       });
 
       if (!response.ok) {
