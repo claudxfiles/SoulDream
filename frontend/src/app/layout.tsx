@@ -8,6 +8,7 @@ import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeScript } from './ThemeScript';
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,11 +28,15 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body className={inter.className}>
-        <QueryProvider>
-          <Providers>
-            {children}
-          </Providers>
-        </QueryProvider>
+        <Suspense fallback={null}>
+          <QueryProvider>
+            <Providers>
+              <Suspense fallback={null}>
+                {children}
+              </Suspense>
+            </Providers>
+          </QueryProvider>
+        </Suspense>
         <Toaster />
       </body>
     </html>
