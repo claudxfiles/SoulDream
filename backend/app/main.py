@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from dotenv import load_dotenv
-from app.api.router import api_router
+from app.api.v1 import api_router
 from app.core.config import settings
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.logging_config import setup_logging
@@ -99,7 +99,7 @@ async def global_exception_handler(request, exc):
 # Incluir router principal que contiene todos los endpoints
 app.include_router(
     api_router,
-    prefix="/api",
+    prefix="/api/v1",
 )
 
 # Servir archivos estáticos si existe la carpeta
@@ -110,8 +110,8 @@ if os.path.exists(static_dir):
 if __name__ == "__main__":
     import uvicorn
     
-    # Obtener puerto del entorno o usar 8000 por defecto
-    port = int(os.getenv("PORT", 8000))
+    # Obtener puerto del entorno o usar 8080 por defecto
+    port = int(os.getenv("PORT", 8080))
     
     # Obtener configuración de workers (para desarrollo, 1 es suficiente)
     workers = int(os.getenv("WORKERS", 1))

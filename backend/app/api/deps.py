@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)  # auto_error=False para manejar caso sin token
 
 # Clave secreta para JWT (obtenida de las variables de entorno)
-SECRET_KEY = settings.SUPABASE_JWT_SECRET or os.environ.get("SUPABASE_JWT_SECRET", "your_secret_key_here")
+JWT_SECRET = settings.SUPABASE_JWT_SECRET
+if not JWT_SECRET:
+    raise ValueError("SUPABASE_JWT_SECRET must be set in environment variables")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -47,7 +50,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=ALGORITHM)
     return encoded_jwt
 
 def create_dev_user() -> User:
@@ -96,7 +99,7 @@ def verify_token(token: str) -> Optional[User]:
     """
     try:
         # Intentar decodificar con nuestra clave
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         
         # Verificar que el token no ha expirado
         if datetime.fromtimestamp(payload["exp"]) < datetime.utcnow():
@@ -118,13 +121,8 @@ def verify_token(token: str) -> Optional[User]:
 
 async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[User]:
     """
-    Obtiene el usuario actual a partir del token JWT
+    Obtiene el usuario actual a partir del token JWT de Supabase
     """
-    # Modo de desarrollo: permitir acceso sin autenticación para testing
-    if DEV_MODE:
-        return create_dev_user()
-    
-    # Si no hay credenciales, rechazar el acceso
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -134,47 +132,52 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
     
     token = credentials.credentials
     
-    # Intentar obtener del caché primero
-    cached_user = get_user_from_cache(token)
-    if cached_user:
-        return cached_user
-    
-    # Verificar el token
-    user = verify_token(token)
-    if user:
-        # Añadir al caché y devolver
-        add_user_to_cache(token, user)
-        return user
-    
-    # Si el token no es válido, intentar con Supabase
     try:
-        client = get_db()
-        response = client.auth.get_user(token)
+        # Usar el cliente de Supabase para verificar el token
+        supabase = get_supabase_client()
+        user_response = supabase.auth.get_user(token)
+        user = user_response.user
         
-        if response.user:
-            # Crear usuario a partir de la respuesta de Supabase
-            user = User(
-                id=response.user.id,
-                email=response.user.email or "",
-                full_name=response.user.user_metadata.get("full_name", ""),
-                avatar_url=response.user.user_metadata.get("avatar_url"),
-                email_notifications=True,
-                subscription_tier="free",
-                created_at=None,
-                updated_at=None
+        if not user:
+            logger.error("No user found in Supabase response")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido o expirado",
+                headers={"WWW-Authenticate": "Bearer"},
             )
-            # Añadir al caché y devolver
-            add_user_to_cache(token, user)
-            return user
+        
+        # Obtener datos del perfil
+        profile_response = supabase.table("profiles").select("*").eq("id", user.id).execute()
+        
+        if not profile_response.data:
+            logger.warning(f"No profile found for user {user.id}, creating basic profile")
+            profile = {
+                "full_name": user.user_metadata.get("full_name", ""),
+                "avatar_url": "",
+                "email_notifications": True,
+                "subscription_tier": "free",
+            }
+        else:
+            profile = profile_response.data[0]
+        
+        # Crear objeto de usuario
+        return User(
+            id=user.id,
+            email=user.email,
+            full_name=profile.get("full_name"),
+            avatar_url=profile.get("avatar_url"),
+            email_notifications=profile.get("email_notifications", True),
+            subscription_tier=profile.get("subscription_tier", "free"),
+            created_at=user.created_at,
+            updated_at=profile.get("updated_at")
+        )
     except Exception as e:
-        logger.error(f"Error al verificar token con Supabase: {str(e)}")
-    
-    # Si llegamos aquí, el token no es válido
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Token inválido o expirado",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+        logger.error(f"Error validating token: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """

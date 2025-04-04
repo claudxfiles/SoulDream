@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     
     # Frontend
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8080")
     
     # Google
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")

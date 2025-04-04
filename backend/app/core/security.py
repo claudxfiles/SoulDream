@@ -10,6 +10,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Configuración para JWT
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = settings.SECRET_KEY  # Usando la clave secreta general de la aplicación
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
@@ -33,7 +34,5 @@ def create_access_token(subject: Union[str, Any], expires_delta: Optional[timede
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode = {"exp": expire, "sub": str(subject)}
-    jwt_secret = settings.SUPABASE_JWT_SECRET
-    
-    encoded_jwt = jwt.encode(to_encode, jwt_secret, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt 

@@ -22,7 +22,7 @@ from app.schemas.goal import GoalMetadata
 # Configuración del logger
 logger = logging.getLogger(__name__)
 
-class OpenRouterService:
+class AIService:
     """
     Servicio para interactuar con la API de OpenRouter
     """
@@ -807,4 +807,4 @@ class OpenRouterService:
             return {"error": f"Error generando adaptación de aprendizaje: {str(e)}"}
 
 # Instancia global del servicio
-openrouter_service = OpenRouterService() 
+openrouter_service = AIService() 

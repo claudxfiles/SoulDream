@@ -4,10 +4,14 @@ from enum import Enum
 from typing import List, Optional
 import json
 import os
-from app.auth.utils import get_current_user
+from app.api.deps import get_current_user
 from openai import AsyncOpenAI
 from app.core.config import settings
 import dotenv
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["AI Workout Recommendations"])
 
@@ -60,22 +64,24 @@ async def generate_workout_recommendations(
     current_user = Depends(get_current_user)
 ):
     try:
-        # Log para debugging
-        print(f"Recibida solicitud de recomendaciones de workout")
-        print(f"Usuario autenticado: {current_user}")
-        print(f"Datos de la solicitud: {request.dict()}")
+        # Debug logging
+        logger.info(f"Received workout recommendations request for user: {current_user.id if current_user else 'No user'}")
+        logger.info(f"Request data: {request.dict()}")
         
         # Verificación de autenticación
         if not current_user:
+            logger.error("No user found in request")
             raise HTTPException(
                 status_code=401,
                 detail="No se encontró información del usuario"
             )
             
+        logger.info(f"User authenticated successfully: {current_user.id}")
+            
         # Verificar si tenemos la API key disponible - leer directamente del archivo .env
         # Cargar .env manualmente
         env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))), '.env')
-        print(f"Intentando cargar .env desde: {env_path}")
+        logger.info(f"Loading .env from: {env_path}")
         dotenv.load_dotenv(env_path)
         
         # Leer API key directamente del archivo
@@ -86,47 +92,39 @@ async def generate_workout_recommendations(
                 for line in env_content.split('\n'):
                     if line.startswith('OPENROUTER_API_KEY='):
                         api_key = line.split('=', 1)[1].strip()
-                        print(f"API key encontrada en .env directamente")
+                        logger.info("API key found in .env file")
                         break
                 else:
                     api_key = ""
         except Exception as e:
-            print(f"Error al leer .env: {str(e)}")
+            logger.error(f"Error reading .env file: {str(e)}")
             api_key = ""
             
         # Si no encontramos la clave, intentar desde settings
         if not api_key:
             api_key = settings.OPENROUTER_API_KEY
             
-        print(f"API Key encontrada: {api_key is not None and api_key != ''}")
-        print(f"API Key length: {len(api_key) if api_key else 0}")
-        
         if not api_key:
-            raise HTTPException(status_code=503, detail="El servicio de IA no está disponible en este momento")
+            logger.error("No API key found")
+            return await generate_workout_recommendations_mock(request, current_user)
             
         # Crear cliente bajo demanda
         try:
-            # Manera alternativa de crear el cliente para asegurar compatibilidad
-            # Imprimir la longitud completa para verificar
-            print(f"API Key completa length: {len(api_key)}")
-            
-            # OpenRouter espera que la autenticación sea "Bearer {api_key}"
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "HTTP-Referer": "https://soul-dream.com",
                 "X-Title": "SoulDream Workout Recommendations"
             }
             
-            # Usar directamente la API key sin formateo adicional
             client = AsyncOpenAI(
-                api_key="ANON",  # No importa este valor cuando usamos headers personalizados
+                api_key="ANON",
                 base_url="https://openrouter.ai/api/v1",
                 default_headers=headers
             )
-            print(f"Cliente OpenAI creado con base_url: https://openrouter.ai/api/v1")
+            logger.info("OpenAI client created successfully")
         except Exception as e:
-            print(f"Error al crear cliente OpenAI: {str(e)}")
-            raise HTTPException(status_code=503, detail=f"Error al configurar el servicio de IA: {str(e)}")
+            logger.error(f"Error creating OpenAI client: {str(e)}")
+            return await generate_workout_recommendations_mock(request, current_user)
 
         # Creamos un prompt para la IA
         muscle_groups_str = ", ".join(request.muscle_groups)
@@ -159,30 +157,14 @@ El formato debe ser exactamente como sigue (este es un ejemplo, debes personaliz
         "reps": "12",
         "restSeconds": 60,
         "notes": "Notas sobre la técnica o ejecución en español"
-      }},
-      {{
-        "name": "Segundo ejercicio en español",
-        "sets": 4,
-        "reps": "10",
-        "restSeconds": 45,
-        "notes": "Notas sobre la técnica o ejecución en español"
-      }},
-      // Incluir más ejercicios aquí...
+      }}
     ],
     "notes": "Notas adicionales sobre el entrenamiento en español"
-  }},
-  // Otros 2 planes de entrenamiento
-]
-
-IMPORTANTE: Tu respuesta debe ser únicamente el JSON válido, sin ningún texto adicional.
-Sé breve y conciso, pero no omitas información importante.
-Todos los nombres, descripciones y notas deben estar en ESPAÑOL.
-Incluir al menos 4-6 ejercicios diferentes en cada plan de entrenamiento.
-"""
+  }}
+]"""
         
-        # Llamar a la API de OpenRouter
         try:
-            print(f"Llamando a la API con el modelo: qwen/qwq-32b")
+            logger.info("Calling OpenRouter API...")
             response = await client.chat.completions.create(
                 model="qwen/qwq-32b",
                 messages=[{"role": "user", "content": prompt}],
@@ -196,17 +178,13 @@ Incluir al menos 4-6 ejercicios diferentes en cada plan de entrenamiento.
                     }
                 }
             )
-            print(f"Respuesta recibida de la API")
+            logger.info("Response received from API")
             
             # Cerrar el cliente correctamente
             await client.close()
             
             # Procesamos la respuesta para asegurar que es JSON válido
             raw_content = response.choices[0].message.content
-            print(f"Contenido raw: {raw_content[:100]}...")
-            
-            # Limpieza de la respuesta para extraer solo el JSON
-            # A veces el modelo devuelve markdown o texto adicional
             content = raw_content.strip()
             
             # Si está envuelto en backticks de markdown, quitarlos
@@ -217,27 +195,23 @@ Incluir al menos 4-6 ejercicios diferentes en cada plan de entrenamiento.
                 
             # Intentar validar el JSON
             try:
-                # Verificar que sea un array JSON válido
                 json.loads(content)
-                # Si llegamos aquí, es JSON válido
+                logger.info("Successfully parsed JSON response")
+                return WorkoutRecommendationResponse(recommendations=content)
             except json.JSONDecodeError as json_err:
-                print(f"Error decodificando JSON: {str(json_err)}")
-                # Intentar usar un enfoque alternativo - responder con datos mock
+                logger.error(f"Error parsing JSON response: {str(json_err)}")
+                logger.info("Falling back to mock data")
                 return await generate_workout_recommendations_mock(request, current_user)
-            
-            # Devolvemos la respuesta limpia
-            return WorkoutRecommendationResponse(recommendations=content)
+                
         except Exception as e:
-            print(f"Error al llamar a la API de OpenRouter: {str(e)}")
-            # Cerrar el cliente en caso de error
-            try:
-                await client.close()
-            except:
-                pass
-            raise HTTPException(status_code=500, detail=f"Error al generar recomendaciones de entrenamiento: {str(e)}")
+            logger.error(f"Error calling OpenRouter API: {str(e)}")
+            await client.close()
+            logger.info("Falling back to mock data")
+            return await generate_workout_recommendations_mock(request, current_user)
+            
     except Exception as e:
-        print(f"Error generating workout recommendations: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error generating workout recommendations: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
+        return await generate_workout_recommendations_mock(request, current_user)
 
 @router.post("/workout-recommendations-mock", response_model=WorkoutRecommendationResponse)
 async def generate_workout_recommendations_mock(
@@ -249,7 +223,7 @@ async def generate_workout_recommendations_mock(
     """
     try:
         # Verificación básica de autenticación
-        if not current_user or "user_id" not in current_user:
+        if not current_user or not current_user.id:
             raise HTTPException(
                 status_code=401, 
                 detail="Usuario no autenticado o token inválido"

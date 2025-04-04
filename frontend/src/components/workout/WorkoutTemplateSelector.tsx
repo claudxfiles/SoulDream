@@ -361,14 +361,14 @@ export default function WorkoutTemplateSelector({
                         <div className="flex gap-2 mt-1">
                           {template.muscle_groups && template.muscle_groups.map((muscle) => (
                             <div key={muscle} className="flex items-center gap-1">
-                              {muscleGroupImages[muscle] && (
+                              {muscleGroupImages[muscle as MuscleGroup] && (
                                 <div className="relative w-4 h-4">
                                   <Image
-                                    src={muscleGroupImages[muscle]}
-                                    alt={muscle}
-                                    width={16}
-                                    height={16}
-                                    className="object-contain"
+                                    src={muscleGroupImages[muscle as MuscleGroup] || '/image-workout/default.png'}
+                                    alt={`${muscle} exercises`}
+                                    width={100}
+                                    height={100}
+                                    className="w-full h-auto object-cover rounded-t-lg"
                                   />
                                 </div>
                               )}

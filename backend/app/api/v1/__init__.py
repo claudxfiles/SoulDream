@@ -4,7 +4,7 @@ from .ai import ai_router
 api_router = APIRouter()
 
 # Incluir routers de los diferentes módulos
-api_router.include_router(ai_router, prefix="/ai")
+api_router.include_router(ai_router)
 
 # Versión simplificada para pruebas
 @api_router.get("/", tags=["test"])

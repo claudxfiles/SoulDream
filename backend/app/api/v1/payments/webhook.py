@@ -520,17 +520,45 @@ async def handle_payment_completed(resource: Dict[str, Any], supabase):
     """Maneja el evento de pago completado"""
     try:
         print("[PayPal Debug] ====== INICIO DE PROCESAMIENTO DE PAGO COMPLETADO ======")
-        print("[PayPal Debug] PayPal Payment - Iniciando procesamiento de pago completado")
-        print("[PayPal Debug] PayPal Payment - Datos del recurso: {json.dumps(resource, indent=2)}")
+        print(f"[PayPal Debug] Recurso completo recibido: {json.dumps(resource, indent=2)}")
 
-        # Extraer datos del recurso
+        # Extraer datos del recurso con más detalle
         transaction_id = resource.get("id")
-        amount = float(resource.get("amount", {}).get("total", 0))
-        currency = resource.get("amount", {}).get("currency", "USD")
-        user_id = resource.get("custom_id")  # Asumiendo que enviamos el user_id en custom_id
-        subscription_id = resource.get("billing_agreement_id")
+        print(f"[PayPal Debug] Transaction ID: {transaction_id}")
+
+        # Extraer amount y currency con validación
+        amount_info = resource.get("amount", {})
+        amount = float(amount_info.get("total", 0))
+        currency = amount_info.get("currency", "USD")
+        print(f"[PayPal Debug] Amount: {amount}, Currency: {currency}")
+
+        # Intentar obtener user_id de diferentes lugares posibles
+        user_id = None
+        custom_field = resource.get("custom", "")
+        if custom_field:
+            try:
+                custom_data = json.loads(custom_field)
+                user_id = custom_data.get("user_id")
+            except:
+                user_id = custom_field
         
-        print(f"[PayPal Debug] PayPal Payment - Datos extraídos: transaction_id={transaction_id}, amount={amount}, currency={currency}, user_id={user_id}, subscription_id={subscription_id}")
+        if not user_id:
+            # Intentar obtener de custom_id si existe
+            user_id = resource.get("custom_id")
+            
+        print(f"[PayPal Debug] User ID encontrado: {user_id}")
+
+        # Intentar obtener subscription_id
+        subscription_id = resource.get("billing_agreement_id")
+        if not subscription_id:
+            # Intentar obtener de otros campos posibles
+            subscription_id = resource.get("subscription_id") or resource.get("agreement_id")
+        
+        print(f"[PayPal Debug] Subscription ID encontrado: {subscription_id}")
+
+        if not user_id:
+            print("[PayPal Debug] ADVERTENCIA: No se pudo encontrar el user_id en el recurso")
+            # Aquí podrías intentar obtener el user_id de otras fuentes o tablas
 
         # Registrar en la tabla payments
         payment_data = {
@@ -540,12 +568,17 @@ async def handle_payment_completed(resource: Dict[str, Any], supabase):
             "status": "completed",
             "transaction_id": transaction_id,
             "subscription_id": subscription_id,
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat(),
+            "raw_data": json.dumps(resource)  # Guardar el recurso completo para referencia
         }
         
-        print(f"[PayPal Debug] PayPal Payment - Intentando guardar en tabla payments: {json.dumps(payment_data, indent=2)}")
-        result = await supabase.table("payments").insert(payment_data).execute()
-        print(f"[PayPal Debug] PayPal Payment - Guardado en payments exitoso: {json.dumps(result, indent=2)}")
+        print(f"[PayPal Debug] Intentando guardar en payments: {json.dumps(payment_data, indent=2)}")
+        try:
+            result = await supabase.table("payments").insert(payment_data).execute()
+            print(f"[PayPal Debug] Respuesta de insert en payments: {json.dumps(result, indent=2)}")
+        except Exception as e:
+            print(f"[PayPal Debug] Error guardando en payments: {str(e)}")
+            print(traceback.format_exc())
         
         # Registrar en payment_history
         history_data = {
@@ -553,23 +586,26 @@ async def handle_payment_completed(resource: Dict[str, Any], supabase):
             "subscription_id": subscription_id,
             "amount": amount,
             "currency": currency,
-            "status": "completed",
+            "status": "payment_completed",
             "payment_id": transaction_id,
             "payment_method": "paypal",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat(),
+            "raw_data": json.dumps(resource)  # Guardar el recurso completo para referencia
         }
         
-        print(f"[PayPal Debug] PayPal Payment - Intentando guardar en payment_history: {json.dumps(history_data, indent=2)}")
-        result = await supabase.table("payment_history").insert(history_data).execute()
-        print(f"[PayPal Debug] PayPal Payment - Guardado en payment_history exitoso: {json.dumps(result, indent=2)}")
+        print(f"[PayPal Debug] Intentando guardar en payment_history: {json.dumps(history_data, indent=2)}")
+        try:
+            result = await supabase.table("payment_history").insert(history_data).execute()
+            print(f"[PayPal Debug] Respuesta de insert en payment_history: {json.dumps(result, indent=2)}")
+        except Exception as e:
+            print(f"[PayPal Debug] Error guardando en payment_history: {str(e)}")
+            print(traceback.format_exc())
         
         print("[PayPal Debug] ====== FIN DE PROCESAMIENTO DE PAGO COMPLETADO ======")
-        print("[PayPal Debug] PayPal Payment - Procesamiento de pago completado exitosamente")
             
     except Exception as e:
-        print(f"[PayPal Debug] PayPal Payment - Error procesando pago completado: {str(e)}")
+        print(f"[PayPal Debug] Error general en handle_payment_completed: {str(e)}")
         print("[PayPal Debug] Stacktrace completo:")
-        import traceback
         print(traceback.format_exc())
         raise
 

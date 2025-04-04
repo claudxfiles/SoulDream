@@ -6,6 +6,7 @@ import aiohttp
 import json
 import os
 from app.core.ai_config import ai_settings
+from .ai_service import AIService
 
 logger = logging.getLogger(__name__)
 
