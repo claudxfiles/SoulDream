@@ -23,7 +23,7 @@ export const habitService = {
   // Obtener un hábito por ID
   getHabitById: async (habitId: string): Promise<Habit> => {
     try {
-      const response = await apiClient.get(`/api/v1/habits/${habitId}/`);
+      const response = await apiClient.get(`/api/v1/habits/${habitId}`);
       return response.data;
     } catch (error) {
       console.error(`Error al obtener hábito ${habitId}:`, error);
@@ -92,7 +92,7 @@ export const habitService = {
   // Obtener logs de un hábito
   getHabitLogs: async (habitId: string): Promise<HabitLog[]> => {
     try {
-      const response = await apiClient.get(`/api/v1/habits/${habitId}/logs/`);
+      const response = await apiClient.get(`/api/v1/habits/${habitId}/logs`);
       return response.data || [];
     } catch (error) {
       console.error(`Error al obtener logs del hábito ${habitId}:`, error);

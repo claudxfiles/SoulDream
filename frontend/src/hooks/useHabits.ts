@@ -25,39 +25,38 @@ export const useHabits = (category?: string) => {
     queryFn: async () => {
       const habits = await habitService.getHabits();
       
-      // Verificar si cada hábito ha sido completado hoy
-      const habitsWithStatus = await Promise.all(
-        habits.map(async (habit) => {
-          try {
-            const logs = await habitService.getHabitLogs(habit.id);
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            
-            const isCompletedToday = logs.some(log => 
-              log.completed_date.split('T')[0] === today
-            );
-            
-            return {
-              ...habit,
-              isCompletedToday
-            };
-          } catch (error) {
-            console.error(`Error al verificar estado del hábito ${habit.id}:`, error);
-            return {
-              ...habit,
-              isCompletedToday: false
-            };
-          }
-        })
+      // Obtener todos los logs en una sola petición
+      const logsPromises = habits.map(habit => 
+        habitService.getHabitLogs(habit.id)
+          .catch(() => []) // Si falla, retornar array vacío
       );
+      
+      const allLogs = await Promise.all(logsPromises);
+      
+      // Mapear los hábitos con sus logs
+      const habitsWithStatus = habits.map((habit, index) => {
+        const habitLogs = allLogs[index];
+        const today = new Date().toISOString().split('T')[0];
+        
+        const isCompletedToday = habitLogs.some(log => 
+          log.completed_date.split('T')[0] === today
+        );
+        
+        return {
+          ...habit,
+          isCompletedToday
+        };
+      });
       
       return habitsWithStatus;
     },
-    staleTime: 5000, // Aumentar tiempo de caché para prevenir múltiples cargas innecesarias
+    staleTime: 30000, // Aumentar el tiempo de caché a 30 segundos
+    gcTime: 1000 * 60 * 5, // Mantener en caché por 5 minutos
   });
   
   // Filtrar por categoría si es necesario
   const habits = allHabits && selectedCategory && selectedCategory !== 'all'
-    ? allHabits.filter(habit => habit.category === selectedCategory)
+    ? allHabits.filter((habit: Habit) => habit.category === selectedCategory)
     : allHabits;
   
   // Mutación para crear un hábito
