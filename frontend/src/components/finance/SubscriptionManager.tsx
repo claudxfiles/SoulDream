@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -11,7 +11,8 @@ import {
   Search,
   ArrowUpDown,
   Check,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,20 +22,15 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-
-interface Subscription {
-  id: string;
-  name: string;
-  description?: string;
-  amount: number;
-  currency: string;
-  billingCycle: 'monthly' | 'annual';
-  nextBillingDate: Date;
-  category: string;
-  status: 'active' | 'cancelled' | 'pending';
-  autoRenewal: boolean;
-  paymentMethod: string;
-}
+import { useToast } from '@/components/ui/use-toast';
+import { 
+  getSubscriptions, 
+  createSubscription, 
+  updateSubscription, 
+  deleteSubscription, 
+  toggleSubscriptionStatus,
+  Subscription
+} from '@/services/financeSubscriptions';
 
 const CATEGORIES = [
   'Entretenimiento',
@@ -63,12 +59,12 @@ const SubscriptionForm: React.FC<{
     description: initialData?.description || '',
     amount: initialData?.amount || 0,
     currency: initialData?.currency || 'USD',
-    billingCycle: initialData?.billingCycle || 'monthly',
-    nextBillingDate: initialData?.nextBillingDate || new Date(),
+    billing_cycle: initialData?.billing_cycle || 'monthly',
+    next_billing_date: initialData?.next_billing_date || new Date(),
     category: initialData?.category || CATEGORIES[0],
     status: initialData?.status || 'active',
-    autoRenewal: initialData?.autoRenewal || true,
-    paymentMethod: initialData?.paymentMethod || PAYMENT_METHODS[0],
+    auto_renewal: initialData?.auto_renewal || true,
+    payment_method: initialData?.payment_method || PAYMENT_METHODS[0],
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -121,11 +117,11 @@ const SubscriptionForm: React.FC<{
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="billingCycle">Ciclo de Facturación</Label>
+          <Label htmlFor="billing_cycle">Ciclo de Facturación</Label>
           <Select
-            value={formData.billingCycle}
+            value={formData.billing_cycle}
             onValueChange={(value: 'monthly' | 'annual') => 
-              setFormData({ ...formData, billingCycle: value })}
+              setFormData({ ...formData, billing_cycle: value })}
           >
             <SelectTrigger>
               <SelectValue />
@@ -149,8 +145,8 @@ const SubscriptionForm: React.FC<{
 
       <div className="flex items-center space-x-2">
         <Switch
-          checked={formData.autoRenewal}
-          onCheckedChange={(checked) => setFormData({ ...formData, autoRenewal: checked })}
+          checked={formData.auto_renewal}
+          onCheckedChange={(checked) => setFormData({ ...formData, auto_renewal: checked })}
         />
         <Label>Renovación Automática</Label>
       </div>
@@ -209,11 +205,11 @@ const SubscriptionCard: React.FC<{
               {formatCurrency(subscription.amount, subscription.currency)}
             </span>
             <span className="text-sm text-muted-foreground">
-              {subscription.billingCycle === 'monthly' ? 'Mensual' : 'Anual'}
+              {subscription.billing_cycle === 'monthly' ? 'Mensual' : 'Anual'}
             </span>
           </div>
           <div className="text-sm text-muted-foreground">
-            Próximo cobro: {format(subscription.nextBillingDate, 'dd/MM/yyyy')}
+            Próximo cobro: {format(new Date(subscription.next_billing_date), 'dd/MM/yyyy')}
           </div>
           <div className="flex justify-end space-x-2">
             <Button
@@ -226,7 +222,7 @@ const SubscriptionCard: React.FC<{
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onToggleStatus(subscription.id)}
+              onClick={() => onToggleStatus(subscription.id as string)}
             >
               {subscription.status === 'active' ? 
                 <X className="h-4 w-4" /> : 
@@ -236,7 +232,7 @@ const SubscriptionCard: React.FC<{
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onDelete(subscription.id)}
+              onClick={() => onDelete(subscription.id as string)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -254,11 +250,35 @@ export const SubscriptionManager: React.FC = () => {
   const [sortBy, setSortBy] = useState<'amount' | 'date'>('amount');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  // Cargar suscripciones al iniciar
+  useEffect(() => {
+    const loadSubscriptions = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getSubscriptions();
+        setSubscriptions(data);
+      } catch (error) {
+        console.error('Error loading subscriptions:', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar las suscripciones',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSubscriptions();
+  }, [toast]);
 
   const filteredSubscriptions = subscriptions
     .filter((sub) => {
       const matchesSearch = sub.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sub.description?.toLowerCase().includes(searchTerm.toLowerCase());
+        (sub.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || sub.category === selectedCategory;
       return matchesSearch && matchesCategory;
     })
@@ -266,44 +286,122 @@ export const SubscriptionManager: React.FC = () => {
       if (sortBy === 'amount') {
         return b.amount - a.amount;
       }
-      return b.nextBillingDate.getTime() - a.nextBillingDate.getTime();
+      return new Date(b.next_billing_date).getTime() - new Date(a.next_billing_date).getTime();
     });
 
   const totalMonthly = filteredSubscriptions
     .filter(sub => sub.status === 'active')
     .reduce((acc, sub) => {
-      if (sub.billingCycle === 'monthly') {
+      if (sub.billing_cycle === 'monthly') {
         return acc + sub.amount;
       }
       return acc + (sub.amount / 12);
     }, 0);
 
-  const handleAddSubscription = (newSubscription: Omit<Subscription, 'id'>) => {
-    const subscription: Subscription = {
-      ...newSubscription,
-      id: Math.random().toString(36).substr(2, 9),
-    };
-    setSubscriptions([...subscriptions, subscription]);
+  const handleAddSubscription = async (newSubscription: Omit<Subscription, 'id'>) => {
+    try {
+      const createdSubscription = await createSubscription(newSubscription);
+      if (createdSubscription) {
+        setSubscriptions([...subscriptions, createdSubscription]);
+        toast({
+          title: 'Suscripción creada',
+          description: 'La suscripción se ha creado exitosamente'
+        });
+      } else {
+        throw new Error('No se pudo crear la suscripción');
+      }
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo crear la suscripción',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleEditSubscription = (updatedSubscription: Subscription) => {
-    setSubscriptions(subscriptions.map(sub =>
-      sub.id === updatedSubscription.id ? updatedSubscription : sub
-    ));
-    setEditingSubscription(null);
+  const handleEditSubscription = async (updatedSubscription: Subscription) => {
+    try {
+      const success = await updateSubscription(
+        updatedSubscription.id as string, 
+        updatedSubscription
+      );
+      
+      if (success) {
+        setSubscriptions(subscriptions.map(sub =>
+          sub.id === updatedSubscription.id ? updatedSubscription : sub
+        ));
+        setEditingSubscription(null);
+        toast({
+          title: 'Suscripción actualizada',
+          description: 'La suscripción se ha actualizado exitosamente'
+        });
+      } else {
+        throw new Error('No se pudo actualizar la suscripción');
+      }
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar la suscripción',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDeleteSubscription = (id: string) => {
-    setSubscriptions(subscriptions.filter(sub => sub.id !== id));
+  const handleDeleteSubscription = async (id: string) => {
+    try {
+      const success = await deleteSubscription(id);
+      if (success) {
+        setSubscriptions(subscriptions.filter(sub => sub.id !== id));
+        toast({
+          title: 'Suscripción eliminada',
+          description: 'La suscripción se ha eliminado exitosamente'
+        });
+      } else {
+        throw new Error('No se pudo eliminar la suscripción');
+      }
+    } catch (error) {
+      console.error('Error deleting subscription:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la suscripción',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleToggleStatus = (id: string) => {
-    setSubscriptions(subscriptions.map(sub =>
-      sub.id === id
-        ? { ...sub, status: sub.status === 'active' ? 'cancelled' : 'active' }
-        : sub
-    ));
+  const handleToggleStatus = async (id: string) => {
+    try {
+      const success = await toggleSubscriptionStatus(id);
+      if (success) {
+        // Refrescar la lista de suscripciones
+        const updatedSubscriptions = await getSubscriptions();
+        setSubscriptions(updatedSubscriptions);
+        toast({
+          title: 'Estado actualizado',
+          description: 'El estado de la suscripción se ha actualizado exitosamente'
+        });
+      } else {
+        throw new Error('No se pudo actualizar el estado de la suscripción');
+      }
+    } catch (error) {
+      console.error('Error toggling subscription status:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el estado de la suscripción',
+        variant: 'destructive',
+      });
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
