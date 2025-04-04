@@ -22,7 +22,7 @@ alembic==1.13.1
 asyncpg==0.29.0
 
 # Supabase
-supabase==2.3.4
+supabase==1.2.0
 
 # Google Calendar API y OAuth
 google-api-python-client==2.121.0
