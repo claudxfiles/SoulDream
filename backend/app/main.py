@@ -47,8 +47,9 @@ app = FastAPI(
 if os.environ.get("ENV", "development") == "production":
     # En producción, limitar a orígenes específicos
     origins = [
-        "https://souldream.app",  # Ajustar a tu dominio real
-        "https://www.souldream.app"
+        "https://presentandflow.cl",
+        "https://www.presentandflow.cl",
+        "http://localhost:3000"  # Para desarrollo local del frontend
     ]
     logger.info("Ejecutando en modo producción con CORS restringido")
 else:
@@ -59,7 +60,7 @@ else:
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En desarrollo permitimos todos los orígenes
+    allow_origins=origins if os.environ.get("ENV", "development") == "production" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
