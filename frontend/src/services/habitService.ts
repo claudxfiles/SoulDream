@@ -82,10 +82,17 @@ export const habitService = {
   // Eliminar un hábito
   deleteHabit: async (habitId: string): Promise<void> => {
     try {
-      await apiClient.delete(`/api/v1/habits/${habitId}`);
-    } catch (error) {
+      const response = await apiClient.delete(`/api/v1/habits/${habitId}`);
+      if (response.status !== 204 && response.status !== 200) {
+        throw new Error(`Error al eliminar hábito: ${response.statusText}`);
+      }
+    } catch (error: any) {
       console.error(`Error al eliminar hábito ${habitId}:`, error);
-      throw error;
+      if (error.response?.status === 404) {
+        // Si el hábito no existe, consideramos que ya está eliminado
+        return;
+      }
+      throw new Error(error.response?.data?.detail || 'Error al eliminar el hábito');
     }
   },
   
@@ -94,9 +101,12 @@ export const habitService = {
     try {
       const response = await apiClient.get(`/api/v1/habits/${habitId}/logs`);
       return response.data || [];
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error al obtener logs del hábito ${habitId}:`, error);
-      return [];
+      if (error.response?.status === 404) {
+        return [];
+      }
+      throw error;
     }
   },
   

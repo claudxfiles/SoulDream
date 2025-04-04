@@ -16,22 +16,33 @@ import { HabitLog, HabitLogCreate } from '@/types/habit';
 
 export const useHabits = (category?: string) => {
   const queryClient = useQueryClient();
-  
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(category);
+  const [isMounted, setIsMounted] = useState(true);
+
+  // Efecto para limpiar el estado cuando el componente se desmonta
+  useEffect(() => {
+    return () => {
+      setIsMounted(false);
+    };
+  }, []);
   
   // Obtener todos los hábitos
   const { data: allHabits, isLoading, error, refetch } = useQuery({
     queryKey: ['habits'],
     queryFn: async () => {
+      if (!isMounted) return [];
+      
       const habits = await habitService.getHabits();
       
       // Obtener todos los logs en una sola petición
       const logsPromises = habits.map(habit => 
         habitService.getHabitLogs(habit.id)
-          .catch(() => []) // Si falla, retornar array vacío
+          .catch(() => [])
       );
       
       const allLogs = await Promise.all(logsPromises);
+      
+      if (!isMounted) return [];
       
       // Mapear los hábitos con sus logs
       const habitsWithStatus = habits.map((habit, index) => {
@@ -50,8 +61,10 @@ export const useHabits = (category?: string) => {
       
       return habitsWithStatus;
     },
-    staleTime: 30000, // Aumentar el tiempo de caché a 30 segundos
-    gcTime: 1000 * 60 * 5, // Mantener en caché por 5 minutos
+    staleTime: 30000,
+    gcTime: 1000 * 60 * 5,
+    retry: false, // Desactivar reintentos automáticos
+    refetchOnWindowFocus: false, // Desactivar recargas automáticas al enfocar la ventana
   });
   
   // Filtrar por categoría si es necesario
@@ -111,6 +124,8 @@ export const useHabits = (category?: string) => {
   const deleteHabitMutation = useMutation({
     mutationFn: (habitId: string) => habitService.deleteHabit(habitId),
     onMutate: async (habitId) => {
+      if (!isMounted) return;
+      
       // Cancelar queries en curso
       await queryClient.cancelQueries({ queryKey: ['habits'] });
       await queryClient.cancelQueries({ queryKey: ['habitLogs', habitId] });
@@ -127,6 +142,8 @@ export const useHabits = (category?: string) => {
       return { previousHabits };
     },
     onError: (err, habitId, context) => {
+      if (!isMounted) return;
+      
       // Si hay error, revertir a los datos anteriores
       if (context?.previousHabits) {
         queryClient.setQueryData(['habits'], context.previousHabits);
@@ -134,6 +151,8 @@ export const useHabits = (category?: string) => {
       console.error('Error al eliminar hábito:', err);
     },
     onSettled: () => {
+      if (!isMounted) return;
+      
       // Refrescar los datos después de la mutación
       queryClient.invalidateQueries({ queryKey: ['habits'] });
     },
@@ -142,6 +161,8 @@ export const useHabits = (category?: string) => {
   // Mutación para marcar un hábito como completado
   const completeHabitMutation = useMutation({
     mutationFn: async ({ habitId }: { habitId: string }) => {
+      if (!isMounted) return null;
+      
       try {
         const response = await habitService.logHabit({
           habit_id: habitId,
@@ -153,6 +174,8 @@ export const useHabits = (category?: string) => {
       }
     },
     onSuccess: (_, { habitId }) => {
+      if (!isMounted) return;
+      
       // Actualizar la caché directamente marcando el hábito como completado
       queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
         if (!oldData) return [];
@@ -167,6 +190,7 @@ export const useHabits = (category?: string) => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
     },
     onError: (error: any) => {
+      if (!isMounted) return;
       console.error('Error al completar hábito:', error);
     }
   });
