@@ -1,10 +1,12 @@
 from fastapi import APIRouter
 from .ai import ai_router
+from app.api.endpoints import habits
 
 api_router = APIRouter()
 
 # Incluir routers de los diferentes módulos
 api_router.include_router(ai_router)
+api_router.include_router(habits.router, prefix="/habits", tags=["habits"])
 
 # Versión simplificada para pruebas
 @api_router.get("/", tags=["test"])
