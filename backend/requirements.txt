@@ -5,7 +5,7 @@ pydantic==2.6.1
 pydantic-settings==2.2.1
 python-dotenv==1.0.1
 starlette==0.36.3  # Requerido por FastAPI
-httpx==0.24.1
+httpx>=0.24.0,<0.26.0
 
 # Autenticación y seguridad
 PyJWT==2.8.0
@@ -22,11 +22,7 @@ alembic==1.13.1
 asyncpg==0.29.0
 
 # Supabase
-supabase-py==2.3.1
-postgrest==0.13.0
-gotrue==2.1.0
-realtime==1.0.0
-storage3==0.7.0
+supabase==2.3.4
 
 # Google Calendar API y OAuth
 google-api-python-client==2.121.0
