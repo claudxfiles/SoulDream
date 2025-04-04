@@ -40,6 +40,7 @@ pandas==2.2.1  # Análisis de datos para AI
 python-multipart==0.0.9
 email-validator==2.1.0.post1
 requests==2.31.0
+aiohttp==3.9.3  # Cliente HTTP asíncrono
 pytest==8.0.2
 pytest-asyncio==0.23.5
 pytest-cov==4.1.0  # Cobertura de pruebas
