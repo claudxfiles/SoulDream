@@ -10,24 +10,32 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
   const supabaseClient = createClientComponentClient<Database>();
 
   useEffect(() => {
+    let mounted = true;
+
     // Obtener la sesión actual
     const getSession = async () => {
-      setLoading(true);
+      if (!mounted) return;
+      
       try {
         const { data: { session }, error } = await supabaseClient.auth.getSession();
-        if (error) {
-          throw error;
+        if (error) throw error;
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
         }
-        setSession(session);
-        setUser(session?.user ?? null);
       } catch (error) {
         console.error('Error al obtener la sesión:', error);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          setIsInitialized(true);
+        }
       }
     };
 
@@ -35,7 +43,9 @@ export function useAuth() {
 
     // Escuchar cambios en la autenticación
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
+        if (!mounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -43,9 +53,27 @@ export function useAuth() {
     );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, [supabaseClient]);
+
+  // No renderizar nada hasta que la inicialización esté completa
+  if (!isInitialized && typeof window !== 'undefined') {
+    return {
+      user: null,
+      session: null,
+      loading: true,
+      signInWithEmail: async () => ({ data: null, error: new Error('Not initialized') }),
+      signInWithGoogle: async () => ({ data: null, error: new Error('Not initialized') }),
+      signUpWithEmail: async () => ({ data: null, error: new Error('Not initialized') }),
+      signOut: async () => {},
+      resetPassword: async () => ({ data: null, error: new Error('Not initialized') }),
+      updatePassword: async () => ({ data: null, error: new Error('Not initialized') }),
+      hasGoogleCalendarScopes: () => false,
+      requestGoogleCalendarPermission: async () => ({ data: null, error: new Error('Not initialized') }),
+    };
+  }
 
   // Iniciar sesión con correo y contraseña
   const signInWithEmail = async (email: string, password: string) => {
