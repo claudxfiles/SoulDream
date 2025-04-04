@@ -110,14 +110,31 @@ export const useHabits = (category?: string) => {
   // Mutación para eliminar un hábito
   const deleteHabitMutation = useMutation({
     mutationFn: (habitId: string) => habitService.deleteHabit(habitId),
-    onSuccess: (_, habitId) => {
-      // Actualizar la caché directamente eliminando el hábito
-      queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
-        if (!oldData) return [];
-        return oldData.filter(habit => habit.id !== habitId);
+    onMutate: async (habitId) => {
+      // Cancelar queries en curso
+      await queryClient.cancelQueries({ queryKey: ['habits'] });
+      await queryClient.cancelQueries({ queryKey: ['habitLogs', habitId] });
+
+      // Guardar el estado anterior
+      const previousHabits = queryClient.getQueryData(['habits']);
+
+      // Optimistic update
+      queryClient.setQueryData(['habits'], (old: Habit[] | undefined) => {
+        if (!old) return [];
+        return old.filter(habit => habit.id !== habitId);
       });
-      
-      // Invalidar la caché para futuras consultas
+
+      return { previousHabits };
+    },
+    onError: (err, habitId, context) => {
+      // Si hay error, revertir a los datos anteriores
+      if (context?.previousHabits) {
+        queryClient.setQueryData(['habits'], context.previousHabits);
+      }
+      console.error('Error al eliminar hábito:', err);
+    },
+    onSettled: () => {
+      // Refrescar los datos después de la mutación
       queryClient.invalidateQueries({ queryKey: ['habits'] });
     },
   });

@@ -82,7 +82,7 @@ export const habitService = {
   // Eliminar un hábito
   deleteHabit: async (habitId: string): Promise<void> => {
     try {
-      await apiClient.delete(`/api/v1/habits/${habitId}/`);
+      await apiClient.delete(`/api/v1/habits/${habitId}`);
     } catch (error) {
       console.error(`Error al eliminar hábito ${habitId}:`, error);
       throw error;
