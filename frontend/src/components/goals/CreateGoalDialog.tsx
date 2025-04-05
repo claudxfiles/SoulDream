@@ -46,13 +46,13 @@ import { Goal, GoalArea, GoalType, GoalPriority, GoalProgressType } from '@/type
 
 const createGoalSchema = z.object({
   title: z.string().min(1, 'El título es requerido'),
-  description: z.string().optional(),
+  description: z.string().nullable(),
   area: z.enum(['Desarrollo Personal', 'Salud y Bienestar', 'Educación', 'Finanzas', 'Hobbies'] as const),
   type: z.enum(['Otro', 'Proyecto', 'Hábito', 'Aprendizaje', 'Financiero'] as const),
   priority: z.enum(['Baja', 'Media', 'Alta'] as const),
   progress_type: z.enum(['numeric', 'percentage', 'boolean'] as const),
-  target_value: z.number().min(0).optional(),
-  target_date: z.date().optional(),
+  target_value: z.number().min(0).nullable(),
+  target_date: z.date().nullable(),
 });
 
 type CreateGoalFormData = z.infer<typeof createGoalSchema>;
@@ -69,7 +69,7 @@ export function CreateGoalDialog({
   onSubmit,
 }: CreateGoalDialogProps) {
   const { user } = useUser();
-  const { createGoal } = useGoals(user?.id || '');
+  const { createGoal } = useGoals();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<CreateGoalFormData>({
@@ -90,12 +90,23 @@ export function CreateGoalDialog({
 
     setIsSubmitting(true);
     try {
-      await createGoal({
-        ...data,
-        userId: user.id,
-        status: 'active',
+      const goalData = {
+        title: data.title,
+        description: data.description,
+        area: data.area,
+        type: data.type,
+        priority: data.priority,
+        progress_type: data.progress_type,
+        target_value: data.target_value,
+        target_date: data.target_date ? data.target_date.toISOString().split('T')[0] : null,
+        user_id: user.id,
+        status: 'active' as const,
         current_value: 0,
-      });
+        image_url: null,
+        start_date: null,
+      };
+
+      await createGoal.mutateAsync(goalData);
       form.reset();
       onOpenChange(false);
     } catch (error) {

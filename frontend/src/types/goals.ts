@@ -34,18 +34,18 @@ export interface GoalMockData {
 export interface Goal {
     id: string;
     title: string;
-    description?: string;
+    description: string | null;
     area: GoalArea;
-    target_date?: string;
-    target_value?: number;
-    current_value?: number;
+    target_date: string | null;
+    target_value: number | null;
+    current_value: number | null;
     status: GoalStatus;
     progress_type: GoalProgressType;
     type: GoalType;
     priority: GoalPriority;
-    image_url?: string;
+    image_url: string | null;
     user_id: string;
-    start_date?: string;
+    start_date: string | null;
     created_at: string;
     updated_at: string;
 }
