@@ -27,15 +27,48 @@ export const SavingsCalculator = () => {
   const { fetchMonthlyFinancialSummary } = useFinance();
 
   const [monthlyData, setMonthlyData] = useState({
-    income: 0,
-    expenses: 0,
-    savings: 0,
-    savingsRate: 0
+    income: 3000,
+    expenses: 2000,
+    savings: 600,
+    savingsRate: 20
   });
 
-  const [targetAmount, setTargetAmount] = useState(0);
+  const [targetAmount, setTargetAmount] = useState(10000);
   const [savingsRate, setSavingsRate] = useState(20);
   const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
+
+  // Calcular el ahorro mensual cuando cambia el ingreso o el porcentaje de ahorro
+  useEffect(() => {
+    const availableForSavings = monthlyData.income - monthlyData.expenses;
+    const calculatedSavings = (monthlyData.income * savingsRate) / 100;
+    
+    // Asegurarse de que el ahorro calculado no exceda el disponible
+    const finalSavings = Math.min(calculatedSavings, availableForSavings);
+    
+    setMonthlyData(prev => ({
+      ...prev,
+      savings: finalSavings,
+      savingsRate: savingsRate
+    }));
+  }, [monthlyData.income, monthlyData.expenses, savingsRate]);
+
+  // Calcular meses para alcanzar la meta
+  const calculateMonthsToGoal = () => {
+    if (!targetAmount || !monthlyData.savings) return 0;
+    return Math.ceil(targetAmount / monthlyData.savings);
+  };
+
+  // Formatear tiempo en años y meses
+  const formatTimeToGoal = () => {
+    const totalMonths = calculateMonthsToGoal();
+    const years = Math.floor(totalMonths / 12);
+    const months = totalMonths % 12;
+    
+    if (years > 0) {
+      return `${years} ${years === 1 ? 'año' : 'años'} y ${months} ${months === 1 ? 'mes' : 'meses'}`;
+    }
+    return `${months} ${months === 1 ? 'mes' : 'meses'}`;
+  };
 
   // Cargar datos reales al montar el componente
   useEffect(() => {
@@ -264,7 +297,7 @@ export const SavingsCalculator = () => {
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-2xl font-bold">
-                      {monthlyData.savings} US$
+                      {monthlyData.savings.toFixed(0)} US$
                     </h3>
                     <p className="text-muted-foreground">Ahorro mensual recomendado</p>
                   </div>
@@ -273,9 +306,7 @@ export const SavingsCalculator = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-muted-foreground">Tiempo para alcanzar tu meta</span>
                     </div>
-                    <p>
-                      {Math.floor(targetAmount / monthlyData.savings)} meses
-                    </p>
+                    <p>{formatTimeToGoal()}</p>
                   </div>
 
                   <div>
