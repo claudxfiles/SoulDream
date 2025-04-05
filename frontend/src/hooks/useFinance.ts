@@ -5,7 +5,6 @@ import {
   Subscription,
   FinancialSummary,
   FinancialAsset,
-  SavingsPlan,
   getTransactions,
   getFinancialGoals,
   getSubscriptions,
@@ -25,8 +24,6 @@ import {
   deleteFinancialAsset,
   calculateLoanPayment,
   calculateCompoundInterest,
-  getSavingsPlan,
-  createOrUpdateSavingsPlan,
   getMonthlyFinancialSummary
 } from '@/lib/finance';
 import { toast } from '@/components/ui/use-toast';
@@ -51,8 +48,6 @@ export function useFinance() {
     type: '',
     category: ''
   });
-  const [savingsPlan, setSavingsPlan] = useState<SavingsPlan | null>(null);
-  const [isLoadingSavingsPlan, setIsLoadingSavingsPlan] = useState(false);
 
   // Funciones para cargar datos
   const fetchTransactions = useCallback(async () => {
@@ -145,34 +140,6 @@ export function useFinance() {
     }
   }, []);
 
-  // Función para cargar el plan de ahorro
-  const fetchSavingsPlan = useCallback(async () => {
-    setIsLoadingSavingsPlan(true);
-    try {
-      const plan = await getSavingsPlan();
-      setSavingsPlan(plan);
-    } catch (error) {
-      console.error('Error fetching savings plan:', error);
-    } finally {
-      setIsLoadingSavingsPlan(false);
-    }
-  }, []);
-
-  // Función para guardar o actualizar el plan de ahorro
-  const saveSavingsPlan = useCallback(async (plan: SavingsPlan) => {
-    try {
-      const updatedPlan = await createOrUpdateSavingsPlan(plan);
-      if (updatedPlan) {
-        setSavingsPlan(updatedPlan);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error saving savings plan:', error);
-      return false;
-    }
-  }, []);
-
   // Función para obtener el resumen financiero mensual
   const fetchMonthlyFinancialSummary = useCallback(async () => {
     try {
@@ -191,8 +158,7 @@ export function useFinance() {
     fetchSubscriptions();
     fetchFinancialAssets();
     fetchSummary();
-    fetchSavingsPlan();
-  }, [fetchTransactions, fetchFinancialGoals, fetchSubscriptions, fetchFinancialAssets, fetchSummary, fetchSavingsPlan]);
+  }, [fetchTransactions, fetchFinancialGoals, fetchSubscriptions, fetchFinancialAssets, fetchSummary]);
 
   // Funciones CRUD para transacciones
   const addTransaction = async (transaction: Transaction): Promise<boolean> => {
@@ -478,8 +444,6 @@ export function useFinance() {
     summary,
     loading,
     filters,
-    savingsPlan,
-    isLoadingSavingsPlan,
     
     // Funciones de carga
     fetchTransactions,
@@ -487,7 +451,6 @@ export function useFinance() {
     fetchSubscriptions,
     fetchFinancialAssets,
     fetchSummary,
-    fetchSavingsPlan,
     fetchMonthlyFinancialSummary,
     
     // Funciones CRUD - Transacciones
@@ -519,9 +482,6 @@ export function useFinance() {
     
     // Análisis financiero
     getSavingsRecommendation,
-    getExpenseBreakdown,
-    
-    // Funciones para el plan de ahorro
-    saveSavingsPlan
+    getExpenseBreakdown
   };
 } 

@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFinance } from '@/hooks/useFinance';
-import { SavingsPlan } from '@/lib/finance';
 import { Loader2 } from 'lucide-react';
 
 interface InvestmentResult {
@@ -25,19 +24,7 @@ interface InvestmentResult {
 }
 
 export const SavingsCalculator = () => {
-  const {
-    savingsPlan,
-    isLoadingSavingsPlan,
-    saveSavingsPlan,
-    fetchMonthlyFinancialSummary,
-  } = useFinance();
-
-  const [realPlan, setRealPlan] = useState<SavingsPlan>({
-    target_amount: 0,
-    savings_rate: 0,
-    monthly_income: 0,
-    monthly_expenses: 0,
-  });
+  const { fetchMonthlyFinancialSummary } = useFinance();
 
   const [monthlyData, setMonthlyData] = useState({
     income: 0,
@@ -46,75 +33,9 @@ export const SavingsCalculator = () => {
     savingsRate: 0
   });
 
-  const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
-
-  // Estados para el plan simulado
-  const [monthlyIncome, setMonthlyIncome] = useState(3000);
-  const [monthlyExpenses, setMonthlyExpenses] = useState(2000);
+  const [targetAmount, setTargetAmount] = useState(0);
   const [savingsRate, setSavingsRate] = useState(20);
-  const [targetAmount, setTargetAmount] = useState(10000);
-
-  // Estados para el interés compuesto
-  const [initialAmount, setInitialAmount] = useState(1000);
-  const [monthlyContribution, setMonthlyContribution] = useState(100);
-  const [annualReturn, setAnnualReturn] = useState(8);
-  const [years, setYears] = useState(10);
-  const [capitalizationFrequency, setCapitalizationFrequency] = useState('monthly');
-  const [investmentResult, setInvestmentResult] = useState<InvestmentResult>({
-    finalAmount: 0,
-    totalContributions: 0,
-    interestEarned: 0,
-    yearlyProjections: [],
-  });
-
-  // Calcular resultados para el ahorro simulado
-  const calculateSavingsResults = () => {
-    const availableForSaving = monthlyIncome - monthlyExpenses;
-    const recommendedMonthlySaving = Math.round((monthlyIncome * savingsRate) / 100);
-    const actualMonthlySaving = Math.min(recommendedMonthlySaving, availableForSaving);
-    const monthsToGoal = actualMonthlySaving > 0 ? Math.ceil(targetAmount / actualMonthlySaving) : 0;
-    
-    return {
-      monthlySaving: actualMonthlySaving,
-      availableForSaving,
-      monthsToGoal,
-    };
-  };
-
-  // Calcular resultados para la inversión
-  useEffect(() => {
-    const calculateCompoundInterest = () => {
-      const monthlyRate = annualReturn / 12 / 100;
-      let balance = initialAmount;
-      let yearlyProjections = [];
-      let totalContributions = initialAmount;
-
-      for (let year = 1; year <= years; year++) {
-        for (let month = 1; month <= 12; month++) {
-          balance += monthlyContribution;
-          totalContributions += monthlyContribution;
-          balance *= (1 + monthlyRate);
-        }
-
-        yearlyProjections.push({
-          year,
-          amount: balance,
-          contributions: totalContributions,
-          interest: balance - totalContributions,
-        });
-      }
-
-      return {
-        finalAmount: balance,
-        totalContributions,
-        interestEarned: balance - totalContributions,
-        yearlyProjections,
-      };
-    };
-
-    const result = calculateCompoundInterest();
-    setInvestmentResult(result);
-  }, [initialAmount, monthlyContribution, annualReturn, years]);
+  const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
 
   // Cargar datos reales al montar el componente
   useEffect(() => {
@@ -124,12 +45,7 @@ export const SavingsCalculator = () => {
         const summary = await fetchMonthlyFinancialSummary();
         if (summary) {
           setMonthlyData(summary);
-          setRealPlan(prev => ({
-            ...prev,
-            monthly_income: summary.income,
-            monthly_expenses: summary.expenses,
-            savings_rate: summary.savingsRate
-          }));
+          setSavingsRate(summary.savingsRate);
         }
       } catch (error) {
         console.error('Error loading monthly data:', error);
@@ -140,20 +56,6 @@ export const SavingsCalculator = () => {
 
     loadRealData();
   }, [fetchMonthlyFinancialSummary]);
-
-  // Cargar plan de ahorro existente
-  useEffect(() => {
-    if (savingsPlan) {
-      setRealPlan(savingsPlan);
-    }
-  }, [savingsPlan]);
-
-  // Función para guardar el plan real
-  const handleSaveRealPlan = async () => {
-    await saveSavingsPlan(realPlan);
-  };
-
-  const savingsResults = calculateSavingsResults();
 
   return (
     <div className="space-y-6">
@@ -181,7 +83,7 @@ export const SavingsCalculator = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoadingSavingsPlan || isLoadingMonthly ? (
+                {isLoadingMonthly ? (
                   <div className="flex justify-center items-center h-40">
                     <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
@@ -210,11 +112,11 @@ export const SavingsCalculator = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <Label>Porcentaje de ahorro sugerido</Label>
-                        <span className="text-muted-foreground">{realPlan.savings_rate}%</span>
+                        <span className="text-muted-foreground">{savingsRate}%</span>
                       </div>
                       <Slider
-                        value={[realPlan.savings_rate]}
-                        onValueChange={([value]) => setRealPlan(prev => ({ ...prev, savings_rate: value }))}
+                        value={[savingsRate]}
+                        onValueChange={([value]) => setSavingsRate(value)}
                         max={50}
                       />
                     </div>
@@ -225,16 +127,12 @@ export const SavingsCalculator = () => {
                         <span className="text-muted-foreground">$</span>
                         <Input
                           type="number"
-                          value={realPlan.target_amount}
-                          onChange={(e) => setRealPlan(prev => ({ ...prev, target_amount: Number(e.target.value) }))}
+                          value={targetAmount}
+                          onChange={(e) => setTargetAmount(Number(e.target.value))}
                           className="flex-1"
                         />
                       </div>
                     </div>
-
-                    <Button onClick={handleSaveRealPlan} className="w-full">
-                      Guardar Plan
-                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -268,15 +166,13 @@ export const SavingsCalculator = () => {
                     <p>{monthlyData.savingsRate.toFixed(1)}% de tus ingresos</p>
                   </div>
 
-                  {realPlan.target_amount > 0 && (
+                  {targetAmount > 0 && monthlyData.savings > 0 && (
                     <div>
                       <div className="flex items-center space-x-2">
                         <span className="text-muted-foreground">Tiempo para alcanzar tu meta</span>
                       </div>
                       <p>
-                        {monthlyData.savings > 0 
-                          ? `${Math.floor((realPlan.target_amount - monthlyData.savings) / monthlyData.savings)} meses`
-                          : 'Indefinido (sin ahorros actuales)'}
+                        {Math.floor((targetAmount - monthlyData.savings) / monthlyData.savings)} meses
                       </p>
                     </div>
                   )}
@@ -308,11 +204,11 @@ export const SavingsCalculator = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <Label>Ingresos mensuales</Label>
-                      <span className="text-muted-foreground">{monthlyIncome} US$</span>
+                      <span className="text-muted-foreground">{monthlyData.income} US$</span>
                     </div>
                     <Slider
-                      value={[monthlyIncome]}
-                      onValueChange={([value]) => setMonthlyIncome(value)}
+                      value={[monthlyData.income]}
+                      onValueChange={([value]) => setMonthlyData(prev => ({ ...prev, income: value }))}
                       max={10000}
                       step={100}
                     />
@@ -321,12 +217,12 @@ export const SavingsCalculator = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <Label>Gastos mensuales</Label>
-                      <span className="text-muted-foreground">{monthlyExpenses} US$</span>
+                      <span className="text-muted-foreground">{monthlyData.expenses} US$</span>
                     </div>
                     <Slider
-                      value={[monthlyExpenses]}
-                      onValueChange={([value]) => setMonthlyExpenses(value)}
-                      max={monthlyIncome}
+                      value={[monthlyData.expenses]}
+                      onValueChange={([value]) => setMonthlyData(prev => ({ ...prev, expenses: value }))}
+                      max={monthlyData.income}
                       step={100}
                     />
                   </div>
@@ -368,7 +264,7 @@ export const SavingsCalculator = () => {
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-2xl font-bold">
-                      {savingsResults.monthlySaving} US$
+                      {monthlyData.savings} US$
                     </h3>
                     <p className="text-muted-foreground">Ahorro mensual recomendado</p>
                   </div>
@@ -378,8 +274,7 @@ export const SavingsCalculator = () => {
                       <span className="text-muted-foreground">Tiempo para alcanzar tu meta</span>
                     </div>
                     <p>
-                      {Math.floor(savingsResults.monthsToGoal / 12)} años y{' '}
-                      {savingsResults.monthsToGoal % 12} meses
+                      {Math.floor(targetAmount / monthlyData.savings)} meses
                     </p>
                   </div>
 
@@ -387,7 +282,7 @@ export const SavingsCalculator = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-muted-foreground">Capacidad de ahorro</span>
                     </div>
-                    <p>{savingsResults.availableForSaving} US$ disponible mensualmente</p>
+                    <p>{monthlyData.income - monthlyData.expenses} US$ disponible mensualmente</p>
                   </div>
 
                   <div className="pt-4 border-t">
@@ -419,8 +314,8 @@ export const SavingsCalculator = () => {
                         <span className="text-muted-foreground">$</span>
                         <Input
                           type="number"
-                          value={initialAmount}
-                          onChange={(e) => setInitialAmount(Number(e.target.value))}
+                          value={targetAmount}
+                          onChange={(e) => setTargetAmount(Number(e.target.value))}
                         />
                       </div>
                     </div>
@@ -431,8 +326,8 @@ export const SavingsCalculator = () => {
                         <span className="text-muted-foreground">$</span>
                         <Input
                           type="number"
-                          value={monthlyContribution}
-                          onChange={(e) => setMonthlyContribution(Number(e.target.value))}
+                          value={monthlyData.savings}
+                          onChange={(e) => setMonthlyData(prev => ({ ...prev, savings: Number(e.target.value) }))}
                         />
                       </div>
                     </div>
@@ -441,11 +336,11 @@ export const SavingsCalculator = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <Label>Tasa de interés anual</Label>
-                      <span className="text-muted-foreground">{annualReturn}%</span>
+                      <span className="text-muted-foreground">{savingsRate}%</span>
                     </div>
                     <Slider
-                      value={[annualReturn]}
-                      onValueChange={([value]) => setAnnualReturn(value)}
+                      value={[savingsRate]}
+                      onValueChange={([value]) => setSavingsRate(value)}
                       max={20}
                       step={0.5}
                     />
@@ -454,11 +349,11 @@ export const SavingsCalculator = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <Label>Plazo (años)</Label>
-                      <span className="text-muted-foreground">{years} años</span>
+                      <span className="text-muted-foreground">{Math.floor(targetAmount / monthlyData.savings)} meses</span>
                     </div>
                     <Slider
-                      value={[years]}
-                      onValueChange={([value]) => setYears(value)}
+                      value={[Math.floor(targetAmount / monthlyData.savings)]}
+                      onValueChange={([value]) => setTargetAmount(value * monthlyData.savings)}
                       min={1}
                       max={30}
                     />
@@ -467,8 +362,7 @@ export const SavingsCalculator = () => {
                   <div className="space-y-2">
                     <Label>Frecuencia de capitalización</Label>
                     <Select
-                      value={capitalizationFrequency}
-                      onValueChange={setCapitalizationFrequency}
+                      value="monthly"
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -487,13 +381,13 @@ export const SavingsCalculator = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Proyección de inversión</CardTitle>
-                <CardDescription>En {years} años</CardDescription>
+                <CardDescription>En {Math.floor(targetAmount / monthlyData.savings)} meses</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-2xl font-bold">
-                      {investmentResult.finalAmount.toLocaleString('en-US', {
+                      {targetAmount.toLocaleString('en-US', {
                         style: 'currency',
                         currency: 'USD',
                       })}
@@ -505,7 +399,7 @@ export const SavingsCalculator = () => {
                     <div>
                       <p className="font-medium">Aportes totales</p>
                       <p className="text-muted-foreground">
-                        {investmentResult.totalContributions.toLocaleString('en-US', {
+                        {monthlyData.savings.toLocaleString('en-US', {
                           style: 'currency',
                           currency: 'USD',
                         })}
@@ -514,7 +408,7 @@ export const SavingsCalculator = () => {
                     <div>
                       <p className="font-medium">Intereses generados</p>
                       <p className="text-muted-foreground">
-                        {investmentResult.interestEarned.toLocaleString('en-US', {
+                        {((targetAmount - monthlyData.savings) / monthlyData.savings).toLocaleString('en-US', {
                           style: 'currency',
                           currency: 'USD',
                         })}
@@ -523,20 +417,20 @@ export const SavingsCalculator = () => {
                   </div>
 
                   <div className="space-y-2">
-                    {investmentResult.yearlyProjections.map((projection, index) => {
+                    {Array.from({ length: Math.floor(targetAmount / monthlyData.savings) }, (_, index) => {
                       const isEvenYear = (index + 1) % 2 === 0;
-                      if (!isEvenYear && index !== years - 1) return null;
+                      if (!isEvenYear && index !== Math.floor(targetAmount / monthlyData.savings) - 1) return null;
 
                       const totalWidth = 100;
-                      const contributionsWidth = (projection.contributions / projection.amount) * totalWidth;
-                      const interestWidth = (projection.interest / projection.amount) * totalWidth;
+                      const contributionsWidth = (monthlyData.savings / targetAmount) * totalWidth;
+                      const interestWidth = ((targetAmount - monthlyData.savings) / targetAmount) * totalWidth;
 
                       return (
-                        <div key={projection.year} className="space-y-1">
+                        <div key={index} className="space-y-1">
                           <div className="flex justify-between text-sm">
-                            <span>Año {projection.year}</span>
+                            <span>Mes {index + 1}</span>
                             <span>
-                              {projection.amount.toLocaleString('en-US', {
+                              {targetAmount.toLocaleString('en-US', {
                                 style: 'currency',
                                 currency: 'USD',
                               })}

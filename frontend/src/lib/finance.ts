@@ -91,18 +91,6 @@ export interface FinancialSummary {
   subscriptionsTotal: number;
 }
 
-// Interfaces
-export interface SavingsPlan {
-  id?: string;
-  user_id?: string;
-  target_amount: number;
-  savings_rate: number;
-  monthly_income: number;
-  monthly_expenses: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
 // Categorías predefinidas para ingresos
 export const incomeCategories = [
   'Salario',
@@ -739,87 +727,6 @@ export const deleteFinancialAsset = async (id: string): Promise<boolean> => {
   } catch (error) {
     console.error('Error in deleteFinancialAsset:', error);
     return false;
-  }
-};
-
-// Funciones para planes de ahorro
-export const getSavingsPlan = async (): Promise<SavingsPlan | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('savings_plans')
-      .select('*')
-      .single();
-
-    if (error) {
-      console.error('Error fetching savings plan:', error);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Error in getSavingsPlan:', error);
-    return null;
-  }
-};
-
-export const createOrUpdateSavingsPlan = async (plan: SavingsPlan): Promise<SavingsPlan | null> => {
-  try {
-    // Primero intentamos obtener el plan existente
-    const existingPlan = await getSavingsPlan();
-
-    if (existingPlan?.id) {
-      // Si existe, actualizamos
-      const { data, error } = await supabase
-        .from('savings_plans')
-        .update(plan)
-        .eq('id', existingPlan.id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error updating savings plan:', error);
-        toast({
-          title: 'Error',
-          description: 'No se pudo actualizar el plan de ahorro',
-          variant: 'destructive',
-        });
-        return null;
-      }
-
-      toast({
-        title: 'Plan actualizado',
-        description: 'El plan de ahorro se ha actualizado correctamente',
-      });
-
-      return data;
-    } else {
-      // Si no existe, creamos uno nuevo
-      const { data, error } = await supabase
-        .from('savings_plans')
-        .insert(plan)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating savings plan:', error);
-        toast({
-          title: 'Error',
-          description: 'No se pudo crear el plan de ahorro',
-          variant: 'destructive',
-        });
-        return null;
-      }
-
-      toast({
-        title: 'Plan creado',
-        description: 'El plan de ahorro se ha creado correctamente',
-      });
-
-      return data;
-    }
-  } catch (error) {
-    console.error('Error in createOrUpdateSavingsPlan:', error);
-    return null;
   }
 };
 
