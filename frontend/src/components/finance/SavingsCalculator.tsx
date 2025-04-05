@@ -37,6 +37,19 @@ export const SavingsCalculator = () => {
   const [savingsRate, setSavingsRate] = useState(20);
   const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
 
+  // Estados para el interés compuesto
+  const [initialInvestment, setInitialInvestment] = useState(1000);
+  const [monthlyContribution, setMonthlyContribution] = useState(100);
+  const [interestRate, setInterestRate] = useState(8);
+  const [investmentYears, setInvestmentYears] = useState(10);
+  const [compoundingFrequency, setCompoundingFrequency] = useState('anual');
+  const [investmentResult, setInvestmentResult] = useState<InvestmentResult>({
+    finalAmount: 0,
+    totalContributions: 0,
+    interestEarned: 0,
+    yearlyProjections: []
+  });
+
   // Calcular el ahorro mensual cuando cambia el ingreso o el porcentaje de ahorro
   useEffect(() => {
     const availableForSavings = monthlyData.income - monthlyData.expenses;
@@ -89,6 +102,56 @@ export const SavingsCalculator = () => {
 
     loadRealData();
   }, [fetchMonthlyFinancialSummary]);
+
+  // Calcular interés compuesto
+  const calculateCompoundInterest = () => {
+    const getPeriodsPerYear = (frequency: string) => {
+      switch (frequency) {
+        case 'diaria': return 365;
+        case 'mensual': return 12;
+        case 'trimestral': return 4;
+        case 'semestral': return 2;
+        case 'anual': return 1;
+        default: return 1;
+      }
+    };
+
+    const periodsPerYear = getPeriodsPerYear(compoundingFrequency);
+    const periodicRate = interestRate / (100 * periodsPerYear);
+    
+    let balance = initialInvestment;
+    let totalContributions = initialInvestment;
+    const projections = [];
+
+    for (let year = 1; year <= investmentYears; year++) {
+      // Calcular el crecimiento para cada período dentro del año
+      for (let period = 1; period <= periodsPerYear; period++) {
+        // Para frecuencias diferentes a la mensual, ajustamos el aporte
+        const contributionPerPeriod = monthlyContribution * (12 / periodsPerYear);
+        balance = balance * (1 + periodicRate) + contributionPerPeriod;
+        totalContributions += contributionPerPeriod;
+      }
+
+      projections.push({
+        year,
+        amount: balance,
+        contributions: totalContributions,
+        interest: balance - totalContributions
+      });
+    }
+
+    setInvestmentResult({
+      finalAmount: balance,
+      totalContributions,
+      interestEarned: balance - totalContributions,
+      yearlyProjections: projections
+    });
+  };
+
+  // Calcular cuando cambien los parámetros
+  useEffect(() => {
+    calculateCompoundInterest();
+  }, [initialInvestment, monthlyContribution, interestRate, investmentYears, compoundingFrequency]);
 
   return (
     <div className="space-y-6">
@@ -345,8 +408,8 @@ export const SavingsCalculator = () => {
                         <span className="text-muted-foreground">$</span>
                         <Input
                           type="number"
-                          value={targetAmount}
-                          onChange={(e) => setTargetAmount(Number(e.target.value))}
+                          value={initialInvestment}
+                          onChange={(e) => setInitialInvestment(Number(e.target.value))}
                         />
                       </div>
                     </div>
@@ -357,8 +420,8 @@ export const SavingsCalculator = () => {
                         <span className="text-muted-foreground">$</span>
                         <Input
                           type="number"
-                          value={monthlyData.savings}
-                          onChange={(e) => setMonthlyData(prev => ({ ...prev, savings: Number(e.target.value) }))}
+                          value={monthlyContribution}
+                          onChange={(e) => setMonthlyContribution(Number(e.target.value))}
                         />
                       </div>
                     </div>
@@ -367,11 +430,11 @@ export const SavingsCalculator = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <Label>Tasa de interés anual</Label>
-                      <span className="text-muted-foreground">{savingsRate}%</span>
+                      <span className="text-muted-foreground">{interestRate}%</span>
                     </div>
                     <Slider
-                      value={[savingsRate]}
-                      onValueChange={([value]) => setSavingsRate(value)}
+                      value={[interestRate]}
+                      onValueChange={([value]) => setInterestRate(value)}
                       max={20}
                       step={0.5}
                     />
@@ -380,11 +443,11 @@ export const SavingsCalculator = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <Label>Plazo (años)</Label>
-                      <span className="text-muted-foreground">{Math.floor(targetAmount / monthlyData.savings)} meses</span>
+                      <span className="text-muted-foreground">{investmentYears} años</span>
                     </div>
                     <Slider
-                      value={[Math.floor(targetAmount / monthlyData.savings)]}
-                      onValueChange={([value]) => setTargetAmount(value * monthlyData.savings)}
+                      value={[investmentYears]}
+                      onValueChange={([value]) => setInvestmentYears(value)}
                       min={1}
                       max={30}
                     />
@@ -393,15 +456,18 @@ export const SavingsCalculator = () => {
                   <div className="space-y-2">
                     <Label>Frecuencia de capitalización</Label>
                     <Select
-                      value="monthly"
+                      value={compoundingFrequency}
+                      onValueChange={setCompoundingFrequency}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="monthly">Mensual</SelectItem>
-                        <SelectItem value="quarterly">Trimestral</SelectItem>
-                        <SelectItem value="annually">Anual</SelectItem>
+                        <SelectItem value="anual">Anual</SelectItem>
+                        <SelectItem value="semestral">Semestral</SelectItem>
+                        <SelectItem value="trimestral">Trimestral</SelectItem>
+                        <SelectItem value="mensual">Mensual</SelectItem>
+                        <SelectItem value="diaria">Diaria</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -412,13 +478,13 @@ export const SavingsCalculator = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Proyección de inversión</CardTitle>
-                <CardDescription>En {Math.floor(targetAmount / monthlyData.savings)} meses</CardDescription>
+                <CardDescription>En {investmentYears} años</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-2xl font-bold">
-                      {targetAmount.toLocaleString('en-US', {
+                      {investmentResult.finalAmount.toLocaleString('en-US', {
                         style: 'currency',
                         currency: 'USD',
                       })}
@@ -430,7 +496,7 @@ export const SavingsCalculator = () => {
                     <div>
                       <p className="font-medium">Aportes totales</p>
                       <p className="text-muted-foreground">
-                        {monthlyData.savings.toLocaleString('en-US', {
+                        {investmentResult.totalContributions.toLocaleString('en-US', {
                           style: 'currency',
                           currency: 'USD',
                         })}
@@ -439,7 +505,7 @@ export const SavingsCalculator = () => {
                     <div>
                       <p className="font-medium">Intereses generados</p>
                       <p className="text-muted-foreground">
-                        {((targetAmount - monthlyData.savings) / monthlyData.savings).toLocaleString('en-US', {
+                        {investmentResult.interestEarned.toLocaleString('en-US', {
                           style: 'currency',
                           currency: 'USD',
                         })}
@@ -448,20 +514,17 @@ export const SavingsCalculator = () => {
                   </div>
 
                   <div className="space-y-2">
-                    {Array.from({ length: Math.floor(targetAmount / monthlyData.savings) }, (_, index) => {
-                      const isEvenYear = (index + 1) % 2 === 0;
-                      if (!isEvenYear && index !== Math.floor(targetAmount / monthlyData.savings) - 1) return null;
-
-                      const totalWidth = 100;
-                      const contributionsWidth = (monthlyData.savings / targetAmount) * totalWidth;
-                      const interestWidth = ((targetAmount - monthlyData.savings) / targetAmount) * totalWidth;
+                    {investmentResult.yearlyProjections.map((projection, index) => {
+                      const totalAmount = projection.amount;
+                      const contributionsWidth = (projection.contributions / totalAmount) * 100;
+                      const interestWidth = (projection.interest / totalAmount) * 100;
 
                       return (
                         <div key={index} className="space-y-1">
                           <div className="flex justify-between text-sm">
-                            <span>Mes {index + 1}</span>
+                            <span>Año {projection.year}</span>
                             <span>
-                              {targetAmount.toLocaleString('en-US', {
+                              {totalAmount.toLocaleString('en-US', {
                                 style: 'currency',
                                 currency: 'USD',
                               })}
