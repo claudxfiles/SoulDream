@@ -92,6 +92,27 @@ const AssetForm: React.FC<AssetFormProps> = ({
   );
   const [image_url, setImageUrl] = useState(initialData?.image_url || '');
 
+  // Efecto para limpiar el formulario cuando se abre para crear uno nuevo
+  React.useEffect(() => {
+    if (open && !isEditing) {
+      setTitle('');
+      setDescription('');
+      setTargetAmount('');
+      setCurrentAmount('0');
+      setTargetDate(addYears(new Date(), 1));
+      setCategory('property');
+      setImageUrl('');
+    } else if (open && isEditing && initialData) {
+      setTitle(initialData.title);
+      setDescription(initialData.description || '');
+      setTargetAmount(initialData.target_amount.toString());
+      setCurrentAmount(initialData.current_amount.toString());
+      setTargetDate(initialData.target_date);
+      setCategory(initialData.category);
+      setImageUrl(initialData.image_url || '');
+    }
+  }, [open, isEditing, initialData]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
