@@ -60,11 +60,13 @@ type CreateGoalFormData = z.infer<typeof createGoalSchema>;
 interface CreateGoalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSubmit: (data: Omit<Goal, 'id' | 'created_at' | 'updated_at'>) => void;
 }
 
 export function CreateGoalDialog({
   open,
   onOpenChange,
+  onSubmit,
 }: CreateGoalDialogProps) {
   const { user } = useUser();
   const { createGoal } = useGoals();

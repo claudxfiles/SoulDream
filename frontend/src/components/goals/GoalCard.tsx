@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { 
   ChevronDown, 
@@ -61,10 +61,24 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
   const [isCreateStepDialogOpen, setIsCreateStepDialogOpen] = useState(false);
   const { steps, isLoading, updateStep } = useGoalSteps(goal.id);
 
-  const progress = Math.min(
-    ((goal.current_value || 0) / (goal.target_value || 100)) * 100,
-    100
-  );
+  const { progress, completedSteps, totalSteps } = useMemo(() => {
+    if (!steps || steps.length === 0) {
+      return { progress: 0, completedSteps: 0, totalSteps: 0 };
+    }
+
+    const total = steps.length;
+    const completed = steps.filter(step => step.status === 'completed').length;
+    const inProgress = steps.filter(step => step.status === 'in_progress').length;
+    
+    // Calculamos el progreso considerando los pasos en progreso como medio completados
+    const progressValue = ((completed + (inProgress * 0.5)) / total) * 100;
+    
+    return {
+      progress: Math.round(progressValue),
+      completedSteps: completed,
+      totalSteps: total
+    };
+  }, [steps]);
 
   const getStepStatusIcon = (status: GoalStep['status']) => {
     switch (status) {
@@ -144,15 +158,28 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <Progress value={progress} className="h-2" />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{Math.round(progress)}%</span>
-              {goal.target_date && (
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {format(new Date(goal.target_date), 'PPP', { locale: es })}
+            <div className="relative pt-1">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-muted-foreground">Progreso</span>
+                <span className="text-muted-foreground">
+                  {completedSteps} de {totalSteps} pasos completados
                 </span>
-              )}
+              </div>
+              <div className="overflow-hidden h-2 rounded-full bg-primary/10">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary/40 to-primary transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs mt-1">
+                <span className="text-primary font-medium">{progress}% completado</span>
+                {goal.target_date && (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(goal.target_date), 'PPP', { locale: es })}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
