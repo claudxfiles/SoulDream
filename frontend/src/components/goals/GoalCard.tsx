@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { 
   ChevronDown, 
@@ -11,7 +11,8 @@ import {
   Clock,
   AlertCircle,
   Timer,
-  Plus
+  Plus,
+  MoreVertical
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -22,6 +23,12 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { useGoalSteps } from '@/hooks/goals/useGoalSteps';
 import { CreateGoalStepDialog } from './CreateGoalStepDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface GoalCardProps {
   goal: Goal;
@@ -52,7 +59,7 @@ const STATUS_COLORS: Record<GoalStatus, string> = {
 export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCreateStepDialogOpen, setIsCreateStepDialogOpen] = useState(false);
-  const { steps, isLoading } = useGoalSteps(goal.id);
+  const { steps, isLoading, updateStep } = useGoalSteps(goal.id);
 
   const progress = Math.min(
     ((goal.current_value || 0) / (goal.target_value || 100)) * 100,
@@ -82,6 +89,17 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
         return 'Pendiente';
       default:
         return 'Desconocido';
+    }
+  };
+
+  const handleStepStatusChange = async (stepId: string, newStatus: GoalStep['status']) => {
+    try {
+      await updateStep.mutateAsync({
+        id: stepId,
+        updates: { status: newStatus }
+      });
+    } catch (error) {
+      console.error('Error updating step status:', error);
     }
   };
 
@@ -164,7 +182,36 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                       key={step.id}
                       className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
                     >
-                      {getStepStatusIcon(step.status)}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                          >
+                            {getStepStatusIcon(step.status)}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem
+                            onClick={() => handleStepStatusChange(step.id, 'completed')}
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                            <span>Completado</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleStepStatusChange(step.id, 'in_progress')}
+                          >
+                            <Timer className="mr-2 h-4 w-4 text-blue-500" />
+                            <span>En progreso</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleStepStatusChange(step.id, 'pending')}
+                          >
+                            <Circle className="mr-2 h-4 w-4 text-gray-400" />
+                            <span>Pendiente</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-medium truncate">{step.title}</h4>
                         {step.description && (
@@ -185,6 +232,25 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                           )}
                         </div>
                       </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   ))}
                 </div>
