@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -13,8 +13,10 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Goal, GoalStep } from './GoalsDashboard';
-import { GoalProgress } from './GoalProgress';
+import { useGoalsStore, Goal } from '@/store/goals/useGoalsStore';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 interface GoalCardProps {
   goal: Goal;
@@ -22,7 +24,19 @@ interface GoalCardProps {
   areaIcon: React.ReactNode;
 }
 
+const getStatusVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
+  switch (status) {
+    case 'completed':
+      return "secondary";
+    case 'abandoned':
+      return "destructive";
+    default:
+      return "default";
+  }
+};
+
 export function GoalCard({ goal, areaName, areaIcon }: GoalCardProps) {
+  const { setSelectedGoal } = useGoalsStore();
   const [expanded, setExpanded] = useState(false);
 
   const toggleExpanded = () => {
@@ -96,93 +110,55 @@ export function GoalCard({ goal, areaName, areaIcon }: GoalCardProps) {
     }
   };
 
-  // Calcular el progreso basado en los pasos completados
-  const completedSteps = goal.steps.filter(step => step.status === 'completed').length;
-  const totalSteps = goal.steps.length;
-  const stepsProgress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
+  const progress = goal.progress_type === 'percentage' 
+    ? (goal.current_value || 0) 
+    : ((goal.current_value || 0) / (goal.target_value || 1)) * 100;
 
   return (
-    <Card className="overflow-hidden">
-      <div className="p-4">
-        <div className="flex justify-between items-start">
-          <div className="flex items-start space-x-3">
-            <div className="mt-1">{areaIcon}</div>
-            <div>
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{goal.title}</h3>
-              <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                <span className="mr-2">{areaName}</span>
-                <span className="mr-2">•</span>
-                <span>{getTypeText(goal.type)}</span>
-              </div>
-            </div>
-          </div>
+    <Card 
+      className={cn(
+        "cursor-pointer hover:shadow-md transition-shadow",
+        goal.status === 'completed' && "bg-green-50",
+        goal.status === 'abandoned' && "bg-gray-50"
+      )}
+      onClick={() => setSelectedGoal(goal)}
+    >
+      <CardHeader>
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(goal.priority)}`}>
-              {getPriorityText(goal.priority)}
-            </span>
-            <button 
-              onClick={toggleExpanded}
-              className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-            >
-              {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-            </button>
+            <h3 className="text-lg font-semibold">{goal.title}</h3>
+            {goal.priority === 'high' && (
+              <Badge variant="destructive">High Priority</Badge>
+            )}
+          </div>
+          <Badge variant={getStatusVariant(goal.status)}>
+            {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">{goal.description}</p>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Progress</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <Progress value={progress} />
+          </div>
+          <div className="flex items-center justify-between text-sm text-gray-500">
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-4 w-4" />
+              <span>
+                {goal.target_date
+                  ? format(new Date(goal.target_date), 'MMM d, yyyy')
+                  : 'No due date'}
+              </span>
+            </div>
+            <Badge variant="outline">{goal.area}</Badge>
           </div>
         </div>
-
-        <div className="mt-3">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {goal.description}
-          </p>
-        </div>
-
-        <div className="mt-4">
-          <GoalProgress percentage={goal.progressPercentage} />
-          <div className="flex justify-between items-center mt-1 text-xs text-gray-500 dark:text-gray-400">
-            <span>Progreso: {goal.progressPercentage}%</span>
-            <span className="flex items-center">
-              <Calendar size={12} className="mr-1" />
-              Meta para: {format(new Date(goal.targetDate), 'dd MMM yyyy', { locale: es })}
-            </span>
-          </div>
-        </div>
-
-        {expanded && (
-          <div className="mt-6 border-t pt-4">
-            <h4 className="font-medium text-gray-900 dark:text-white mb-3">Pasos a seguir</h4>
-            <ul className="space-y-3">
-              {goal.steps.map((step) => (
-                <li key={step.id} className="flex items-start">
-                  <div className="mt-0.5 mr-3">
-                    {getStatusIcon(step.status)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{step.title}</p>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {getStatusText(step.status)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {step.description}
-                    </p>
-                    {step.dueDate && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center">
-                        <Calendar size={10} className="mr-1" />
-                        Para: {format(new Date(step.dueDate), 'dd MMM yyyy', { locale: es })}
-                      </p>
-                    )}
-                    {step.aiGenerated && (
-                      <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                        Generado por IA
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      </CardContent>
     </Card>
   );
 } 
