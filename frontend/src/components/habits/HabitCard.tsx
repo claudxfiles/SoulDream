@@ -44,6 +44,7 @@ interface HabitCardProps {
 }
 
 export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelete, onUpdate }) => {
+  const [isCompleting, setIsCompleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   
@@ -58,6 +59,20 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
 
   // Verificar si el hábito ya se completó hoy
   const isCompletedToday = habit.isCompletedToday || false;
+
+  // Manejar la completación del hábito
+  const handleComplete = async () => {
+    if (isCompleting || isCompletedToday) return;
+    
+    setIsCompleting(true);
+    try {
+      await onComplete();
+    } catch (error) {
+      console.error('Error al completar el hábito:', error);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
 
   // Manejar la eliminación del hábito
   const handleDelete = () => {
@@ -99,14 +114,18 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
           <div className="flex items-center gap-2">
             {!isCompletedToday ? (
               <Button 
-                onClick={() => onComplete()} 
+                onClick={handleComplete}
                 size="sm" 
-                variant="outline" 
-                className="flex items-center gap-1 hover:bg-green-50 hover:text-green-600 hover:border-green-200 dark:hover:bg-green-950/50 dark:hover:text-green-400 dark:hover:border-green-800"
+                variant="outline"
+                disabled={isCompleting}
+                className={cn(
+                  "flex items-center gap-1 hover:bg-green-50 hover:text-green-600 hover:border-green-200 dark:hover:bg-green-950/50 dark:hover:text-green-400 dark:hover:border-green-800",
+                  isCompleting && "opacity-50 cursor-not-allowed"
+                )}
                 aria-label="Completar hábito"
               >
                 <CheckCircle className="h-4 w-4 text-emerald-500" />
-                <span>Completar</span>
+                <span>{isCompleting ? 'Completando...' : 'Completar'}</span>
               </Button>
             ) : (
               <div className="flex items-center text-emerald-500">

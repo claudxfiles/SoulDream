@@ -30,41 +30,30 @@ export const useHabits = (category?: string) => {
   const { data: allHabits, isLoading, error, refetch } = useQuery({
     queryKey: ['habits'],
     queryFn: async () => {
-      if (!isMounted) return [];
-      
       const habits = await habitService.getHabits();
       
-      // Obtener todos los logs en una sola petición
-      const logsPromises = habits.map(habit => 
+      // Obtener los logs de hoy en una sola petición para todos los hábitos
+      const today = new Date().toISOString().split('T')[0];
+      const todayLogsPromises = habits.map(habit => 
         habitService.getHabitLogs(habit.id)
+          .then(logs => logs.filter(log => log.completed_date.split('T')[0] === today))
           .catch(() => [])
       );
       
-      const allLogs = await Promise.all(logsPromises);
+      const todayLogs = await Promise.all(todayLogsPromises);
       
-      if (!isMounted) return [];
-      
-      // Mapear los hábitos con sus logs
-      const habitsWithStatus = habits.map((habit, index) => {
-        const habitLogs = allLogs[index];
-        const today = new Date().toISOString().split('T')[0];
-        
-        const isCompletedToday = habitLogs.some(log => 
-          log.completed_date.split('T')[0] === today
-        );
-        
-        return {
-          ...habit,
-          isCompletedToday
-        };
-      });
+      // Mapear los hábitos con su estado de completado
+      const habitsWithStatus = habits.map((habit, index) => ({
+        ...habit,
+        isCompletedToday: todayLogs[index].length > 0
+      }));
       
       return habitsWithStatus;
     },
-    staleTime: 30000,
-    gcTime: 1000 * 60 * 5,
-    retry: false, // Desactivar reintentos automáticos
-    refetchOnWindowFocus: false, // Desactivar recargas automáticas al enfocar la ventana
+    staleTime: 60000, // Aumentar el tiempo de caché a 1 minuto
+    gcTime: 1000 * 60 * 10, // Aumentar el tiempo de recolección de basura a 10 minutos
+    retry: 1, // Limitar a 1 reintento
+    refetchOnWindowFocus: true, // Mantener activo para actualizar cuando el usuario regrese
   });
   
   // Filtrar por categoría si es necesario
@@ -161,37 +150,37 @@ export const useHabits = (category?: string) => {
   // Mutación para marcar un hábito como completado
   const completeHabitMutation = useMutation({
     mutationFn: async ({ habitId }: { habitId: string }) => {
-      if (!isMounted) return null;
-      
       try {
+        // Optimistic update
+        queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
+          if (!oldData) return [];
+          return oldData.map(habit => 
+            habit.id === habitId ? { ...habit, isCompletedToday: true } : habit
+          );
+        });
+
         const response = await habitService.logHabit({
           habit_id: habitId,
           completed_date: new Date().toISOString(),
         });
         return response;
       } catch (error: any) {
+        // Revert optimistic update on error
+        queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
+          if (!oldData) return [];
+          return oldData.map(habit => 
+            habit.id === habitId ? { ...habit, isCompletedToday: false } : habit
+          );
+        });
         throw new Error(error.response?.data?.detail || 'Error al completar el hábito');
       }
     },
-    onSuccess: (_, { habitId }) => {
-      if (!isMounted) return;
-      
-      // Actualizar la caché directamente marcando el hábito como completado
-      queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
-        if (!oldData) return [];
-        
-        return oldData.map(habit => 
-          habit.id === habitId ? { ...habit, isCompletedToday: true } : habit
-        );
-      });
-      
-      // Invalidar las cachés relacionadas
-      queryClient.invalidateQueries({ queryKey: ['habitLogs', habitId] });
-      queryClient.invalidateQueries({ queryKey: ['habits'] });
-    },
     onError: (error: any) => {
-      if (!isMounted) return;
       console.error('Error al completar hábito:', error);
+    },
+    onSettled: (_, __, { habitId }) => {
+      // Solo invalidar los logs del hábito específico
+      queryClient.invalidateQueries({ queryKey: ['habitLogs', habitId] });
     }
   });
   
