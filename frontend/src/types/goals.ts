@@ -1,15 +1,30 @@
 import { Database } from './supabase';
 
-export type GoalProgressType = 'numeric' | 'percentage' | 'boolean';
+export type GoalArea =
+  | 'Desarrollo Personal'
+  | 'Salud y Bienestar'
+  | 'Educación'
+  | 'Finanzas'
+  | 'Hobbies';
+
+export type GoalType =
+  | 'Otro'
+  | 'Proyecto'
+  | 'Hábito'
+  | 'Aprendizaje'
+  | 'Financiero';
+
+export type GoalPriority = 'Baja' | 'Media' | 'Alta';
 export type GoalStatus = 'active' | 'completed' | 'archived';
-export type GoalCategory = 'Desarrollo Personal' | 'Salud y Bienestar' | 'Educación' | 'Finanzas' | 'Hobbies';
+export type GoalProgressType = 'numeric' | 'percentage' | 'boolean';
+export type GoalStepStatus = 'pending' | 'in_progress' | 'completed';
 
 // Interfaz para datos mock existentes
 export interface GoalMockData {
     id: number;
     title: string;
     description?: string;
-    category: GoalCategory;
+    category: GoalArea;
     progress: number;
     targetDate?: string;
     status: GoalStatus;
@@ -18,16 +33,19 @@ export interface GoalMockData {
 // Interfaz para datos de Supabase
 export interface Goal {
     id: string;
-    user_id: string;
     title: string;
-    description: string | null;
-    category: GoalCategory;
-    target_value: number | null;
-    current_value: number;
-    start_date: string;
-    target_date: string | null;
+    description?: string;
+    area: GoalArea;
+    target_date?: string;
+    target_value?: number;
+    current_value?: number;
     status: GoalStatus;
     progress_type: GoalProgressType;
+    type: GoalType;
+    priority: GoalPriority;
+    image_url?: string;
+    user_id: string;
+    start_date?: string;
     created_at: string;
     updated_at: string;
 }
@@ -50,9 +68,28 @@ export interface GoalSubtask {
     updated_at: string;
 }
 
-// Tipos para crear/actualizar metas
-export type CreateGoalInput = Omit<Goal, 'id' | 'user_id' | 'created_at' | 'updated_at'>;
-export type UpdateGoalInput = Partial<Omit<Goal, 'id' | 'user_id' | 'created_at' | 'updated_at'>>;
+export interface GoalStep {
+    id: string;
+    title: string;
+    description?: string;
+    status: GoalStepStatus;
+    due_date?: string;
+    ai_generated: boolean;
+    goal_id: string;
+    orderindex?: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface GoalWithSteps extends Goal {
+    steps: GoalStep[];
+}
+
+// Tipos para crear/actualizar
+export type CreateGoalInput = Omit<Goal, 'id' | 'created_at' | 'updated_at'>;
+export type UpdateGoalInput = Partial<CreateGoalInput>;
+export type CreateGoalStepInput = Omit<GoalStep, 'id' | 'created_at' | 'updated_at'>;
+export type UpdateGoalStepInput = Partial<CreateGoalStepInput>;
 
 // Tipo para el progreso calculado de una meta
 export interface GoalProgress {

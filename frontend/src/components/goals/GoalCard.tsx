@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -13,30 +13,38 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useGoalsStore, Goal } from '@/store/goals/useGoalsStore';
+import { Goal, GoalPriority, GoalArea, GoalStatus } from '@/types/goals';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 
 interface GoalCardProps {
   goal: Goal;
-  areaName: string;
-  areaIcon: React.ReactNode;
+  isSelected?: boolean;
+  onClick?: () => void;
 }
 
-const getStatusVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
-  switch (status) {
-    case 'completed':
-      return "secondary";
-    case 'abandoned':
-      return "destructive";
-    default:
-      return "default";
-  }
-};
+const AREA_COLORS: Record<GoalArea, string> = {
+  'Desarrollo Personal': 'bg-blue-500',
+  'Salud y Bienestar': 'bg-green-500',
+  'Educación': 'bg-purple-500',
+  'Finanzas': 'bg-yellow-500',
+  'Hobbies': 'bg-pink-500',
+} as const;
 
-export function GoalCard({ goal, areaName, areaIcon }: GoalCardProps) {
-  const { setSelectedGoal } = useGoalsStore();
+const PRIORITY_COLORS: Record<GoalPriority, string> = {
+  'Alta': 'bg-red-500',
+  'Media': 'bg-yellow-500',
+  'Baja': 'bg-green-500',
+} as const;
+
+const STATUS_COLORS: Record<GoalStatus, string> = {
+  'active': 'bg-blue-500',
+  'completed': 'bg-green-500',
+  'archived': 'bg-gray-500',
+} as const;
+
+export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const toggleExpanded = () => {
@@ -69,17 +77,8 @@ export function GoalCard({ goal, areaName, areaIcon }: GoalCardProps) {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'low':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-    }
+  const getPriorityColor = () => {
+    return PRIORITY_COLORS[goal.priority] || 'bg-gray-500';
   };
 
   const getPriorityText = (priority: string) => {
@@ -110,52 +109,59 @@ export function GoalCard({ goal, areaName, areaIcon }: GoalCardProps) {
     }
   };
 
-  const progress = goal.progress_type === 'percentage' 
-    ? (goal.current_value || 0) 
-    : ((goal.current_value || 0) / (goal.target_value || 1)) * 100;
+  const getProgressValue = () => {
+    if (goal.progress_type === 'percentage') {
+      return goal.current_value ?? 0;
+    }
+    if (goal.progress_type === 'numeric' && goal.target_value && goal.current_value) {
+      return (goal.current_value / goal.target_value) * 100;
+    }
+    return 0;
+  };
+
+  const getStatusColor = () => {
+    return STATUS_COLORS[goal.status] || 'bg-gray-500';
+  };
 
   return (
     <Card 
       className={cn(
-        "cursor-pointer hover:shadow-md transition-shadow",
-        goal.status === 'completed' && "bg-green-50",
-        goal.status === 'abandoned' && "bg-gray-50"
+        'cursor-pointer transition-all hover:shadow-md',
+        isSelected && 'ring-2 ring-primary'
       )}
-      onClick={() => setSelectedGoal(goal)}
+      onClick={onClick}
     >
-      <CardHeader>
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <h3 className="text-lg font-semibold">{goal.title}</h3>
-            {goal.priority === 'high' && (
-              <Badge variant="destructive">High Priority</Badge>
-            )}
-          </div>
-          <Badge variant={getStatusVariant(goal.status)}>
-            {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
+          <Badge className={cn('h-5', AREA_COLORS[goal.area])}>
+            {goal.area}
           </Badge>
+          <div className="flex gap-2">
+            <Badge className={cn('h-5', getPriorityColor())}>
+              {goal.priority}
+            </Badge>
+            <Badge className={cn('h-5', getStatusColor())}>
+              {goal.status}
+            </Badge>
+          </div>
         </div>
+        <CardTitle className="line-clamp-2">{goal.title}</CardTitle>
+        {goal.description && (
+          <CardDescription className="line-clamp-2">
+            {goal.description}
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">{goal.description}</p>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Progress</span>
-              <span>{Math.round(progress)}%</span>
-            </div>
-            <Progress value={progress} />
-          </div>
-          <div className="flex items-center justify-between text-sm text-gray-500">
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4" />
+        <div className="space-y-2">
+          <Progress value={getProgressValue()} className="h-2" />
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>{getProgressValue().toFixed(0)}%</span>
+            {goal.target_date && (
               <span>
-                {goal.target_date
-                  ? format(new Date(goal.target_date), 'MMM d, yyyy')
-                  : 'No due date'}
+                Fecha límite: {format(new Date(goal.target_date), 'PPP', { locale: es })}
               </span>
-            </div>
-            <Badge variant="outline">{goal.area}</Badge>
+            )}
           </div>
         </div>
       </CardContent>

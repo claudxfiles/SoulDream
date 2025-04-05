@@ -1,178 +1,182 @@
 "use client";
 
 import { useState } from 'react';
-import { Goal, GoalStep } from '@/store/goals/useGoalsStore';
-import { useGoals } from '@/hooks/goals/useGoals';
-import { useUser } from '@/hooks/auth/useUser';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Goal, GoalStep } from '@/types/goals';
 import { cn } from '@/lib/utils';
-import { Calendar, CheckCircle2, Circle, Clock, Target } from 'lucide-react';
-import { GoalStepsList } from './GoalStepsList';
-import { SubGoalsList } from './SubGoalsList';
-import { UpdateGoalDialog } from './UpdateGoalDialog';
-import { useDialog } from '@/hooks/ui/useDialog';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { Pencil, Plus, Trash } from 'lucide-react';
 
 interface GoalDetailsProps {
   goal: Goal;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onAddStep?: () => void;
+  onEditStep?: (step: GoalStep) => void;
+  onDeleteStep?: (stepId: string) => void;
 }
 
-export function GoalDetails({ goal }: GoalDetailsProps) {
-  const { user } = useUser();
-  const { updateGoal } = useGoals(user?.id || '');
-  const { isOpen, onOpen, onClose } = useDialog();
-  const [activeTab, setActiveTab] = useState('overview');
+export function GoalDetails({
+  goal,
+  onEdit,
+  onDelete,
+  onAddStep,
+  onEditStep,
+  onDeleteStep
+}: GoalDetailsProps) {
+  const [expandedSteps, setExpandedSteps] = useState<string[]>([]);
 
-  const handleStatusChange = (newStatus: Goal['status']) => {
-    updateGoal({
-      id: goal.id,
-      updates: { status: newStatus },
-    });
+  const toggleStep = (stepId: string) => {
+    setExpandedSteps(prev =>
+      prev.includes(stepId)
+        ? prev.filter(id => id !== stepId)
+        : [...prev, stepId]
+    );
   };
 
-  const getCategoryColor = (category: Goal['category']) => {
-    const colors = {
-      personal_development: 'bg-blue-500',
-      health_wellness: 'bg-green-500',
-      education: 'bg-purple-500',
-      finance: 'bg-yellow-500',
-      hobbies: 'bg-pink-500',
-    };
-    return colors[category] || 'bg-gray-500';
+  const getProgressValue = () => {
+    if (goal.progress_type === 'percentage') {
+      return goal.current_value ?? 0;
+    } else if (goal.progress_type === 'numeric' && goal.target_value && goal.current_value) {
+      return (goal.current_value / goal.target_value) * 100;
+    }
+    return 0;
   };
 
-  const getPriorityColor = (priority: Goal['priority']) => {
-    const colors = {
-      high: 'bg-red-500',
-      medium: 'bg-yellow-500',
-      low: 'bg-green-500',
-    };
-    return colors[priority] || 'bg-gray-500';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'bg-blue-500';
+      case 'completed':
+        return 'bg-green-500';
+      case 'archived':
+      case 'pending':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold">{goal.title}</h2>
-          <p className="text-muted-foreground">{goal.description}</p>
-        </div>
-        <Button onClick={onOpen} variant="outline">
-          Edit Goal
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Badge className={cn('capitalize', getCategoryColor(goal.category))}>
-          {goal.category.replace('_', ' ')}
-        </Badge>
-        <Badge variant="outline" className={cn('capitalize', getPriorityColor(goal.priority))}>
-          {goal.priority} Priority
-        </Badge>
-        <Badge variant="outline" className="capitalize">
-          {goal.type}
-        </Badge>
-        <Badge
-          variant="outline"
-          className={cn('capitalize', {
-            'bg-green-500 text-white': goal.status === 'completed',
-            'bg-yellow-500 text-white': goal.status === 'active',
-            'bg-red-500 text-white': goal.status === 'abandoned',
-          })}
-        >
-          {goal.status}
-        </Badge>
-      </div>
-
-      <Card className="p-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex items-center space-x-2">
-            <Target className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">Progress: {goal.progressPercentage}%</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">
-              Due: {format(new Date(goal.targetDate), 'dd/MM/yyyy', { locale: es })}
-            </span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">
-              Created: {format(new Date(goal.createdAt), 'dd/MM/yyyy', { locale: es })}
-            </span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">
-              Updated: {format(new Date(goal.updatedAt), 'dd/MM/yyyy', { locale: es })}
-            </span>
+    <Card className="h-full">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>{goal.title}</CardTitle>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="icon" onClick={onEdit}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onDelete}>
+              <Trash className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-      </Card>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">{goal.description}</p>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary">{goal.area}</Badge>
+            <Badge variant="secondary">{goal.type}</Badge>
+            <Badge variant="secondary">{goal.priority}</Badge>
+            <Badge variant="secondary" className={getStatusColor(goal.status)}>
+              {goal.status}
+            </Badge>
+          </div>
+        </div>
 
-      <Progress value={goal.progressPercentage} className="h-2" />
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="steps">Steps</TabsTrigger>
-          <TabsTrigger value="sub-goals">Sub-Goals</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
-          <Card className="p-4">
-            <div className="space-y-4">
-              <h3 className="font-semibold">Status Actions</h3>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleStatusChange('active')}
-                  disabled={goal.status === 'active'}
-                >
-                  <Circle className="mr-1 h-4 w-4" />
-                  Set Active
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleStatusChange('completed')}
-                  disabled={goal.status === 'completed'}
-                >
-                  <CheckCircle2 className="mr-1 h-4 w-4" />
-                  Mark Complete
-                </Button>
-              </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span>Progreso</span>
+            <span>{getProgressValue()}%</span>
+          </div>
+          <Progress value={getProgressValue()} />
+          {goal.target_date && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Fecha objetivo:</span>
+              <span>{new Date(goal.target_date).toLocaleDateString()}</span>
             </div>
-          </Card>
-
-          {goal.visualizationImageUrl && (
-            <Card className="overflow-hidden">
-              <img
-                src={goal.visualizationImageUrl}
-                alt={goal.title}
-                className="w-full object-cover"
-              />
-            </Card>
           )}
-        </TabsContent>
+        </div>
 
-        <TabsContent value="steps">
-          <GoalStepsList goalId={goal.id} />
-        </TabsContent>
+        <Separator />
 
-        <TabsContent value="sub-goals">
-          <SubGoalsList parentGoalId={goal.id} />
-        </TabsContent>
-      </Tabs>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Pasos</h3>
+            <Button variant="outline" size="sm" onClick={onAddStep}>
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar paso
+            </Button>
+          </div>
 
-      <UpdateGoalDialog goal={goal} isOpen={isOpen} onClose={onClose} />
-    </div>
+          <div className="space-y-2">
+            {goal.steps?.map(step => (
+              <Card
+                key={step.id}
+                className={cn(
+                  'cursor-pointer transition-all hover:shadow-sm',
+                  expandedSteps.includes(step.id) && 'ring-1 ring-primary'
+                )}
+                onClick={() => toggleStep(step.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <h4 className="font-medium">{step.title}</h4>
+                      {expandedSteps.includes(step.id) && (
+                        <p className="text-sm text-muted-foreground">
+                          {step.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className={getStatusColor(step.status)}
+                      >
+                        {step.status}
+                      </Badge>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditStep?.(step);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteStep?.(step.id);
+                          }}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  {expandedSteps.includes(step.id) && step.due_date && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Fecha límite: {new Date(step.due_date).toLocaleDateString()}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 } 

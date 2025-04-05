@@ -1,11 +1,6 @@
-"use client";
-
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useUser } from '@/hooks/auth/useUser';
-import { useGoals } from '@/hooks/goals/useGoals';
 import {
   Dialog,
   DialogContent,
@@ -42,9 +37,9 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Goal, GoalArea, GoalType, GoalPriority, GoalProgressType } from '@/types/goals';
+import { Goal } from '@/types/goals';
 
-const createGoalSchema = z.object({
+const updateGoalSchema = z.object({
   title: z.string().min(1, 'El título es requerido'),
   description: z.string().optional(),
   area: z.enum(['Desarrollo Personal', 'Salud y Bienestar', 'Educación', 'Finanzas', 'Hobbies'] as const),
@@ -52,66 +47,58 @@ const createGoalSchema = z.object({
   priority: z.enum(['Baja', 'Media', 'Alta'] as const),
   progress_type: z.enum(['numeric', 'percentage', 'boolean'] as const),
   target_value: z.number().min(0).optional(),
+  current_value: z.number().min(0).optional(),
   target_date: z.date().optional(),
+  status: z.enum(['active', 'completed', 'archived'] as const),
 });
 
-type CreateGoalFormData = z.infer<typeof createGoalSchema>;
+type UpdateGoalFormData = z.infer<typeof updateGoalSchema>;
 
-interface CreateGoalDialogProps {
+interface UpdateGoalDialogProps {
+  goal: Goal;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: Omit<Goal, 'id' | 'created_at' | 'updated_at'>) => void;
+  onSubmit: (goalId: string, data: Partial<Goal>) => void;
 }
 
-export function CreateGoalDialog({
+export function UpdateGoalDialog({
+  goal,
   open,
   onOpenChange,
   onSubmit,
-}: CreateGoalDialogProps) {
-  const { user } = useUser();
-  const { createGoal } = useGoals(user?.id || '');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const form = useForm<CreateGoalFormData>({
-    resolver: zodResolver(createGoalSchema),
+}: UpdateGoalDialogProps) {
+  const form = useForm<UpdateGoalFormData>({
+    resolver: zodResolver(updateGoalSchema),
     defaultValues: {
-      title: '',
-      description: '',
-      area: 'Desarrollo Personal',
-      type: 'Otro',
-      priority: 'Media',
-      progress_type: 'percentage',
-      target_value: 100,
+      title: goal.title,
+      description: goal.description,
+      area: goal.area,
+      type: goal.type,
+      priority: goal.priority,
+      progress_type: goal.progress_type,
+      target_value: goal.target_value,
+      current_value: goal.current_value,
+      target_date: goal.target_date ? new Date(goal.target_date) : undefined,
+      status: goal.status,
     },
   });
 
-  const handleSubmit = async (data: CreateGoalFormData) => {
-    if (!user) return;
-
-    setIsSubmitting(true);
-    try {
-      await createGoal({
-        ...data,
-        userId: user.id,
-        status: 'active',
-        current_value: 0,
-      });
-      form.reset();
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Failed to create goal:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleSubmit = (data: UpdateGoalFormData) => {
+    const updates: Partial<Goal> = {
+      ...data,
+      target_date: data.target_date?.toISOString(),
+    };
+    onSubmit(goal.id, updates);
+    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Crear nueva meta</DialogTitle>
+          <DialogTitle>Editar meta</DialogTitle>
           <DialogDescription>
-            Completa los detalles de tu nueva meta. Los campos marcados con * son obligatorios.
+            Modifica los detalles de tu meta. Los campos marcados con * son obligatorios.
           </DialogDescription>
         </DialogHeader>
 
@@ -239,6 +226,34 @@ export function CreateGoalDialog({
 
               <FormField
                 control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el estado" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Activa</SelectItem>
+                        <SelectItem value="completed">Completada</SelectItem>
+                        <SelectItem value="archived">Archivada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
                 name="progress_type"
                 render={({ field }) => (
                   <FormItem>
@@ -262,15 +277,35 @@ export function CreateGoalDialog({
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="target_value"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Valor objetivo</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(e.target.valueAsNumber)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="current_value"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor actual</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -332,9 +367,7 @@ export function CreateGoalDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Creando...' : 'Crear meta'}
-              </Button>
+              <Button type="submit">Guardar cambios</Button>
             </DialogFooter>
           </form>
         </Form>
