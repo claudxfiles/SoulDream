@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFinance } from '@/hooks/useFinance';
 import { Loader2 } from 'lucide-react';
+import { FinancialSummary } from '@/lib/finance';
 
 interface InvestmentResult {
   finalAmount: number;
@@ -23,8 +24,16 @@ interface InvestmentResult {
   }>;
 }
 
+interface MonthlyData {
+  income: number;
+  expenses: number;
+  subscriptionsTotal: number;
+  savings: number;
+  savingsRate: number;
+}
+
 export const SavingsCalculator = () => {
-  const { fetchMonthlyFinancialSummary } = useFinance();
+  const { summary, loading } = useFinance();
 
   // Función para obtener datos guardados del localStorage
   const getSavedData = () => {
@@ -40,9 +49,10 @@ export const SavingsCalculator = () => {
     localStorage.setItem('savingsCalculatorData', JSON.stringify(data));
   };
 
-  const [monthlyData, setMonthlyData] = useState({
+  const [monthlyData, setMonthlyData] = useState<MonthlyData>({
     income: 1800,
     expenses: 320,
+    subscriptionsTotal: 0,
     savings: (1800 * 18) / 100,
     savingsRate: 18
   });
@@ -66,31 +76,21 @@ export const SavingsCalculator = () => {
     yearlyProjections: []
   });
 
-  // Cargar datos reales al montar el componente
+  // Actualizar datos cuando cambie el resumen financiero
   useEffect(() => {
-    const loadRealData = async () => {
-      setIsLoadingMonthly(true);
-      try {
-        const summary = await fetchMonthlyFinancialSummary();
-        if (summary) {
-          // Mantener el porcentaje de ahorro independiente
-          const currentSavingsRate = getSavedData()?.savingsRate || 18;
-          setMonthlyData({
-            ...summary,
-            savingsRate: currentSavingsRate,
-            savings: (summary.income * currentSavingsRate) / 100
-          });
-          setSavingsRate(currentSavingsRate);
-        }
-      } catch (error) {
-        console.error('Error loading monthly data:', error);
-      } finally {
-        setIsLoadingMonthly(false);
-      }
-    };
-
-    loadRealData();
-  }, [fetchMonthlyFinancialSummary]);
+    if (summary) {
+      // Mantener el porcentaje de ahorro independiente
+      const currentSavingsRate = getSavedData()?.savingsRate || 18;
+      setMonthlyData({
+        income: summary.income,
+        expenses: summary.expenses,
+        subscriptionsTotal: summary.subscriptionsTotal,
+        savingsRate: currentSavingsRate,
+        savings: (summary.income * currentSavingsRate) / 100
+      });
+      setSavingsRate(currentSavingsRate);
+    }
+  }, [summary]);
 
   // Actualizar cuando cambie el porcentaje de ahorro
   useEffect(() => {
@@ -225,9 +225,16 @@ export const SavingsCalculator = () => {
                       <div className="text-2xl font-bold text-destructive">
                         ${monthlyData.expenses.toFixed(2)}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Total de gastos registrados este mes
-                      </p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>Gastos regulares:</span>
+                          <span>${(monthlyData.expenses - monthlyData.subscriptionsTotal).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>Suscripciones:</span>
+                          <span>${monthlyData.subscriptionsTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
