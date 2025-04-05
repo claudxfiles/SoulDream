@@ -47,13 +47,28 @@ export class GoalsService {
   }
 
   static async deleteGoal(id: string) {
-    const { error } = await supabase
-      .from('goals')
-      .delete()
-      .eq('id', id);
+    try {
+      // Primero eliminamos los pasos
+      const { error: stepsError } = await supabase
+        .from('goal_steps')
+        .delete()
+        .eq('goal_id', id);
 
-    if (error) throw error;
-    return true;
+      if (stepsError) throw stepsError;
+
+      // Luego eliminamos la meta
+      const { error: goalError } = await supabase
+        .from('goals')
+        .delete()
+        .eq('id', id);
+
+      if (goalError) throw goalError;
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting goal and steps:', error);
+      throw error;
+    }
   }
 
   static async getGoalSteps(goalId: string) {

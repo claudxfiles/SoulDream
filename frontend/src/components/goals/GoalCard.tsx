@@ -12,7 +12,8 @@ import {
   AlertCircle,
   Timer,
   Plus,
-  MoreVertical
+  MoreVertical,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -22,13 +23,25 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { useGoalSteps } from '@/hooks/goals/useGoalSteps';
+import { useGoals } from '@/hooks/goals/useGoals';
 import { CreateGoalStepDialog } from './CreateGoalStepDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface GoalCardProps {
   goal: Goal;
@@ -59,7 +72,9 @@ const STATUS_COLORS: Record<GoalStatus, string> = {
 export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCreateStepDialogOpen, setIsCreateStepDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { steps, isLoading, updateStep } = useGoalSteps(goal.id);
+  const { deleteGoal } = useGoals();
 
   const { progress, completedSteps, totalSteps } = useMemo(() => {
     if (!steps || steps.length === 0) {
@@ -117,6 +132,15 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      await deleteGoal.mutateAsync(goal.id);
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+    }
+  };
+
   return (
     <>
       <Card 
@@ -137,6 +161,30 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
               <Badge className={cn('h-5', STATUS_COLORS[goal.status])}>
                 {goal.status}
               </Badge>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="text-destructive"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           <div className="flex items-center justify-between">
@@ -291,10 +339,30 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
         </CardContent>
       </Card>
 
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará la meta "{goal.title}" y todos sus pasos asociados. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CreateGoalStepDialog
-        goalId={goal.id}
         open={isCreateStepDialogOpen}
         onOpenChange={setIsCreateStepDialogOpen}
+        goalId={goal.id}
       />
     </>
   );
