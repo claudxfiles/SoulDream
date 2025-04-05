@@ -6,12 +6,13 @@ import {
   DollarSign, 
   TrendingUp, 
   TrendingDown,
-  Loader2
+  Loader2,
+  CreditCard
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useFinance } from '@/hooks/useFinance';
-import { Transaction, FinancialAsset } from '@/lib/finance';
+import { Transaction, FinancialAsset, Subscription } from '@/lib/finance';
 
 // Componente para una transacción individual
 const TransactionItem = ({ transaction }: { transaction: Transaction }) => {
@@ -81,6 +82,8 @@ const FinanceSummary = () => {
     );
   }
 
+  const regularExpenses = (summary?.expenses || 0) - (summary?.subscriptionsTotal || 0);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <Card className="p-4">
@@ -118,6 +121,16 @@ const FinanceSummary = () => {
             <p className="text-2xl font-bold text-red-600 dark:text-red-400">
               ${summary?.expenses.toFixed(2) || '0.00'}
             </p>
+            <div className="mt-1 space-y-1">
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>Gastos regulares:</span>
+                <span>${regularExpenses.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>Suscripciones:</span>
+                <span>${summary?.subscriptionsTotal.toFixed(2) || '0.00'}</span>
+              </div>
+            </div>
           </div>
           <div className="p-2 bg-red-100 dark:bg-red-900 rounded-full">
             <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
@@ -228,6 +241,89 @@ const RecentTransactions = () => {
   );
 };
 
+// Componente para el resumen de suscripciones
+const SubscriptionsSummary = () => {
+  const { subscriptions, loading } = useFinance();
+
+  if (loading.subscriptions) {
+    return (
+      <Card className="p-4">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+          {[1, 2].map((i) => (
+            <div key={i} className="flex space-x-4">
+              <div className="rounded-full bg-gray-200 dark:bg-gray-700 h-10 w-10"></div>
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    );
+  }
+
+  const totalMonthly = subscriptions?.reduce((total, sub) => {
+    if (sub.billing_cycle === 'monthly') return total + sub.amount;
+    if (sub.billing_cycle === 'yearly') return total + (sub.amount / 12);
+    if (sub.billing_cycle === 'quarterly') return total + (sub.amount / 3);
+    return total;
+  }, 0) || 0;
+
+  const upcomingSubscriptions = subscriptions
+    ?.filter(sub => {
+      const nextBilling = new Date(sub.next_billing_date);
+      const today = new Date();
+      const inNextSevenDays = new Date();
+      inNextSevenDays.setDate(today.getDate() + 7);
+      return nextBilling >= today && nextBilling <= inNextSevenDays;
+    })
+    .sort((a, b) => new Date(a.next_billing_date).getTime() - new Date(b.next_billing_date).getTime());
+
+  return (
+    <Card className="p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Suscripciones</h2>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Total mensual:</span>
+          <span className="font-medium text-gray-900 dark:text-white">${totalMonthly.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="text-sm text-gray-500 dark:text-gray-400">Próximos pagos (7 días):</div>
+        {upcomingSubscriptions && upcomingSubscriptions.length > 0 ? (
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {upcomingSubscriptions.map((subscription: Subscription) => (
+              <div key={subscription.id} className="py-3 flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                    <CreditCard className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">{subscription.service_name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {format(new Date(subscription.next_billing_date), 'dd MMM yyyy', { locale: es })}
+                    </p>
+                  </div>
+                </div>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  ${subscription.amount.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+            No hay pagos próximos en los siguientes 7 días
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+};
+
 // Componente principal del dashboard financiero
 export function FinanceDashboard() {
   const { loading } = useFinance();
@@ -244,7 +340,10 @@ export function FinanceDashboard() {
     <div className="space-y-6">
       <FinanceSummary />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RecentTransactions />
+        <div className="space-y-6">
+          <RecentTransactions />
+          <SubscriptionsSummary />
+        </div>
         <FinancialGoals />
       </div>
     </div>

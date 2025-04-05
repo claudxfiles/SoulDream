@@ -490,97 +490,106 @@ export const deleteSubscription = async (id: string): Promise<boolean> => {
 };
 
 // Función para obtener un resumen financiero
-export const getFinancialSummary = async (
-  period: 'month' | 'year' = 'month'
-): Promise<FinancialSummary | null> => {
+export const getFinancialSummary = async (period: 'month' | 'year' = 'month'): Promise<FinancialSummary> => {
   try {
-    // Determinar fechas para el periodo
-    const now = new Date();
-    let startDate = new Date();
-    
-    if (period === 'month') {
-      startDate.setMonth(now.getMonth() - 1);
-    } else {
-      startDate.setFullYear(now.getFullYear() - 1);
-    }
-    
-    // Obtener las transacciones del período
+    const today = new Date();
+    const startDate = period === 'month' 
+      ? new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
+      : new Date(today.getFullYear(), 0, 1).toISOString();
+    const endDate = period === 'month'
+      ? new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString()
+      : new Date(today.getFullYear(), 11, 31).toISOString();
+
+    // Obtener transacciones del período
     const { data: transactions, error: transactionsError } = await supabase
       .from('transactions')
       .select('*')
-      .gte('date', startDate.toISOString())
-      .lte('date', now.toISOString());
-    
+      .gte('date', startDate)
+      .lte('date', endDate);
+
     if (transactionsError) {
       console.error('Error fetching transactions:', transactionsError);
-      return null;
+      return {
+        balance: 0,
+        income: 0,
+        expenses: 0,
+        savingsGoalProgress: 0,
+        monthlySavings: 0,
+        subscriptionsTotal: 0
+      };
     }
-    
-    // Obtener las suscripciones
+
+    // Obtener suscripciones activas
     const { data: subscriptions, error: subscriptionsError } = await supabase
       .from('subscriptions_tracker')
-      .select('*');
-    
+      .select('*')
+      .eq('status', 'active');
+
     if (subscriptionsError) {
       console.error('Error fetching subscriptions:', subscriptionsError);
-      return null;
+      return {
+        balance: 0,
+        income: 0,
+        expenses: 0,
+        savingsGoalProgress: 0,
+        monthlySavings: 0,
+        subscriptionsTotal: 0
+      };
     }
-    
-    // Obtener las metas financieras
-    const { data: goals, error: goalsError } = await supabase
-      .from('financial_goals')
-      .select('*');
-    
-    if (goalsError) {
-      console.error('Error fetching goals:', goalsError);
-      return null;
-    }
-    
-    // Calcular totales
+
+    // Calcular gastos de suscripciones mensualizados
+    const monthlySubscriptionsTotal = subscriptions?.reduce((total, sub) => {
+      if (sub.billing_cycle === 'monthly') return total + sub.amount;
+      if (sub.billing_cycle === 'yearly') return total + (sub.amount / 12);
+      if (sub.billing_cycle === 'quarterly') return total + (sub.amount / 3);
+      return total;
+    }, 0) || 0;
+
+    // Calcular ingresos y gastos del período
     const income = transactions
       ?.filter(t => t.type === 'income')
-      .reduce((sum: number, t: Transaction) => sum + t.amount, 0) || 0;
-    
-    const expenses = transactions
+      .reduce((sum, t) => sum + t.amount, 0) || 0;
+
+    const regularExpenses = transactions
       ?.filter(t => t.type === 'expense')
-      .reduce((sum: number, t: Transaction) => sum + t.amount, 0) || 0;
-    
-    const subscriptionsTotal = subscriptions
-      ?.reduce((sum: number, s: Subscription) => sum + s.amount, 0) || 0;
-    
-    const balance = income - expenses;
-    
-    // Calcular progreso de metas de ahorro
-    const totalSavingsGoals = goals
-      ? goals
-          .filter(g => g.type === 'savings')
-          .reduce((sum, g) => sum + (g.target_amount || 0), 0)
-      : 0;
-    
-    const currentSavingsProgress = goals
-      ? goals
-          .filter(g => g.type === 'savings')
-          .reduce((sum, g) => sum + (g.current_amount || 0), 0)
-      : 0;
-    
-    const savingsGoalProgress = totalSavingsGoals > 0
-      ? (currentSavingsProgress / totalSavingsGoals) * 100
-      : 0;
-    
-    // Calcular ahorro mensual (ingresos - gastos)
-    const monthlySavings = income - expenses;
-    
+      .reduce((sum, t) => sum + t.amount, 0) || 0;
+
+    // Sumar los gastos regulares y las suscripciones
+    const totalExpenses = regularExpenses + monthlySubscriptionsTotal;
+
+    // Calcular balance
+    const balance = income - totalExpenses;
+
+    // Obtener metas de ahorro
+    const { data: goals } = await supabase
+      .from('financial_assets')
+      .select('*')
+      .eq('category', 'savings');
+
+    const savingsGoalProgress = goals?.reduce((sum, goal) => {
+      return sum + (goal.current_amount / goal.target_amount) * 100;
+    }, 0) || 0;
+
+    const monthlySavings = income - totalExpenses > 0 ? income - totalExpenses : 0;
+
     return {
       balance,
       income,
-      expenses,
-      savingsGoalProgress,
+      expenses: totalExpenses,
+      savingsGoalProgress: goals?.length ? savingsGoalProgress / goals.length : 0,
       monthlySavings,
-      subscriptionsTotal
+      subscriptionsTotal: monthlySubscriptionsTotal
     };
   } catch (error) {
     console.error('Error in getFinancialSummary:', error);
-    return null;
+    return {
+      balance: 0,
+      income: 0,
+      expenses: 0,
+      savingsGoalProgress: 0,
+      monthlySavings: 0,
+      subscriptionsTotal: 0
+    };
   }
 };
 
