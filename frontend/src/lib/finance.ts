@@ -824,36 +824,41 @@ export const createOrUpdateSavingsPlan = async (plan: SavingsPlan): Promise<Savi
 };
 
 // Función para obtener el resumen de ingresos y gastos mensuales
-export const getMonthlyFinancialSummary = async (): Promise<{ income: number; expenses: number } | null> => {
+export const getMonthlyFinancialSummary = async () => {
   try {
-    const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
 
     const { data: transactions, error } = await supabase
-      .from('finances')
-      .select('type, amount')
-      .gte('date', firstDayOfMonth)
-      .lte('date', lastDayOfMonth);
+      .from('transactions')
+      .select('*')
+      .gte('date', startOfMonth.toISOString())
+      .order('date', { ascending: false });
 
     if (error) {
-      console.error('Error fetching monthly summary:', error);
+      console.error('Error fetching transactions:', error);
       return null;
     }
 
-    const summary = transactions.reduce(
-      (acc, transaction) => {
-        if (transaction.type === 'income') {
-          acc.income += transaction.amount;
-        } else if (transaction.type === 'expense') {
-          acc.expenses += transaction.amount;
-        }
-        return acc;
-      },
-      { income: 0, expenses: 0 }
-    );
+    // Calcular totales
+    const income = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-    return summary;
+    const expenses = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    const savings = income - expenses;
+    const savingsRate = income > 0 ? (savings / income) * 100 : 0;
+
+    return {
+      income,
+      expenses,
+      savings,
+      savingsRate
+    };
   } catch (error) {
     console.error('Error in getMonthlyFinancialSummary:', error);
     return null;
