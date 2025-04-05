@@ -79,7 +79,9 @@ export const HabitsList: React.FC<HabitsListProps> = ({
           key={habit.id}
           habit={habit}
           onComplete={() => onComplete({ habitId: habit.id })}
-          onDelete={onDelete}
+          onDelete={onDelete ? (habitId) => {
+            onDelete(habitId);
+          } : undefined}
         />
       ))}
     </div>

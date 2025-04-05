@@ -8,7 +8,13 @@ import { CreateGoalDialog } from './CreateGoalDialog';
 import { GoalCard } from './GoalCard';
 import { GoalAreaProgress } from './GoalAreaProgress';
 import { Plus } from 'lucide-react';
-import { GoalArea } from '@/types/goals';
+import { Goal, GoalArea } from '@/types/goals';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const GOAL_AREAS: GoalArea[] = [
   'Desarrollo Personal',
@@ -23,13 +29,24 @@ export function GoalsDashboard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { goals, isLoading } = useGoals();
 
-  const filteredGoals = selectedArea === 'all' 
-    ? goals 
-    : goals?.filter(goal => goal.area === selectedArea);
+  const activeGoals = goals?.filter(goal => goal.status === 'active') || [];
+  const completedGoals = goals?.filter(goal => goal.status === 'completed') || [];
+
+  const filteredActiveGoals = selectedArea === 'all' 
+    ? activeGoals 
+    : activeGoals.filter(goal => goal.area === selectedArea);
+
+  const filteredCompletedGoals = selectedArea === 'all'
+    ? completedGoals
+    : completedGoals.filter(goal => goal.area === selectedArea);
+
+  const handleCreateGoal = async (data: Omit<Goal, 'id' | 'created_at' | 'updated_at'>) => {
+    setIsCreateDialogOpen(false);
+  };
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold">Mis Metas</h1>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
@@ -42,8 +59,8 @@ export function GoalsDashboard() {
           <GoalAreaProgress
             key={area}
             area={area}
-            goals={goals || []}
-            totalGoals={goals?.filter(g => g.area === area).length || 0}
+            goals={activeGoals}
+            totalGoals={activeGoals.filter(g => g.area === area).length || 0}
           />
         ))}
       </div>
@@ -60,40 +77,86 @@ export function GoalsDashboard() {
           ))}
         </TabsList>
 
-        <TabsContent value="all" className="mt-6">
+        <TabsContent value="all" className="mt-6 space-y-8">
           {isLoading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : filteredGoals && filteredGoals.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredGoals.map((goal) => (
-                <GoalCard key={goal.id} goal={goal} />
-              ))}
-            </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              No hay metas definidas.
-            </div>
+            <>
+              <div className="space-y-4">
+                {filteredActiveGoals.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredActiveGoals.map((goal) => (
+                      <GoalCard key={goal.id} goal={goal} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No hay metas activas.
+                  </div>
+                )}
+              </div>
+
+              {filteredCompletedGoals.length > 0 && (
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="completed-goals">
+                    <AccordionTrigger className="text-xl font-semibold">
+                      Metas Completadas ({filteredCompletedGoals.length})
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+                        {filteredCompletedGoals.map((goal) => (
+                          <GoalCard key={goal.id} goal={goal} />
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )}
+            </>
           )}
         </TabsContent>
 
         {GOAL_AREAS.map((area) => (
-          <TabsContent key={area} value={area} className="mt-6">
+          <TabsContent key={area} value={area} className="mt-6 space-y-8">
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ) : filteredGoals && filteredGoals.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredGoals.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} />
-                ))}
-              </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay metas definidas para {area}.
-              </div>
+              <>
+                <div className="space-y-4">
+                  {filteredActiveGoals.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredActiveGoals.map((goal) => (
+                        <GoalCard key={goal.id} goal={goal} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No hay metas activas para {area}.
+                    </div>
+                  )}
+                </div>
+
+                {filteredCompletedGoals.length > 0 && (
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="completed-goals">
+                      <AccordionTrigger className="text-xl font-semibold">
+                        Metas Completadas ({filteredCompletedGoals.length})
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+                          {filteredCompletedGoals.map((goal) => (
+                            <GoalCard key={goal.id} goal={goal} />
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+              </>
             )}
           </TabsContent>
         ))}
@@ -102,6 +165,7 @@ export function GoalsDashboard() {
       <CreateGoalDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
+        onSubmit={handleCreateGoal}
       />
     </div>
   );

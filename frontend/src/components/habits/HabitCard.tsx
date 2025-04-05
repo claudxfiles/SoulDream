@@ -75,9 +75,13 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
   };
 
   // Manejar la eliminación del hábito
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (onDelete) {
-      onDelete(habit.id);
+      try {
+        await onDelete(habit.id);
+      } catch (error) {
+        console.error('Error al eliminar hábito:', error);
+      }
     }
     setShowDeleteDialog(false);
   };

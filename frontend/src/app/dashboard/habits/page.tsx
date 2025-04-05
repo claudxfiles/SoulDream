@@ -54,13 +54,23 @@ function HabitsPageContent() {
   };
 
   // Manejador para eliminar un hábito
-  const handleDeleteHabit = (habitId: string) => {
-    deleteHabit(habitId);
-    toast({
-      title: "Hábito eliminado",
-      description: "El hábito se ha eliminado correctamente",
-      duration: 3000,
-    });
+  const handleDeleteHabit = async (habitId: string) => {
+    try {
+      await deleteHabit(habitId);
+      toast({
+        title: "Hábito eliminado",
+        description: "El hábito se ha eliminado correctamente",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Error al eliminar hábito:', error);
+      toast({
+        title: "Error al eliminar hábito",
+        description: "Hubo un problema al eliminar el hábito. Por favor, intenta nuevamente.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
   };
 
   // Verificar datos al montar el componente
@@ -232,8 +242,15 @@ function HabitsPageContent() {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+      gcTime: 10 * 60 * 1000,   // Garbage collection después de 10 minutos
       retry: 1,
       refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+    },
+    mutations: {
+      retry: 1,
     },
   },
 });

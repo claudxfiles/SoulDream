@@ -17,43 +17,41 @@ import { HabitLog, HabitLogCreate } from '@/types/habit';
 export const useHabits = (category?: string) => {
   const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(category);
-  const [isMounted, setIsMounted] = useState(true);
 
-  // Efecto para limpiar el estado cuando el componente se desmonta
-  useEffect(() => {
-    return () => {
-      setIsMounted(false);
-    };
-  }, []);
-  
-  // Obtener todos los hábitos
+  // Obtener todos los hábitos con optimizaciones
   const { data: allHabits, isLoading, error, refetch } = useQuery({
     queryKey: ['habits'],
     queryFn: async () => {
       const habits = await habitService.getHabits();
-      
-      // Obtener los logs de hoy en una sola petición para todos los hábitos
       const today = new Date().toISOString().split('T')[0];
-      const todayLogsPromises = habits.map(habit => 
-        habitService.getHabitLogs(habit.id)
-          .then(logs => logs.filter(log => log.completed_date.split('T')[0] === today))
-          .catch(() => [])
+      
+      // Obtener los logs de hoy en paralelo para todos los hábitos
+      const todayLogs = await Promise.all(
+        habits.map(habit => 
+          habitService.getHabitLogs(habit.id)
+            .then(logs => ({
+              habitId: habit.id,
+              isCompletedToday: logs.some(log => log.completed_date.split('T')[0] === today)
+            }))
+            .catch(() => ({ habitId: habit.id, isCompletedToday: false }))
+        )
       );
       
-      const todayLogs = await Promise.all(todayLogsPromises);
+      // Crear un mapa para acceso rápido
+      const completionMap = new Map(
+        todayLogs.map(({ habitId, isCompletedToday }) => [habitId, isCompletedToday])
+      );
       
       // Mapear los hábitos con su estado de completado
-      const habitsWithStatus = habits.map((habit, index) => ({
+      return habits.map(habit => ({
         ...habit,
-        isCompletedToday: todayLogs[index].length > 0
+        isCompletedToday: completionMap.get(habit.id) || false
       }));
-      
-      return habitsWithStatus;
     },
-    staleTime: 60000, // Aumentar el tiempo de caché a 1 minuto
-    gcTime: 1000 * 60 * 10, // Aumentar el tiempo de recolección de basura a 10 minutos
-    retry: 1, // Limitar a 1 reintento
-    refetchOnWindowFocus: true, // Mantener activo para actualizar cuando el usuario regrese
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    gcTime: 10 * 60 * 1000,   // Garbage collection después de 10 minutos
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
   
   // Filtrar por categoría si es necesario
@@ -61,126 +59,117 @@ export const useHabits = (category?: string) => {
     ? allHabits.filter((habit: Habit) => habit.category === selectedCategory)
     : allHabits;
   
-  // Mutación para crear un hábito
+  // Mutación para crear un hábito con optimistic updates
   const createHabitMutation = useMutation({
     mutationFn: (habit: HabitCreate) => habitService.createHabit(habit),
-    onSuccess: (newHabit) => {
-      // Actualizar la caché directamente con el nuevo hábito creado
-      queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
-        const today = new Date().toISOString().split('T')[0];
-        const newHabitWithStatus = {
-          ...newHabit,
-          isCompletedToday: false
-        };
-        
-        // Si ya existen datos, añadir el nuevo hábito
-        if (oldData) {
-          return [...oldData, newHabitWithStatus];
-        }
-        
-        // Si no hay datos, crear un nuevo array con el hábito creado
-        return [newHabitWithStatus];
-      });
+    onMutate: async (newHabit) => {
+      await queryClient.cancelQueries({ queryKey: ['habits'] });
+      const previousHabits = queryClient.getQueryData(['habits']);
       
-      // Invalidar la caché para futuras consultas
-      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      // Optimistic update
+      const optimisticHabit = {
+        id: 'temp-' + Date.now(),
+        ...newHabit,
+        created_at: new Date().toISOString(),
+        isCompletedToday: false
+      };
+      
+      queryClient.setQueryData(['habits'], (old: Habit[] | undefined) => 
+        old ? [...old, optimisticHabit] : [optimisticHabit]
+      );
+      
+      return { previousHabits };
     },
-    onError: (error) => {
-      console.error('Error al crear hábito en mutation:', error);
+    onError: (err, newHabit, context) => {
+      if (context?.previousHabits) {
+        queryClient.setQueryData(['habits'], context.previousHabits);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
     }
   });
   
-  // Mutación para actualizar un hábito
+  // Mutación para actualizar un hábito con optimistic updates
   const updateHabitMutation = useMutation({
     mutationFn: ({ id, ...rest }: HabitUpdate & { id: string }) => 
       habitService.updateHabit({ id, ...rest }),
-    onSuccess: (updatedHabit) => {
-      // Actualizar la caché directamente
-      queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
-        if (!oldData) return [updatedHabit];
-        
-        return oldData.map(habit => 
-          habit.id === updatedHabit.id ? { ...updatedHabit, isCompletedToday: habit.isCompletedToday } : habit
+    onMutate: async (updatedHabit) => {
+      await queryClient.cancelQueries({ queryKey: ['habits'] });
+      const previousHabits = queryClient.getQueryData(['habits']);
+      
+      queryClient.setQueryData(['habits'], (old: Habit[] | undefined) => {
+        if (!old) return [updatedHabit];
+        return old.map(habit => 
+          habit.id === updatedHabit.id ? { ...habit, ...updatedHabit } : habit
         );
       });
       
-      // Invalidar la caché para futuras consultas
-      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      return { previousHabits };
     },
+    onError: (err, updatedHabit, context) => {
+      if (context?.previousHabits) {
+        queryClient.setQueryData(['habits'], context.previousHabits);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+    }
   });
   
-  // Mutación para eliminar un hábito
+  // Mutación para eliminar un hábito con optimistic updates
   const deleteHabitMutation = useMutation({
     mutationFn: (habitId: string) => habitService.deleteHabit(habitId),
     onMutate: async (habitId) => {
-      if (!isMounted) return;
-      
-      // Cancelar queries en curso
       await queryClient.cancelQueries({ queryKey: ['habits'] });
-      await queryClient.cancelQueries({ queryKey: ['habitLogs', habitId] });
-
-      // Guardar el estado anterior
       const previousHabits = queryClient.getQueryData(['habits']);
-
-      // Optimistic update
+      
       queryClient.setQueryData(['habits'], (old: Habit[] | undefined) => {
         if (!old) return [];
         return old.filter(habit => habit.id !== habitId);
       });
-
+      
       return { previousHabits };
     },
     onError: (err, habitId, context) => {
-      if (!isMounted) return;
-      
-      // Si hay error, revertir a los datos anteriores
       if (context?.previousHabits) {
         queryClient.setQueryData(['habits'], context.previousHabits);
       }
-      console.error('Error al eliminar hábito:', err);
     },
     onSettled: () => {
-      if (!isMounted) return;
-      
-      // Refrescar los datos después de la mutación
       queryClient.invalidateQueries({ queryKey: ['habits'] });
-    },
+    }
   });
   
-  // Mutación para marcar un hábito como completado
+  // Mutación para marcar un hábito como completado con optimistic updates
   const completeHabitMutation = useMutation({
     mutationFn: async ({ habitId }: { habitId: string }) => {
-      try {
-        // Optimistic update
-        queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
-          if (!oldData) return [];
-          return oldData.map(habit => 
-            habit.id === habitId ? { ...habit, isCompletedToday: true } : habit
-          );
-        });
-
-        const response = await habitService.logHabit({
-          habit_id: habitId,
-          completed_date: new Date().toISOString(),
-        });
-        return response;
-      } catch (error: any) {
-        // Revert optimistic update on error
-        queryClient.setQueryData(['habits'], (oldData: Habit[] | undefined) => {
-          if (!oldData) return [];
-          return oldData.map(habit => 
-            habit.id === habitId ? { ...habit, isCompletedToday: false } : habit
-          );
-        });
-        throw new Error(error.response?.data?.detail || 'Error al completar el hábito');
+      const response = await habitService.logHabit({
+        habit_id: habitId,
+        completed_date: new Date().toISOString(),
+      });
+      return { habitId, response };
+    },
+    onMutate: async ({ habitId }) => {
+      await queryClient.cancelQueries({ queryKey: ['habits'] });
+      const previousHabits = queryClient.getQueryData(['habits']);
+      
+      queryClient.setQueryData(['habits'], (old: Habit[] | undefined) => {
+        if (!old) return [];
+        return old.map(habit => 
+          habit.id === habitId ? { ...habit, isCompletedToday: true } : habit
+        );
+      });
+      
+      return { previousHabits };
+    },
+    onError: (err, { habitId }, context) => {
+      if (context?.previousHabits) {
+        queryClient.setQueryData(['habits'], context.previousHabits);
       }
     },
-    onError: (error: any) => {
-      console.error('Error al completar hábito:', error);
-    },
-    onSettled: (_, __, { habitId }) => {
-      // Solo invalidar los logs del hábito específico
-      queryClient.invalidateQueries({ queryKey: ['habitLogs', habitId] });
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
     }
   });
   
@@ -198,12 +187,8 @@ export const useHabits = (category?: string) => {
     updateHabit: updateHabitMutation.mutate,
     deleteHabit: deleteHabitMutation.mutate,
     completeHabit: completeHabitMutation.mutate,
-    isCreating: createHabitMutation.isPending,
-    isUpdating: updateHabitMutation.isPending,
-    isDeleting: deleteHabitMutation.isPending,
-    isCompleting: completeHabitMutation.isPending,
-    selectedCategory,
     changeCategory,
+    selectedCategory
   };
 };
 

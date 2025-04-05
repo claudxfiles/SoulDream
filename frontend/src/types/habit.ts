@@ -28,6 +28,7 @@ export type HabitCreate = {
   goal_value?: number;
   category?: string | null;
   is_active?: boolean;
+  related_goal_id?: string | null;
 };
 
 export type HabitUpdate = Partial<HabitCreate>;

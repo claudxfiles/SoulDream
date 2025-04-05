@@ -10,13 +10,7 @@ export const habitService = {
       return response.data || [];
     } catch (error: any) {
       console.error('Error al obtener hábitos:', error);
-      if (error.response) {
-        console.error('Detalles del error:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-      }
-      return [];
+      throw new Error(error.response?.data?.detail || 'Error al obtener los hábitos');
     }
   },
   
@@ -25,16 +19,15 @@ export const habitService = {
     try {
       const response = await apiClient.get(`/api/v1/habits/${habitId}`);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error al obtener hábito ${habitId}:`, error);
-      throw error;
+      throw new Error(error.response?.data?.detail || 'Error al obtener el hábito');
     }
   },
   
   // Crear un nuevo hábito
   createHabit: async (habit: HabitCreate): Promise<Habit> => {
     try {
-      // Formato simplificado de envío con valores predeterminados
       const habitData = {
         title: habit.title,
         description: habit.description || null,
@@ -49,13 +42,7 @@ export const habitService = {
       return response.data;
     } catch (error: any) {
       console.error('Error al crear hábito:', error);
-      if (error.response) {
-        console.error('Detalles del error:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-      }
-      throw error;
+      throw new Error(error.response?.data?.detail || 'Error al crear el hábito');
     }
   },
   
@@ -72,26 +59,26 @@ export const habitService = {
       return response.data;
     } catch (error: any) {
       console.error(`Error al actualizar hábito ${habit.id}:`, error);
-      if (error.response?.data?.detail) {
-        throw new Error(error.response.data.detail);
-      }
-      throw error;
+      throw new Error(error.response?.data?.detail || 'Error al actualizar el hábito');
     }
   },
   
   // Eliminar un hábito
   deleteHabit: async (habitId: string): Promise<void> => {
     try {
-      const response = await apiClient.delete(`/api/v1/habits/${habitId}`);
+      const response = await apiClient.delete(`/api/v1/habits/${habitId}/`);
+      
+      // Verificar si la respuesta es exitosa (204 No Content o 200 OK)
       if (response.status !== 204 && response.status !== 200) {
-        throw new Error(`Error al eliminar hábito: ${response.statusText}`);
+        throw new Error('Error al eliminar el hábito');
       }
     } catch (error: any) {
-      console.error(`Error al eliminar hábito ${habitId}:`, error);
+      // Si el error es 404, consideramos que el hábito ya fue eliminado
       if (error.response?.status === 404) {
-        // Si el hábito no existe, consideramos que ya está eliminado
         return;
       }
+      
+      console.error(`Error al eliminar hábito ${habitId}:`, error);
       throw new Error(error.response?.data?.detail || 'Error al eliminar el hábito');
     }
   },
@@ -99,14 +86,14 @@ export const habitService = {
   // Obtener logs de un hábito
   getHabitLogs: async (habitId: string): Promise<HabitLog[]> => {
     try {
-      const response = await apiClient.get(`/api/v1/habits/${habitId}/logs`);
+      const response = await apiClient.get(`/api/v1/habits/${habitId}/logs/`);
       return response.data || [];
     } catch (error: any) {
-      console.error(`Error al obtener logs del hábito ${habitId}:`, error);
       if (error.response?.status === 404) {
         return [];
       }
-      throw error;
+      console.error(`Error al obtener logs del hábito ${habitId}:`, error);
+      throw new Error(error.response?.data?.detail || 'Error al obtener los logs del hábito');
     }
   },
   
@@ -131,20 +118,20 @@ export const habitService = {
       return response.data;
     } catch (error: any) {
       console.error(`Error al registrar log para hábito ${logData.habit_id}:`, error);
-      if (error.response?.data?.detail) {
-        throw new Error(error.response.data.detail);
-      }
-      throw new Error('Error al registrar el hábito como completado');
+      throw new Error(error.response?.data?.detail || 'Error al registrar el hábito como completado');
     }
   },
   
   // Eliminar un log de hábito
   deleteHabitLog: async (logId: string): Promise<void> => {
     try {
-      await apiClient.delete(`/api/v1/habit-logs/${logId}/`);
-    } catch (error) {
+      const response = await apiClient.delete(`/api/v1/habit-logs/${logId}/`);
+      if (response.status !== 204 && response.status !== 200) {
+        throw new Error('Error al eliminar el log');
+      }
+    } catch (error: any) {
       console.error(`Error al eliminar log ${logId}:`, error);
-      throw error;
+      throw new Error(error.response?.data?.detail || 'Error al eliminar el log');
     }
   },
   

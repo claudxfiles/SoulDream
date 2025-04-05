@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useUpdateHabit } from '@/hooks/useHabits';
-import { useGoals } from '@/hooks/goals/useGoals';
-import { Goal } from '@/types/goals';
+import { useGetUserGoals } from '@/hooks/goals/useGoals';
 
 interface HabitGoalLinkProps {
   habitId: string;
@@ -21,7 +20,7 @@ export default function HabitGoalLink({ habitId, currentGoalId }: HabitGoalLinkP
   const { toast } = useToast();
   
   // Obtener las metas del usuario
-  const { goals, isLoading: isLoadingGoals } = useGoals();
+  const { data: goals, isLoading: isLoadingGoals } = useGetUserGoals();
   
   // Actualizar el hábito
   const updateHabit = useUpdateHabit({
@@ -84,7 +83,7 @@ export default function HabitGoalLink({ habitId, currentGoalId }: HabitGoalLinkP
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">-- Sin meta vinculada --</SelectItem>
-              {goals?.map((goal: Goal) => (
+              {goals?.map(goal => (
                 <SelectItem key={goal.id} value={goal.id}>
                   {goal.title}
                 </SelectItem>
