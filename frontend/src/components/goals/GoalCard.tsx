@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { 
   ChevronDown, 
@@ -9,14 +9,19 @@ import {
   CheckCircle2, 
   Circle, 
   Clock,
-  AlertCircle
+  AlertCircle,
+  Timer,
+  Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Goal, GoalPriority, GoalArea, GoalStatus } from '@/types/goals';
+import { Goal, GoalPriority, GoalArea, GoalStatus, GoalStep } from '@/types/goals';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { useGoalSteps } from '@/hooks/goals/useGoalSteps';
+import { CreateGoalStepDialog } from './CreateGoalStepDialog';
 
 interface GoalCardProps {
   goal: Goal;
@@ -45,26 +50,29 @@ const STATUS_COLORS: Record<GoalStatus, string> = {
 } as const;
 
 export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isCreateStepDialogOpen, setIsCreateStepDialogOpen] = useState(false);
+  const { steps, isLoading } = useGoalSteps(goal.id);
 
-  const toggleExpanded = () => {
-    setExpanded(!expanded);
-  };
+  const progress = Math.min(
+    ((goal.current_value || 0) / (goal.target_value || 100)) * 100,
+    100
+  );
 
-  const getStatusIcon = (status: string) => {
+  const getStepStatusIcon = (status: GoalStep['status']) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
       case 'in_progress':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        return <Timer className="w-5 h-5 text-blue-500" />;
       case 'pending':
-        return <Circle className="h-4 w-4 text-gray-400" />;
+        return <Circle className="w-5 h-5 text-gray-400" />;
       default:
-        return <AlertCircle className="h-4 w-4 text-gray-400" />;
+        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStepStatusText = (status: GoalStep['status']) => {
     switch (status) {
       case 'completed':
         return 'Completado';
@@ -77,94 +85,124 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
     }
   };
 
-  const getPriorityColor = () => {
-    return PRIORITY_COLORS[goal.priority] || 'bg-gray-500';
-  };
-
-  const getPriorityText = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'Alta';
-      case 'medium':
-        return 'Media';
-      case 'low':
-        return 'Baja';
-      default:
-        return 'Normal';
-    }
-  };
-
-  const getTypeText = (type: string) => {
-    switch (type) {
-      case 'adquisicion':
-        return 'Adquisición';
-      case 'aprendizaje':
-        return 'Aprendizaje';
-      case 'habito':
-        return 'Hábito';
-      case 'otro':
-        return 'Otro';
-      default:
-        return 'Otro';
-    }
-  };
-
-  const getProgressValue = () => {
-    if (goal.progress_type === 'percentage') {
-      return goal.current_value ?? 0;
-    }
-    if (goal.progress_type === 'numeric' && goal.target_value && goal.current_value) {
-      return (goal.current_value / goal.target_value) * 100;
-    }
-    return 0;
-  };
-
-  const getStatusColor = () => {
-    return STATUS_COLORS[goal.status] || 'bg-gray-500';
-  };
-
   return (
-    <Card 
-      className={cn(
-        'cursor-pointer transition-all hover:shadow-md',
-        isSelected && 'ring-2 ring-primary'
-      )}
-      onClick={onClick}
-    >
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <Badge className={cn('h-5', AREA_COLORS[goal.area])}>
-            {goal.area}
-          </Badge>
-          <div className="flex gap-2">
-            <Badge className={cn('h-5', getPriorityColor())}>
-              {goal.priority}
-            </Badge>
-            <Badge className={cn('h-5', getStatusColor())}>
-              {goal.status}
-            </Badge>
-          </div>
-        </div>
-        <CardTitle className="line-clamp-2">{goal.title}</CardTitle>
-        {goal.description && (
-          <CardDescription className="line-clamp-2">
-            {goal.description}
-          </CardDescription>
+    <>
+      <Card 
+        className={cn(
+          'transition-all hover:shadow-md',
+          isSelected && 'ring-2 ring-primary'
         )}
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          <Progress value={getProgressValue()} className="h-2" />
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{getProgressValue().toFixed(0)}%</span>
-            {goal.target_date && (
-              <span>
-                Fecha límite: {format(new Date(goal.target_date), 'PPP', { locale: es })}
-              </span>
-            )}
+      >
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <Badge className={cn('h-5', AREA_COLORS[goal.area])}>
+              {goal.area}
+            </Badge>
+            <div className="flex gap-2">
+              <Badge className={cn('h-5', PRIORITY_COLORS[goal.priority])}>
+                {goal.priority}
+              </Badge>
+              <Badge className={cn('h-5', STATUS_COLORS[goal.status])}>
+                {goal.status}
+              </Badge>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="flex items-center justify-between">
+            <CardTitle className="line-clamp-2">{goal.title}</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="ml-2"
+            >
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+          {goal.description && (
+            <CardDescription className="line-clamp-2">
+              {goal.description}
+            </CardDescription>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Progress value={progress} className="h-2" />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{Math.round(progress)}%</span>
+              {goal.target_date && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {format(new Date(goal.target_date), 'PPP', { locale: es })}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {isExpanded && (
+            <div className="mt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">Pasos a seguir</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCreateStepDialogOpen(true)}
+                  className="h-8"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar paso
+                </Button>
+              </div>
+              
+              {isLoading ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : steps && steps.length > 0 ? (
+                <div className="space-y-2">
+                  {steps.map((step) => (
+                    <div
+                      key={step.id}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
+                    >
+                      {getStepStatusIcon(step.status)}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium truncate">{step.title}</h4>
+                        {step.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {step.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          <span>{getStepStatusText(step.status)}</span>
+                          {step.due_date && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {format(new Date(step.due_date), 'PPP', { locale: es })}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  No hay pasos definidos para esta meta.
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <CreateGoalStepDialog
+        goalId={goal.id}
+        open={isCreateStepDialogOpen}
+        onOpenChange={setIsCreateStepDialogOpen}
+      />
+    </>
   );
 } 
