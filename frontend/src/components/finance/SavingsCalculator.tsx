@@ -1,207 +1,151 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useFinance } from '@/hooks/useFinance';
-import { calculateCompoundInterest } from '@/lib/finance';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  DollarSign,
-  TrendingUp,
-  Calendar,
-  Clock,
-  PieChart,
-  ArrowRight,
-  Info,
-} from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipRoot,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useFinance } from '@/hooks/useFinance';
+import { SavingsPlan } from '@/lib/finance';
+import { Loader2 } from 'lucide-react';
 
-// Componente para calcular ahorros e interés compuesto
-export function SavingsCalculator() {
-  // Pestaña activa
-  const [activeTab, setActiveTab] = useState<string>('ahorro');
-  
-  // Estados para calculadora de ahorro
-  const [income, setIncome] = useState<number>(3000);
-  const [expenses, setExpenses] = useState<number>(2000);
-  const [savingsRate, setSavingsRate] = useState<number>(20);
-  const [targetAmount, setTargetAmount] = useState<string>('10000');
-  const [savingsResult, setSavingsResult] = useState<{
-    monthly: number;
-    timeToTarget: number;
-    totalSaved: number;
-  }>({ monthly: 0, timeToTarget: 0, totalSaved: 0 });
+interface InvestmentResult {
+  finalAmount: number;
+  totalContributions: number;
+  interestEarned: number;
+  yearlyProjections: Array<{
+    year: number;
+    amount: number;
+    contributions: number;
+    interest: number;
+  }>;
+}
 
-  // Estados para calculadora de interés compuesto
-  const [initialInvestment, setInitialInvestment] = useState<string>('1000');
-  const [monthlyContribution, setMonthlyContribution] = useState<string>('100');
-  const [interestRate, setInterestRate] = useState<number>(8);
-  const [timeYears, setTimeYears] = useState<number>(10);
-  const [compoundingFrequency, setCompoundingFrequency] = useState<string>('12');
-  const [investmentResult, setInvestmentResult] = useState<{
-    finalAmount: number;
-    totalContributions: number;
-    interestEarned: number;
-    yearlyBreakdown: { year: number; amount: number; contributions: number; interest: number }[];
-  }>({
+export const SavingsCalculator = () => {
+  // Estados para el plan de ahorro real
+  const {
+    savingsPlan,
+    isLoadingSavingsPlan,
+    saveSavingsPlan,
+    fetchMonthlyFinancialSummary,
+  } = useFinance();
+
+  const [realPlan, setRealPlan] = useState<SavingsPlan>({
+    target_amount: 0,
+    savings_rate: 0,
+    monthly_income: 0,
+    monthly_expenses: 0,
+  });
+
+  const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
+
+  // Estados para el plan simulado
+  const [monthlyIncome, setMonthlyIncome] = useState(3000);
+  const [monthlyExpenses, setMonthlyExpenses] = useState(2000);
+  const [savingsRate, setSavingsRate] = useState(20);
+  const [targetAmount, setTargetAmount] = useState(10000);
+
+  // Estados para el interés compuesto
+  const [initialAmount, setInitialAmount] = useState(1000);
+  const [monthlyContribution, setMonthlyContribution] = useState(100);
+  const [annualReturn, setAnnualReturn] = useState(8);
+  const [years, setYears] = useState(10);
+  const [capitalizationFrequency, setCapitalizationFrequency] = useState('monthly');
+  const [investmentResult, setInvestmentResult] = useState<InvestmentResult>({
     finalAmount: 0,
     totalContributions: 0,
     interestEarned: 0,
-    yearlyBreakdown: []
+    yearlyProjections: [],
   });
 
-  // Calcular resultados para el ahorro
-  useEffect(() => {
-    // Calcular ahorro mensual recomendado basado en ingresos y tasa de ahorro
-    const availableForSaving = income - expenses;
-    const recommendedMonthlySaving = Math.round((income * savingsRate) / 100);
-    
-    // No permitir más ahorro que el disponible
+  // Calcular resultados para el ahorro simulado
+  const calculateSavingsResults = () => {
+    const availableForSaving = monthlyIncome - monthlyExpenses;
+    const recommendedMonthlySaving = Math.round((monthlyIncome * savingsRate) / 100);
     const actualMonthlySaving = Math.min(recommendedMonthlySaving, availableForSaving);
+    const monthsToGoal = actualMonthlySaving > 0 ? Math.ceil(targetAmount / actualMonthlySaving) : 0;
     
-    // Calcular tiempo para alcanzar el objetivo
-    const targetAmountNum = parseFloat(targetAmount) || 0;
-    let timeToTarget = actualMonthlySaving > 0 ? Math.ceil(targetAmountNum / actualMonthlySaving) : 0;
-    
-    // Establecer resultados
-    setSavingsResult({
-      monthly: actualMonthlySaving,
-      timeToTarget: timeToTarget,
-      totalSaved: actualMonthlySaving * timeToTarget
-    });
-  }, [income, expenses, savingsRate, targetAmount]);
+    return {
+      monthlySaving: actualMonthlySaving,
+      availableForSaving,
+      monthsToGoal,
+    };
+  };
 
   // Calcular resultados para la inversión
   useEffect(() => {
-    const initialAmount = parseFloat(initialInvestment) || 0;
-    const monthlyAmount = parseFloat(monthlyContribution) || 0;
-    const years = timeYears;
-    const rate = interestRate / 100;
-    const frequency = parseInt(compoundingFrequency) || 12;
-    
-    // Calcular crecimiento año por año
-    let currentAmount = initialAmount;
-    let totalContributed = initialAmount;
-    const yearlyData = [];
-    
-    for (let year = 1; year <= years; year++) {
-      const startYearAmount = currentAmount;
-      
-      // Aplicar aportes mensuales y crecimiento para este año
-      for (let month = 1; month <= 12; month++) {
-        currentAmount += monthlyAmount;
-        totalContributed += monthlyAmount;
-        
-        // Aplicar interés según la frecuencia
-        if (month % (12 / frequency) === 0) {
-          currentAmount *= (1 + rate / frequency);
+    const calculateCompoundInterest = () => {
+      const monthlyRate = annualReturn / 12 / 100;
+      let balance = initialAmount;
+      let yearlyProjections = [];
+      let totalContributions = initialAmount;
+
+      for (let year = 1; year <= years; year++) {
+        for (let month = 1; month <= 12; month++) {
+          balance += monthlyContribution;
+          totalContributions += monthlyContribution;
+          balance *= (1 + monthlyRate);
         }
+
+        yearlyProjections.push({
+          year,
+          amount: balance,
+          contributions: totalContributions,
+          interest: balance - totalContributions,
+        });
       }
-      
-      yearlyData.push({
-        year,
-        amount: currentAmount,
-        contributions: totalContributed,
-        interest: currentAmount - totalContributed
-      });
+
+      return {
+        finalAmount: balance,
+        totalContributions,
+        interestEarned: balance - totalContributions,
+        yearlyProjections,
+      };
+    };
+
+    const result = calculateCompoundInterest();
+    setInvestmentResult(result);
+  }, [initialAmount, monthlyContribution, annualReturn, years]);
+
+  // Cargar datos reales al montar el componente
+  useEffect(() => {
+    const loadRealData = async () => {
+      setIsLoadingMonthly(true);
+      try {
+        const summary = await fetchMonthlyFinancialSummary();
+        if (summary) {
+          setRealPlan(prev => ({
+            ...prev,
+            monthly_income: summary.income,
+            monthly_expenses: summary.expenses,
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading monthly data:', error);
+      } finally {
+        setIsLoadingMonthly(false);
+      }
+    };
+
+    loadRealData();
+  }, [fetchMonthlyFinancialSummary]);
+
+  // Cargar plan de ahorro existente
+  useEffect(() => {
+    if (savingsPlan) {
+      setRealPlan(savingsPlan);
     }
-    
-    setInvestmentResult({
-      finalAmount: currentAmount,
-      totalContributions: totalContributed,
-      interestEarned: currentAmount - totalContributed,
-      yearlyBreakdown: yearlyData
-    });
-  }, [initialInvestment, monthlyContribution, interestRate, timeYears, compoundingFrequency]);
+  }, [savingsPlan]);
 
-  // Formatear dinero
-  const formatMoney = (amount: number): string => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+  // Función para guardar el plan real
+  const handleSaveRealPlan = async () => {
+    await saveSavingsPlan(realPlan);
   };
 
-  // Renderizar gráfico simplificado del crecimiento (barra de progreso)
-  const renderGrowthChart = () => {
-    if (!investmentResult.yearlyBreakdown.length) return null;
-    
-    return (
-      <div className="mt-4 space-y-2">
-        {investmentResult.yearlyBreakdown
-          .filter((item, index) => index % 2 === 0 || index === investmentResult.yearlyBreakdown.length - 1) // Mostrar cada 2 años y el último
-          .map((data) => {
-            const contributionPercentage = (data.contributions / data.amount) * 100;
-            const interestPercentage = 100 - contributionPercentage;
-            
-            return (
-              <div key={data.year} className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span>Año {data.year}</span>
-                  <span>{formatMoney(data.amount)}</span>
-                </div>
-                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary flex"
-                    style={{ width: '100%' }}
-                  >
-                    <div 
-                      className="h-full bg-blue-600" 
-                      style={{ width: `${contributionPercentage}%` }}
-                    ></div>
-                    <div 
-                      className="h-full bg-green-600" 
-                      style={{ width: `${interestPercentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        <div className="flex justify-between text-xs mt-1">
-          <span className="flex items-center">
-            <div className="w-3 h-3 bg-blue-600 rounded-full mr-1"></div>
-            <span>Aportes</span>
-          </span>
-          <span className="flex items-center">
-            <div className="w-3 h-3 bg-green-600 rounded-full mr-1"></div>
-            <span>Intereses generados</span>
-          </span>
-        </div>
-      </div>
-    );
-  };
+  const savingsResults = calculateSavingsResults();
 
   return (
     <div className="space-y-6">
@@ -212,292 +156,352 @@ export function SavingsCalculator() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-2 mb-6">
-          <TabsTrigger value="ahorro">Plan de Ahorro</TabsTrigger>
-          <TabsTrigger value="inversion">Interés Compuesto</TabsTrigger>
+      <Tabs defaultValue="real" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="real">Plan de Ahorro Real</TabsTrigger>
+          <TabsTrigger value="simulated">Plan de Ahorro Simulado</TabsTrigger>
+          <TabsTrigger value="compound">Interés Compuesto</TabsTrigger>
         </TabsList>
 
-        {/* Calculadora de ahorro */}
-        <TabsContent value="ahorro" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Calculadora de ahorro */}
-            <Card className="md:col-span-2">
+        <TabsContent value="real">
+          <Card>
+            <CardHeader>
+              <CardTitle>Plan de Ahorro Real</CardTitle>
+              <CardDescription>
+                Basado en tus ingresos y gastos reales registrados en el sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingSavingsPlan || isLoadingMonthly ? (
+                <div className="flex justify-center items-center h-40">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="real-monthly-income">Ingreso Mensual</Label>
+                    <Input
+                      id="real-monthly-income"
+                      type="number"
+                      value={realPlan.monthly_income}
+                      onChange={(e) => setRealPlan(prev => ({ ...prev, monthly_income: Number(e.target.value) }))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="real-monthly-expenses">Gastos Mensuales</Label>
+                    <Input
+                      id="real-monthly-expenses"
+                      type="number"
+                      value={realPlan.monthly_expenses}
+                      onChange={(e) => setRealPlan(prev => ({ ...prev, monthly_expenses: Number(e.target.value) }))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="real-savings-rate">Porcentaje de Ahorro (%)</Label>
+                    <Input
+                      id="real-savings-rate"
+                      type="number"
+                      value={realPlan.savings_rate}
+                      onChange={(e) => setRealPlan(prev => ({ ...prev, savings_rate: Number(e.target.value) }))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="real-target-amount">Monto Objetivo</Label>
+                    <Input
+                      id="real-target-amount"
+                      type="number"
+                      value={realPlan.target_amount}
+                      onChange={(e) => setRealPlan(prev => ({ ...prev, target_amount: Number(e.target.value) }))}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <Button onClick={handleSaveRealPlan} className="mt-4">
+                    Guardar Plan
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="simulated">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
               <CardHeader>
                 <CardTitle>Plan de Ahorro Personal</CardTitle>
                 <CardDescription>
                   Calcula cuánto deberías ahorrar mensualmente según tus ingresos y gastos
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="income">Ingresos mensuales</Label>
-                    <span className="text-sm text-muted-foreground">{formatMoney(income)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Ingresos mensuales</Label>
+                      <span className="text-muted-foreground">{monthlyIncome} US$</span>
+                    </div>
                     <Slider
-                      id="income"
-                      value={[income]}
-                      min={0}
+                      value={[monthlyIncome]}
+                      onValueChange={([value]) => setMonthlyIncome(value)}
                       max={10000}
                       step={100}
-                      onValueChange={(values) => setIncome(values[0])}
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="expenses">Gastos mensuales</Label>
-                    <span className="text-sm text-muted-foreground">{formatMoney(expenses)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Gastos mensuales</Label>
+                      <span className="text-muted-foreground">{monthlyExpenses} US$</span>
+                    </div>
                     <Slider
-                      id="expenses"
-                      value={[expenses]}
-                      min={0}
-                      max={income}
+                      value={[monthlyExpenses]}
+                      onValueChange={([value]) => setMonthlyExpenses(value)}
+                      max={monthlyIncome}
                       step={100}
-                      onValueChange={(values) => setExpenses(values[0])}
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="savingsRate">Porcentaje de ahorro sugerido</Label>
-                    <span className="text-sm text-muted-foreground">{savingsRate}%</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Porcentaje de ahorro sugerido</Label>
+                      <span className="text-muted-foreground">{savingsRate}%</span>
+                    </div>
                     <Slider
-                      id="savingsRate"
                       value={[savingsRate]}
-                      min={5}
+                      onValueChange={([value]) => setSavingsRate(value)}
                       max={50}
-                      step={1}
-                      onValueChange={(values) => setSavingsRate(values[0])}
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="targetAmount">Meta de ahorro</Label>
-                    <TooltipProvider>
-                      <TooltipRoot>
-                        <TooltipTrigger asChild>
-                          <button type="button">
-                            <Info className="h-4 w-4 text-muted-foreground" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="max-w-xs">Cantidad que deseas ahorrar en total</p>
-                        </TooltipContent>
-                      </TooltipRoot>
-                    </TooltipProvider>
-                  </div>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                      $
-                    </span>
-                    <Input
-                      id="targetAmount"
-                      type="number"
-                      value={targetAmount}
-                      onChange={(e) => setTargetAmount(e.target.value)}
-                      className="pl-8"
-                    />
+                  <div className="space-y-2">
+                    <Label>Meta de ahorro</Label>
+                    <div className="flex space-x-2">
+                      <span className="text-muted-foreground">$</span>
+                      <Input
+                        type="number"
+                        value={targetAmount}
+                        onChange={(e) => setTargetAmount(Number(e.target.value))}
+                        className="flex-1"
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Resultados del ahorro */}
             <Card>
               <CardHeader>
                 <CardTitle>Resultados</CardTitle>
-                <CardDescription>
-                  Basado en tus datos actuales
-                </CardDescription>
+                <CardDescription>Basado en tus datos actuales</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Ahorro mensual recomendado</p>
-                  <p className="text-3xl font-bold text-primary">{formatMoney(savingsResult.monthly)}</p>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Tiempo para alcanzar tu meta</p>
-                      <p className="text-sm text-muted-foreground">
-                        {savingsResult.timeToTarget} meses 
-                        ({Math.floor(savingsResult.timeToTarget / 12)} años y {savingsResult.timeToTarget % 12} meses)
-                      </p>
-                    </div>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-2xl font-bold">
+                      {savingsResults.monthlySaving} US$
+                    </h3>
+                    <p className="text-muted-foreground">Ahorro mensual recomendado</p>
                   </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="font-medium">Capacidad de ahorro</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatMoney(income - expenses)} disponible mensualmente
-                      </p>
+
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-muted-foreground">Tiempo para alcanzar tu meta</span>
                     </div>
+                    <p>
+                      {Math.floor(savingsResults.monthsToGoal / 12)} años y{' '}
+                      {savingsResults.monthsToGoal % 12} meses
+                    </p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-muted-foreground">Capacidad de ahorro</span>
+                    </div>
+                    <p>{savingsResults.availableForSaving} US$ disponible mensualmente</p>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Recuerda: un {savingsRate}% de tus ingresos es un buen objetivo de ahorro.
+                    </p>
                   </div>
                 </div>
               </CardContent>
-              <CardFooter>
-                <p className="text-xs text-muted-foreground">
-                  Recuerda: un 20% de tus ingresos es un buen objetivo de ahorro.
-                </p>
-              </CardFooter>
             </Card>
           </div>
         </TabsContent>
 
-        {/* Calculadora de interés compuesto */}
-        <TabsContent value="inversion" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Formulario de interés compuesto */}
-            <Card className="md:col-span-2">
+        <TabsContent value="compound">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
               <CardHeader>
                 <CardTitle>Calculadora de Interés Compuesto</CardTitle>
                 <CardDescription>
                   Simula el crecimiento de tus inversiones a largo plazo
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="initialInvestment">Inversión inicial</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                        $
-                      </span>
-                      <Input
-                        id="initialInvestment"
-                        type="number"
-                        value={initialInvestment}
-                        onChange={(e) => setInitialInvestment(e.target.value)}
-                        className="pl-8"
-                      />
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Inversión inicial</Label>
+                      <div className="flex space-x-2">
+                        <span className="text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          value={initialAmount}
+                          onChange={(e) => setInitialAmount(Number(e.target.value))}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="monthlyContribution">Aporte mensual</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                        $
-                      </span>
-                      <Input
-                        id="monthlyContribution"
-                        type="number"
-                        value={monthlyContribution}
-                        onChange={(e) => setMonthlyContribution(e.target.value)}
-                        className="pl-8"
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="interestRate">Tasa de interés anual</Label>
-                    <span className="text-sm text-muted-foreground">{interestRate}%</span>
+                    <div className="space-y-2">
+                      <Label>Aporte mensual</Label>
+                      <div className="flex space-x-2">
+                        <span className="text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          value={monthlyContribution}
+                          onChange={(e) => setMonthlyContribution(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Tasa de interés anual</Label>
+                      <span className="text-muted-foreground">{annualReturn}%</span>
+                    </div>
                     <Slider
-                      id="interestRate"
-                      value={[interestRate]}
-                      min={1}
+                      value={[annualReturn]}
+                      onValueChange={([value]) => setAnnualReturn(value)}
                       max={20}
                       step={0.5}
-                      onValueChange={(values) => setInterestRate(values[0])}
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor="timeYears">Plazo (años)</Label>
-                    <span className="text-sm text-muted-foreground">{timeYears} años</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Plazo (años)</Label>
+                      <span className="text-muted-foreground">{years} años</span>
+                    </div>
                     <Slider
-                      id="timeYears"
-                      value={[timeYears]}
+                      value={[years]}
+                      onValueChange={([value]) => setYears(value)}
                       min={1}
-                      max={40}
-                      step={1}
-                      onValueChange={(values) => setTimeYears(values[0])}
+                      max={30}
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="compoundingFrequency">Frecuencia de capitalización</Label>
-                  <Select 
-                    value={compoundingFrequency} 
-                    onValueChange={setCompoundingFrequency}
-                  >
-                    <SelectTrigger id="compoundingFrequency">
-                      <SelectValue placeholder="Selecciona la frecuencia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Anual</SelectItem>
-                      <SelectItem value="2">Semestral</SelectItem>
-                      <SelectItem value="4">Trimestral</SelectItem>
-                      <SelectItem value="12">Mensual</SelectItem>
-                      <SelectItem value="365">Diaria</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    <Label>Frecuencia de capitalización</Label>
+                    <Select
+                      value={capitalizationFrequency}
+                      onValueChange={setCapitalizationFrequency}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Mensual</SelectItem>
+                        <SelectItem value="quarterly">Trimestral</SelectItem>
+                        <SelectItem value="annually">Anual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Resultados del interés compuesto */}
             <Card>
               <CardHeader>
                 <CardTitle>Proyección de inversión</CardTitle>
-                <CardDescription>
-                  En {timeYears} años
-                </CardDescription>
+                <CardDescription>En {years} años</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Monto final proyectado</p>
-                  <p className="text-3xl font-bold text-primary">
-                    {formatMoney(investmentResult.finalAmount)}
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+              <CardContent>
+                <div className="space-y-6">
                   <div>
-                    <p className="text-sm text-muted-foreground">Aportes totales</p>
-                    <p className="font-medium">
-                      {formatMoney(investmentResult.totalContributions)}
-                    </p>
+                    <h3 className="text-2xl font-bold">
+                      {investmentResult.finalAmount.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      })}
+                    </h3>
+                    <p className="text-muted-foreground">Monto final proyectado</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Intereses generados</p>
-                    <p className="font-medium text-green-600 dark:text-green-400">
-                      {formatMoney(investmentResult.interestEarned)}
-                    </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="font-medium">Aportes totales</p>
+                      <p className="text-muted-foreground">
+                        {investmentResult.totalContributions.toLocaleString('en-US', {
+                          style: 'currency',
+                          currency: 'USD',
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Intereses generados</p>
+                      <p className="text-muted-foreground">
+                        {investmentResult.interestEarned.toLocaleString('en-US', {
+                          style: 'currency',
+                          currency: 'USD',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {investmentResult.yearlyProjections.map((projection, index) => {
+                      const isEvenYear = (index + 1) % 2 === 0;
+                      if (!isEvenYear && index !== years - 1) return null;
+
+                      const totalWidth = 100;
+                      const contributionsWidth = (projection.contributions / projection.amount) * totalWidth;
+                      const interestWidth = (projection.interest / projection.amount) * totalWidth;
+
+                      return (
+                        <div key={projection.year} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span>Año {projection.year}</span>
+                            <span>
+                              {projection.amount.toLocaleString('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+                            <div
+                              className="bg-blue-500"
+                              style={{ width: `${contributionsWidth}%` }}
+                            />
+                            <div
+                              className="bg-green-500"
+                              style={{ width: `${interestWidth}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-center space-x-4 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                      <span>Aportes</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full" />
+                      <span>Intereses generados</span>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Gráfico simplificado */}
-                {renderGrowthChart()}
               </CardContent>
             </Card>
           </div>
@@ -505,4 +509,4 @@ export function SavingsCalculator() {
       </Tabs>
     </div>
   );
-} 
+}; 
