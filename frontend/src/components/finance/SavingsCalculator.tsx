@@ -124,11 +124,13 @@ export const SavingsCalculator = () => {
     const projections = [];
 
     for (let year = 1; year <= investmentYears; year++) {
-      // Calcular el crecimiento para cada período dentro del año
       for (let period = 1; period <= periodsPerYear; period++) {
-        // Para frecuencias diferentes a la mensual, ajustamos el aporte
-        const contributionPerPeriod = monthlyContribution * (12 / periodsPerYear);
-        balance = balance * (1 + periodicRate) + contributionPerPeriod;
+        // Calcular cuántos aportes mensuales hay en este período
+        const monthsPerPeriod = 12 / periodsPerYear;
+        const contributionPerPeriod = monthlyContribution * monthsPerPeriod;
+        
+        // Aplicar el interés al balance actual y sumar el aporte del período
+        balance = (balance + contributionPerPeriod) * (1 + periodicRate);
         totalContributions += contributionPerPeriod;
       }
 
