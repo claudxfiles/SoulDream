@@ -172,92 +172,126 @@ export const SavingsCalculator = () => {
         </TabsList>
 
         <TabsContent value="real">
-          <Card>
-            <CardHeader>
-              <CardTitle>Plan de Ahorro Real</CardTitle>
-              <CardDescription>
-                Basado en tus ingresos y gastos reales registrados en el sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingSavingsPlan || isLoadingMonthly ? (
-                <div className="flex justify-center items-center h-40">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : (
-                <div className="grid gap-6">
-                  <div className="grid gap-2">
-                    <Label>Ingreso Mensual</Label>
-                    <div className="text-2xl font-bold">
-                      ${monthlyData.income.toFixed(2)}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Total de ingresos registrados este mes
-                    </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Plan de Ahorro Real</CardTitle>
+                <CardDescription>
+                  Basado en tus ingresos y gastos reales registrados en el sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingSavingsPlan || isLoadingMonthly ? (
+                  <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
-
-                  <div className="grid gap-2">
-                    <Label>Gastos Mensuales</Label>
-                    <div className="text-2xl font-bold text-destructive">
-                      ${monthlyData.expenses.toFixed(2)}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Total de gastos registrados este mes
-                    </p>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Porcentaje de Ahorro</Label>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>{monthlyData.savingsRate.toFixed(1)}%</span>
-                        <span>Meta: 20%</span>
-                      </div>
-                      <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-primary transition-all duration-500 ease-in-out"
-                          style={{ width: `${Math.min(monthlyData.savingsRate, 100)}%` }}
-                        />
+                ) : (
+                  <div className="space-y-6">
+                    <div className="grid gap-2">
+                      <Label>Ingreso Mensual</Label>
+                      <div className="text-2xl font-bold">
+                        ${monthlyData.income.toFixed(2)}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {monthlyData.savingsRate >= 20 
-                          ? '¡Excelente! Estás alcanzando la meta recomendada de ahorro'
-                          : 'Se recomienda ahorrar al menos el 20% de tus ingresos'}
+                        Total de ingresos registrados este mes
                       </p>
                     </div>
-                  </div>
 
-                  <div className="grid gap-2">
-                    <Label>Ahorro Mensual</Label>
-                    <div className="text-2xl font-bold text-primary">
-                      ${monthlyData.savings.toFixed(2)}
+                    <div className="grid gap-2">
+                      <Label>Gastos Mensuales</Label>
+                      <div className="text-2xl font-bold text-destructive">
+                        ${monthlyData.expenses.toFixed(2)}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Total de gastos registrados este mes
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Diferencia entre ingresos y gastos
-                    </p>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label>Porcentaje de ahorro sugerido</Label>
+                        <span className="text-muted-foreground">{realPlan.savings_rate}%</span>
+                      </div>
+                      <Slider
+                        value={[realPlan.savings_rate]}
+                        onValueChange={([value]) => setRealPlan(prev => ({ ...prev, savings_rate: value }))}
+                        max={50}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Meta de ahorro</Label>
+                      <div className="flex space-x-2">
+                        <span className="text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          value={realPlan.target_amount}
+                          onChange={(e) => setRealPlan(prev => ({ ...prev, target_amount: Number(e.target.value) }))}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+
+                    <Button onClick={handleSaveRealPlan} className="w-full">
+                      Guardar Plan
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Resultados</CardTitle>
+                <CardDescription>Basado en tus datos reales</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-2xl font-bold">
+                      ${monthlyData.savings.toFixed(2)}
+                    </h3>
+                    <p className="text-muted-foreground">Ahorro mensual actual</p>
                   </div>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="real-target-amount">Monto Objetivo</Label>
-                    <Input
-                      id="real-target-amount"
-                      type="number"
-                      value={realPlan.target_amount}
-                      onChange={(e) => setRealPlan(prev => ({ ...prev, target_amount: Number(e.target.value) }))}
-                      placeholder="0"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Define tu objetivo de ahorro a largo plazo
-                    </p>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-muted-foreground">Capacidad de ahorro</span>
+                    </div>
+                    <p>${(monthlyData.income - monthlyData.expenses).toFixed(2)} disponible mensualmente</p>
                   </div>
 
-                  <Button onClick={handleSaveRealPlan} className="mt-4">
-                    Guardar Plan
-                  </Button>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-muted-foreground">Tasa de ahorro actual</span>
+                    </div>
+                    <p>{monthlyData.savingsRate.toFixed(1)}% de tus ingresos</p>
+                  </div>
+
+                  {realPlan.target_amount > 0 && (
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-muted-foreground">Tiempo para alcanzar tu meta</span>
+                      </div>
+                      <p>
+                        {monthlyData.savings > 0 
+                          ? `${Math.floor((realPlan.target_amount - monthlyData.savings) / monthlyData.savings)} meses`
+                          : 'Indefinido (sin ahorros actuales)'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      {monthlyData.savingsRate >= 20 
+                        ? '¡Excelente! Estás alcanzando la meta recomendada de ahorro del 20%'
+                        : 'Se recomienda ahorrar al menos el 20% de tus ingresos mensuales'}
+                    </p>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="simulated">
