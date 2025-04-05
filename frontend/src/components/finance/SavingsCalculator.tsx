@@ -26,15 +26,31 @@ interface InvestmentResult {
 export const SavingsCalculator = () => {
   const { fetchMonthlyFinancialSummary } = useFinance();
 
+  // Función para obtener datos guardados del localStorage
+  const getSavedData = () => {
+    const savedData = localStorage.getItem('savingsCalculatorData');
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+    return null;
+  };
+
+  // Función para guardar datos en localStorage
+  const saveData = (data: { savingsRate: number; targetAmount: number }) => {
+    localStorage.setItem('savingsCalculatorData', JSON.stringify(data));
+  };
+
   const [monthlyData, setMonthlyData] = useState({
-    income: 3000,
-    expenses: 2000,
-    savings: 600,
-    savingsRate: 20
+    income: 1800,
+    expenses: 320,
+    savings: (1800 * 18) / 100,
+    savingsRate: 18
   });
 
-  const [targetAmount, setTargetAmount] = useState(10000);
-  const [savingsRate, setSavingsRate] = useState(20);
+  // Obtener el porcentaje guardado o usar 18 como valor por defecto
+  const savedData = getSavedData();
+  const [targetAmount, setTargetAmount] = useState(savedData?.targetAmount || 0);
+  const [savingsRate, setSavingsRate] = useState(savedData?.savingsRate || 18);
   const [isLoadingMonthly, setIsLoadingMonthly] = useState(false);
 
   // Estados para el interés compuesto
@@ -50,20 +66,47 @@ export const SavingsCalculator = () => {
     yearlyProjections: []
   });
 
-  // Calcular el ahorro mensual cuando cambia el ingreso o el porcentaje de ahorro
+  // Cargar datos reales al montar el componente
   useEffect(() => {
-    const availableForSavings = monthlyData.income - monthlyData.expenses;
-    const calculatedSavings = (monthlyData.income * savingsRate) / 100;
-    
-    // Asegurarse de que el ahorro calculado no exceda el disponible
-    const finalSavings = Math.min(calculatedSavings, availableForSavings);
-    
+    const loadRealData = async () => {
+      setIsLoadingMonthly(true);
+      try {
+        const summary = await fetchMonthlyFinancialSummary();
+        if (summary) {
+          // Mantener el porcentaje de ahorro independiente
+          const currentSavingsRate = getSavedData()?.savingsRate || 18;
+          setMonthlyData({
+            ...summary,
+            savingsRate: currentSavingsRate,
+            savings: (summary.income * currentSavingsRate) / 100
+          });
+          setSavingsRate(currentSavingsRate);
+        }
+      } catch (error) {
+        console.error('Error loading monthly data:', error);
+      } finally {
+        setIsLoadingMonthly(false);
+      }
+    };
+
+    loadRealData();
+  }, [fetchMonthlyFinancialSummary]);
+
+  // Actualizar cuando cambie el porcentaje de ahorro
+  useEffect(() => {
+    // Guardar en localStorage
+    saveData({
+      savingsRate,
+      targetAmount
+    });
+
+    // Actualizar monthlyData usando el porcentaje configurado
     setMonthlyData(prev => ({
       ...prev,
-      savings: finalSavings,
-      savingsRate: savingsRate
+      savingsRate: savingsRate,
+      savings: (prev.income * savingsRate) / 100
     }));
-  }, [monthlyData.income, monthlyData.expenses, savingsRate]);
+  }, [savingsRate, targetAmount]);
 
   // Calcular meses para alcanzar la meta
   const calculateMonthsToGoal = () => {
@@ -82,26 +125,6 @@ export const SavingsCalculator = () => {
     }
     return `${months} ${months === 1 ? 'mes' : 'meses'}`;
   };
-
-  // Cargar datos reales al montar el componente
-  useEffect(() => {
-    const loadRealData = async () => {
-      setIsLoadingMonthly(true);
-      try {
-        const summary = await fetchMonthlyFinancialSummary();
-        if (summary) {
-          setMonthlyData(summary);
-          setSavingsRate(summary.savingsRate);
-        }
-      } catch (error) {
-        console.error('Error loading monthly data:', error);
-      } finally {
-        setIsLoadingMonthly(false);
-      }
-    };
-
-    loadRealData();
-  }, [fetchMonthlyFinancialSummary]);
 
   // Calcular interés compuesto
   const calculateCompoundInterest = () => {
@@ -254,14 +277,14 @@ export const SavingsCalculator = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-muted-foreground">Capacidad de ahorro</span>
                     </div>
-                    <p>${(monthlyData.income - monthlyData.expenses).toFixed(2)} disponible mensualmente</p>
+                    <p>${monthlyData.savings.toFixed(2)} disponible mensualmente</p>
                   </div>
 
                   <div>
                     <div className="flex items-center space-x-2">
                       <span className="text-muted-foreground">Tasa de ahorro actual</span>
                     </div>
-                    <p>{monthlyData.savingsRate.toFixed(1)}% de tus ingresos</p>
+                    <p>{savingsRate}% de tus ingresos</p>
                   </div>
 
                   {targetAmount > 0 && monthlyData.savings > 0 && (
@@ -277,7 +300,7 @@ export const SavingsCalculator = () => {
 
                   <div className="pt-4 border-t">
                     <p className="text-sm text-muted-foreground">
-                      {monthlyData.savingsRate >= 20 
+                      {savingsRate >= 20 
                         ? '¡Excelente! Estás alcanzando la meta recomendada de ahorro del 20%'
                         : 'Se recomienda ahorrar al menos el 20% de tus ingresos mensuales'}
                     </p>
