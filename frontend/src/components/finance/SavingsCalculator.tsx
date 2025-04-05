@@ -318,7 +318,7 @@ export const SavingsCalculator = () => {
 
                   <div className="pt-4 border-t">
                     <p className="text-sm text-muted-foreground">
-                      Recuerda: un {savingsRate}% de tus ingresos es un buen objetivo de ahorro.
+                      Recuerda: un 20% de tus ingresos es un buen objetivo de ahorro.
                     </p>
                   </div>
                 </div>
