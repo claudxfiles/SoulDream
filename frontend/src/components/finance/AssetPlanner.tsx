@@ -350,7 +350,7 @@ const AssetCard: React.FC<{
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Progreso:</span>
             <span className="text-sm font-medium">
-              {Math.round(progress)}%
+              ${asset.current_amount.toLocaleString()} / ${asset.target_amount.toLocaleString()}
             </span>
           </div>
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -387,7 +387,7 @@ const AssetCard: React.FC<{
 export function AssetPlanner() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<FinancialAsset | null>(null);
-  const { financialAssets, addFinancialAsset, editFinancialAsset, removeFinancialAsset, loading } = useFinance();
+  const { financialAssets, addFinancialAsset, editFinancialAsset, removeFinancialAsset, loading, fetchFinancialAssets } = useFinance();
   const [activeTab, setActiveTab] = useState<string>('all');
 
   const handleOpenAdd = () => {
@@ -411,13 +411,14 @@ export function AssetPlanner() {
     if (success) {
       setIsDialogOpen(false);
       setEditingAsset(null);
+      await fetchFinancialAssets();
     }
   };
 
   const handleDelete = async (id: string) => {
     const success = await removeFinancialAsset(id);
     if (success) {
-      // La lista se actualizará automáticamente por el estado
+      await fetchFinancialAssets();
     }
   };
 
