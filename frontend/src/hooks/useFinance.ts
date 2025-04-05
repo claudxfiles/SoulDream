@@ -4,10 +4,12 @@ import {
   FinancialGoal,
   Subscription,
   FinancialSummary,
+  FinancialAsset,
   getTransactions,
   getFinancialGoals,
   getSubscriptions,
   getFinancialSummary,
+  getFinancialAssets,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -17,6 +19,9 @@ import {
   createSubscription,
   updateSubscription,
   deleteSubscription,
+  createFinancialAsset,
+  updateFinancialAsset,
+  deleteFinancialAsset,
   calculateLoanPayment,
   calculateCompoundInterest
 } from '@/lib/finance';
@@ -27,11 +32,13 @@ export function useFinance() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [financialAssets, setFinancialAssets] = useState<FinancialAsset[]>([]);
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [loading, setLoading] = useState({
     transactions: false,
     goals: false,
     subscriptions: false,
+    assets: false,
     summary: false
   });
   const [filters, setFilters] = useState({
@@ -98,6 +105,23 @@ export function useFinance() {
     }
   }, []);
 
+  const fetchFinancialAssets = useCallback(async () => {
+    setLoading(prev => ({ ...prev, assets: true }));
+    try {
+      const data = await getFinancialAssets();
+      setFinancialAssets(data);
+    } catch (error) {
+      console.error('Error fetching financial assets:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar los activos financieros',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, assets: false }));
+    }
+  }, []);
+
   const fetchSummary = useCallback(async (period: 'month' | 'year' = 'month') => {
     setLoading(prev => ({ ...prev, summary: true }));
     try {
@@ -120,8 +144,9 @@ export function useFinance() {
     fetchTransactions();
     fetchFinancialGoals();
     fetchSubscriptions();
+    fetchFinancialAssets();
     fetchSummary();
-  }, [fetchTransactions, fetchFinancialGoals, fetchSubscriptions, fetchSummary]);
+  }, [fetchTransactions, fetchFinancialGoals, fetchSubscriptions, fetchFinancialAssets, fetchSummary]);
 
   // Funciones CRUD para transacciones
   const addTransaction = async (transaction: Transaction): Promise<boolean> => {
@@ -276,6 +301,57 @@ export function useFinance() {
     }
   };
 
+  // Funciones CRUD para activos financieros
+  const addFinancialAsset = async (asset: FinancialAsset): Promise<boolean> => {
+    try {
+      const newAsset = await createFinancialAsset(asset);
+      if (newAsset) {
+        setFinancialAssets(prev => [newAsset, ...prev]);
+        // Actualizar el resumen
+        fetchSummary();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error adding financial asset:', error);
+      return false;
+    }
+  };
+
+  const editFinancialAsset = async (id: string, updates: Partial<FinancialAsset>): Promise<boolean> => {
+    try {
+      const success = await updateFinancialAsset(id, updates);
+      if (success) {
+        setFinancialAssets(prev => 
+          prev.map(a => a.id === id ? { ...a, ...updates } : a)
+        );
+        // Actualizar el resumen
+        fetchSummary();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error updating financial asset:', error);
+      return false;
+    }
+  };
+
+  const removeFinancialAsset = async (id: string): Promise<boolean> => {
+    try {
+      const success = await deleteFinancialAsset(id);
+      if (success) {
+        setFinancialAssets(prev => prev.filter(a => a.id !== id));
+        // Actualizar el resumen
+        fetchSummary();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error deleting financial asset:', error);
+      return false;
+    }
+  };
+
   // Funciones de cálculo financiero
   const calculateMonthlyPayment = (principal: number, interestRate: number, termYears: number): number => {
     return calculateLoanPayment(principal, interestRate, termYears);
@@ -352,6 +428,7 @@ export function useFinance() {
     transactions,
     financialGoals,
     subscriptions,
+    financialAssets,
     summary,
     loading,
     filters,
@@ -360,6 +437,7 @@ export function useFinance() {
     fetchTransactions,
     fetchFinancialGoals,
     fetchSubscriptions,
+    fetchFinancialAssets,
     fetchSummary,
     
     // Funciones CRUD - Transacciones
@@ -376,6 +454,11 @@ export function useFinance() {
     addSubscription,
     editSubscription,
     removeSubscription,
+    
+    // Funciones CRUD - Activos financieros
+    addFinancialAsset,
+    editFinancialAsset,
+    removeFinancialAsset,
     
     // Funciones de cálculo
     calculateMonthlyPayment,

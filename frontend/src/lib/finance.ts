@@ -73,12 +73,11 @@ export interface FinancialAsset {
   user_id?: string;
   title: string;
   description?: string;
-  acquisition_price: number;
-  current_value: number;
-  acquisition_date: string;
-  category: 'property' | 'vehicle' | 'investment' | 'other';
+  target_amount: number;
+  current_amount: number;
+  target_date: Date;
+  category: 'property' | 'vehicle' | 'investment' | 'travel' | 'education' | 'other';
   image_url?: string;
-  notes?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -615,4 +614,118 @@ export const calculateCompoundInterest = (
   );
   
   return totalAmount;
+};
+
+// Funciones para activos financieros
+export const createFinancialAsset = async (asset: FinancialAsset): Promise<FinancialAsset | null> => {
+  try {
+    // Asegurar que tiene un user_id, si no está usando RLS
+    if (!asset.user_id) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) asset.user_id = user.id;
+    }
+    
+    const { data, error } = await supabase
+      .from('financial_assets')
+      .insert(asset)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating financial asset:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo crear el activo financiero',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    
+    toast({
+      title: 'Activo creado',
+      description: 'El activo financiero se ha registrado correctamente',
+    });
+    
+    return data;
+  } catch (error) {
+    console.error('Error in createFinancialAsset:', error);
+    return null;
+  }
+};
+
+export const getFinancialAssets = async (): Promise<FinancialAsset[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('financial_assets')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching financial assets:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in getFinancialAssets:', error);
+    return [];
+  }
+};
+
+export const updateFinancialAsset = async (id: string, updates: Partial<FinancialAsset>): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('financial_assets')
+      .update(updates)
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating financial asset:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el activo financiero',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    
+    toast({
+      title: 'Activo actualizado',
+      description: 'El activo financiero se ha actualizado correctamente',
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateFinancialAsset:', error);
+    return false;
+  }
+};
+
+export const deleteFinancialAsset = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('financial_assets')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error deleting financial asset:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar el activo financiero',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    
+    toast({
+      title: 'Activo eliminado',
+      description: 'El activo financiero se ha eliminado correctamente',
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error in deleteFinancialAsset:', error);
+    return false;
+  }
 }; 

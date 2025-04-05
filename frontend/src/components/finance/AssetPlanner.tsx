@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFinance } from '@/hooks/useFinance';
 import { FinancialGoal } from '@/lib/finance';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ import {
   DollarSign,
   Calendar as CalendarIcon
 } from 'lucide-react';
-import { format, addMonths, addYears } from 'date-fns';
+import { format, addMonths, addYears, differenceInMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -59,11 +59,11 @@ interface FinancialAsset {
   id?: string;
   title: string;
   description?: string;
-  targetAmount: number;
-  currentAmount: number;
-  targetDate: Date;
+  target_amount: number;
+  current_amount: number;
+  target_date: Date;
   category: 'property' | 'vehicle' | 'investment' | 'travel' | 'education' | 'other';
-  imageUrl?: string;
+  image_url?: string;
 }
 
 // Componente para formulario de activos
@@ -84,13 +84,13 @@ const AssetForm: React.FC<AssetFormProps> = ({
 }) => {
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
-  const [targetAmount, setTargetAmount] = useState(initialData?.targetAmount?.toString() || '');
-  const [currentAmount, setCurrentAmount] = useState(initialData?.currentAmount?.toString() || '0');
-  const [targetDate, setTargetDate] = useState<Date>(initialData?.targetDate || addYears(new Date(), 1));
+  const [target_amount, setTargetAmount] = useState(initialData?.target_amount?.toString() || '');
+  const [current_amount, setCurrentAmount] = useState(initialData?.current_amount?.toString() || '0');
+  const [target_date, setTargetDate] = useState<Date>(initialData?.target_date || addYears(new Date(), 1));
   const [category, setCategory] = useState<'property' | 'vehicle' | 'investment' | 'travel' | 'education' | 'other'>(
     initialData?.category || 'property'
   );
-  const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || '');
+  const [image_url, setImageUrl] = useState(initialData?.image_url || '');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,11 +98,11 @@ const AssetForm: React.FC<AssetFormProps> = ({
       ...initialData,
       title,
       description,
-      targetAmount: parseFloat(targetAmount),
-      currentAmount: parseFloat(currentAmount),
-      targetDate,
+      target_amount: parseFloat(target_amount),
+      current_amount: parseFloat(current_amount),
+      target_date,
       category,
-      imageUrl
+      image_url
     });
   };
 
@@ -157,15 +157,15 @@ const AssetForm: React.FC<AssetFormProps> = ({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="targetAmount">Monto objetivo</Label>
+                <Label htmlFor="target_amount">Monto objetivo</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                     $
                   </span>
                   <Input
-                    id="targetAmount"
+                    id="target_amount"
                     type="number"
-                    value={targetAmount}
+                    value={target_amount}
                     onChange={(e) => setTargetAmount(e.target.value)}
                     placeholder="0.00"
                     className="pl-8"
@@ -175,15 +175,15 @@ const AssetForm: React.FC<AssetFormProps> = ({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="currentAmount">Monto actual</Label>
+                <Label htmlFor="current_amount">Monto actual</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                     $
                   </span>
                   <Input
-                    id="currentAmount"
+                    id="current_amount"
                     type="number"
-                    value={currentAmount}
+                    value={current_amount}
                     onChange={(e) => setCurrentAmount(e.target.value)}
                     placeholder="0.00"
                     className="pl-8"
@@ -201,17 +201,17 @@ const AssetForm: React.FC<AssetFormProps> = ({
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !targetDate && "text-muted-foreground"
+                        !target_date && "text-muted-foreground"
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {targetDate ? format(targetDate, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
+                      {target_date ? format(target_date, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={targetDate}
+                      selected={target_date}
                       onSelect={(date: Date | undefined) => date && setTargetDate(date)}
                       disabled={(date: Date) =>
                         date < new Date() || date > new Date(new Date().setFullYear(new Date().getFullYear() + 10))
@@ -244,10 +244,10 @@ const AssetForm: React.FC<AssetFormProps> = ({
             </div>
             
             <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="imageUrl">URL de imagen (opcional)</Label>
+              <Label htmlFor="image_url">URL de imagen (opcional)</Label>
               <Input
-                id="imageUrl"
-                value={imageUrl}
+                id="image_url"
+                value={image_url}
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://example.com/image.jpg"
               />
@@ -271,9 +271,25 @@ const AssetCard: React.FC<{
   onEdit: (asset: FinancialAsset) => void;
   onDelete: (id: string) => void;
 }> = ({ asset, onEdit, onDelete }) => {
-  const progress = (asset.currentAmount / asset.targetAmount) * 100;
-  const monthsLeft = Math.ceil((asset.targetDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 30));
-  
+  const progress = (asset.current_amount / asset.target_amount) * 100;
+  const monthsRemaining = differenceInMonths(asset.target_date, new Date());
+  const yearsRemaining = Math.floor(monthsRemaining / 12);
+  const remainingMonths = monthsRemaining % 12;
+
+  const formatTimeRemaining = () => {
+    if (yearsRemaining > 0) {
+      return `${yearsRemaining} ${yearsRemaining === 1 ? 'año' : 'años'}${
+        remainingMonths > 0 ? ` y ${remainingMonths} ${remainingMonths === 1 ? 'mes' : 'meses'}` : ''
+      } restantes`;
+    }
+    return `${monthsRemaining} ${monthsRemaining === 1 ? 'mes restante' : 'meses restantes'}`;
+  };
+
+  const monthlySavingsNeeded = useMemo(() => {
+    if (monthsRemaining <= 0) return 0;
+    return (asset.target_amount - asset.current_amount) / monthsRemaining;
+  }, [asset.target_amount, asset.current_amount, monthsRemaining]);
+
   const getCategoryIcon = (cat: string) => {
     switch (cat) {
       case 'property':
@@ -293,10 +309,10 @@ const AssetCard: React.FC<{
 
   return (
     <Card className="overflow-hidden">
-      {asset.imageUrl && (
+      {asset.image_url && (
         <div className="w-full h-40 overflow-hidden">
           <img 
-            src={asset.imageUrl} 
+            src={asset.image_url} 
             alt={asset.title} 
             className="w-full h-full object-cover"
           />
@@ -334,35 +350,31 @@ const AssetCard: React.FC<{
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Progreso:</span>
             <span className="text-sm font-medium">
-              ${asset.currentAmount.toLocaleString()} / ${asset.targetAmount.toLocaleString()}
+              {Math.round(progress)}%
             </span>
           </div>
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
             <div 
               className="h-full bg-primary"
-              style={{ width: `${Math.min(progress, 100)}%` }}
+              style={{ width: `${progress}%` }}
             ></div>
           </div>
           <div className="flex justify-between items-center text-sm">
             <div className="flex items-center gap-1">
               <CalendarIcon className="w-4 h-4 text-muted-foreground" />
               <span className="text-muted-foreground">
-                {format(asset.targetDate, "MMM yyyy", { locale: es })}
+                {format(asset.target_date, "PPP", { locale: es })}
               </span>
             </div>
             <span>
-              {monthsLeft > 0 
-                ? `${monthsLeft} meses restantes` 
-                : "¡Fecha alcanzada!"}
+              {formatTimeRemaining()}
             </span>
           </div>
           <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Ahorro mensual recomendado:</span>
               <span className="font-medium">
-                ${monthsLeft > 0 
-                  ? Math.ceil((asset.targetAmount - asset.currentAmount) / monthsLeft).toLocaleString()
-                  : 0}
+                ${monthlySavingsNeeded.toLocaleString()}
               </span>
             </div>
           </div>
@@ -373,130 +385,108 @@ const AssetCard: React.FC<{
 };
 
 export function AssetPlanner() {
-  // Estados locales para este ejemplo
-  const [assets, setAssets] = useState<FinancialAsset[]>([
-    {
-      id: '1',
-      title: 'Comprar casa',
-      description: 'Casa de 3 dormitorios en la zona norte',
-      targetAmount: 250000,
-      currentAmount: 50000,
-      targetDate: addYears(new Date(), 5),
-      category: 'property',
-      imageUrl: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3'
-    },
-    {
-      id: '2',
-      title: 'Nuevo auto',
-      description: 'SUV familiar',
-      targetAmount: 30000,
-      currentAmount: 10000,
-      targetDate: addYears(new Date(), 2),
-      category: 'vehicle',
-      imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3'
-    },
-    {
-      id: '3',
-      title: 'Viaje a Japón',
-      description: 'Vacaciones de 3 semanas en Japón',
-      targetAmount: 8000,
-      currentAmount: 3000,
-      targetDate: addYears(new Date(), 1),
-      category: 'travel',
-      imageUrl: 'https://images.unsplash.com/photo-1492571350019-22de08371fd3?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3'
-    }
-  ]);
-
-  const [open, setOpen] = useState(false);
-  const [currentAsset, setCurrentAsset] = useState<FinancialAsset | undefined>(undefined);
-  const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<FinancialAsset | null>(null);
+  const { financialAssets, addFinancialAsset, editFinancialAsset, removeFinancialAsset, loading } = useFinance();
+  const [activeTab, setActiveTab] = useState<string>('all');
 
   const handleOpenAdd = () => {
-    setCurrentAsset(undefined);
-    setIsEditing(false);
-    setOpen(true);
+    setEditingAsset(null);
+    setIsDialogOpen(true);
   };
 
   const handleOpenEdit = (asset: FinancialAsset) => {
-    setCurrentAsset(asset);
-    setIsEditing(true);
-    setOpen(true);
+    setEditingAsset(asset);
+    setIsDialogOpen(true);
   };
 
-  const handleSubmit = (asset: FinancialAsset) => {
-    if (isEditing && currentAsset?.id) {
-      // Actualizar existente
-      setAssets(assets.map(a => a.id === currentAsset.id ? { ...asset, id: currentAsset.id } : a));
+  const handleSubmit = async (asset: FinancialAsset) => {
+    let success;
+    if (editingAsset?.id) {
+      success = await editFinancialAsset(editingAsset.id, asset);
     } else {
-      // Agregar nuevo
-      setAssets([...assets, { ...asset, id: Date.now().toString() }]);
+      success = await addFinancialAsset(asset);
     }
-    setOpen(false);
+    
+    if (success) {
+      setIsDialogOpen(false);
+      setEditingAsset(null);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setAssets(assets.filter(a => a.id !== id));
+  const handleDelete = async (id: string) => {
+    const success = await removeFinancialAsset(id);
+    if (success) {
+      // La lista se actualizará automáticamente por el estado
+    }
   };
 
-  const filteredAssets = activeTab === 'all' 
-    ? assets 
-    : assets.filter(a => a.category === activeTab);
+  const filteredAssets = useMemo(() => {
+    if (activeTab === 'all') return financialAssets;
+    return financialAssets.filter(asset => asset.category === activeTab);
+  }, [activeTab, financialAssets]);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Planificador de Activos</h2>
-          <p className="text-muted-foreground">
-            Planifica y visualiza tus metas financieras para adquirir activos
-          </p>
-        </div>
-        <Button onClick={handleOpenAdd}>
-          <Plus className="mr-2 h-4 w-4" /> Nuevo activo
+      <div className="flex flex-col space-y-2">
+        <h2 className="text-2xl font-bold tracking-tight">Planificador de Activos</h2>
+        <p className="text-muted-foreground">
+          Planifica y visualiza tus metas financieras para adquirir activos
+        </p>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList>
+            <TabsTrigger value="all">Todos</TabsTrigger>
+            <TabsTrigger value="property">Propiedades</TabsTrigger>
+            <TabsTrigger value="vehicle">Vehículos</TabsTrigger>
+            <TabsTrigger value="investment">Inversiones</TabsTrigger>
+            <TabsTrigger value="travel">Viajes</TabsTrigger>
+            <TabsTrigger value="education">Educación</TabsTrigger>
+            <TabsTrigger value="other">Otros</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <Button onClick={handleOpenAdd} className="ml-4">
+          <Plus className="w-4 h-4 mr-2" />
+          Nuevo activo
         </Button>
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="all">Todos</TabsTrigger>
-          <TabsTrigger value="property">Propiedades</TabsTrigger>
-          <TabsTrigger value="vehicle">Vehículos</TabsTrigger>
-          <TabsTrigger value="investment">Inversiones</TabsTrigger>
-          <TabsTrigger value="travel">Viajes</TabsTrigger>
-          <TabsTrigger value="education">Educación</TabsTrigger>
-          <TabsTrigger value="other">Otros</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab} className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAssets.map(asset => (
-              <AssetCard 
-                key={asset.id} 
-                asset={asset} 
-                onEdit={handleOpenEdit} 
-                onDelete={handleDelete}
-              />
-            ))}
-
-            {filteredAssets.length === 0 && (
-              <div className="col-span-full p-8 text-center">
-                <p className="text-muted-foreground">No hay activos planificados en esta categoría.</p>
-                <Button variant="outline" onClick={handleOpenAdd} className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" /> Agregar activo
-                </Button>
-              </div>
-            )}
+      {loading.assets ? (
+        <div className="flex justify-center items-center min-h-[200px]">
+          <div className="animate-spin">
+            <ChevronRight className="w-8 h-8" />
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      ) : filteredAssets.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No hay activos registrados en esta categoría</p>
+          <Button onClick={handleOpenAdd} variant="outline" className="mt-4">
+            <Plus className="w-4 h-4 mr-2" />
+            Agregar activo
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredAssets.map((asset) => (
+            <AssetCard
+              key={asset.id}
+              asset={asset}
+              onEdit={handleOpenEdit}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
 
       <AssetForm
-        open={open}
-        onOpenChange={setOpen}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
         onSubmit={handleSubmit}
-        initialData={currentAsset}
-        isEditing={isEditing}
+        initialData={editingAsset || undefined}
+        isEditing={!!editingAsset}
       />
     </div>
   );
