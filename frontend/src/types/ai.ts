@@ -3,7 +3,7 @@ export interface ChatCompletionRequest {
   model?: string;
   messageHistory?: Array<{
     content: string;
-    sender: 'user' | 'ai';
+    sender: 'user' | 'assistant';
     timestamp: Date;
   }>;
 }
@@ -17,7 +17,7 @@ export interface ChatCompletionResponse {
 export interface Message {
   id: string;
   content: string;
-  sender: 'user' | 'ai';
+  sender: 'user' | 'assistant';
   timestamp: Date;
   status?: 'sending' | 'sent' | 'error' | 'receiving';
 }
@@ -37,4 +37,11 @@ export interface AISettings {
   detailLevel: number;
   aiPersonality: string;
   [key: string]: any;
+}
+
+export interface AIMessage {
+  id: string;
+  content: string;
+  sender: 'user' | 'assistant';
+  timestamp: Date;
 } 

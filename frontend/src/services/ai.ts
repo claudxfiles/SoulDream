@@ -5,7 +5,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 export interface AIMessage {
   id: string;
   content: string;
-  sender: 'user' | 'ai';
+  sender: 'user' | 'assistant';
   timestamp: Date;
 }
 
@@ -14,7 +14,7 @@ export interface ChatCompletionRequest {
   model?: string;
   messageHistory?: Array<{
     content: string;
-    sender: 'user' | 'ai';
+    sender: 'user' | 'assistant';
     timestamp: Date;
   }>;
 }
@@ -74,6 +74,13 @@ export interface LearningAdaptationRequest {
     enablePersonalizedSuggestions: boolean;
     enableContextualAwareness: boolean;
   };
+}
+
+export interface Message {
+  id: string;
+  content: string;
+  sender: 'user' | 'assistant';
+  timestamp: Date;
 }
 
 export const aiService = {

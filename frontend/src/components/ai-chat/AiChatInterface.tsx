@@ -20,7 +20,13 @@ import {
   Activity,
   PlusCircle,
   Loader2,
-  MessageSquare
+  MessageSquare,
+  RefreshCw,
+  CircleDollarSign,
+  Heart,
+  BrainCircuit,
+  ArrowLeft,
+  Trash2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { GoalChatIntegration } from './GoalChatIntegration';
@@ -375,7 +381,7 @@ He generado un plan personalizado con ${goalData.steps?.length || 0} pasos a seg
     const aiMessage: Message = {
       id: `msg-${Date.now()}`,
       content: aiResponse,
-      sender: 'ai',
+      sender: 'assistant',
       timestamp: new Date()
     };
     
@@ -401,7 +407,7 @@ Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que estable
     const aiMessage: Message = {
       id: `msg-${Date.now()}`,
       content: aiResponse,
-      sender: 'ai',
+      sender: 'assistant',
       timestamp: new Date()
     };
     
@@ -497,7 +503,7 @@ El plan está diseñado considerando tu estilo de productividad ${plan.productiv
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
       content: planSummary,
-      sender: 'ai',
+      sender: 'assistant',
       timestamp: new Date()
     };
     
@@ -523,7 +529,7 @@ ${analysis.improvement_factors.join('\n')}
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
       content: analysisMessage,
-      sender: 'ai',
+      sender: 'assistant',
       timestamp: new Date()
     };
     
@@ -545,7 +551,7 @@ He actualizado mis ajustes según tus preferencias:
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
       content: settingsMessage,
-      sender: 'ai',
+      sender: 'assistant',
       timestamp: new Date()
     };
     
@@ -556,6 +562,48 @@ He actualizado mis ajustes según tus preferencias:
   const handleGoalDetection = (goalMetadata: any) => {
     // Implementar lógica para manejar metas detectadas
     console.log('Meta detectada:', goalMetadata);
+  };
+
+  // Añadir función para eliminar conversación
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (!user) return;
+
+    try {
+      // Primero eliminar los mensajes asociados
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      if (messagesError) throw messagesError;
+
+      // Luego eliminar la conversación
+      const { error: conversationError } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId);
+
+      if (conversationError) throw conversationError;
+
+      // Actualizar el estado local
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+      if (currentConversationId === conversationId) {
+        setCurrentConversationId(null);
+        setMessages([]);
+      }
+
+      toast({
+        title: "Conversación eliminada",
+        description: "La conversación ha sido eliminada exitosamente",
+      });
+    } catch (error) {
+      console.error('Error al eliminar la conversación:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la conversación",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -573,20 +621,29 @@ He actualizado mis ajustes según tus preferencias:
 
         <div className="space-y-2">
           {conversations.map((conv) => (
-            <Button
-              key={conv.id}
-              variant={currentConversationId === conv.id ? "default" : "ghost"}
-              className="w-full justify-start text-left"
-              onClick={() => loadConversationMessages(conv.id)}
-            >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              <div className="truncate">
-                <div className="font-medium truncate">{conv.title}</div>
-                <div className="text-xs text-muted-foreground">
-                  {format(new Date(conv.updated_at), 'dd MMM yyyy', { locale: es })}
+            <div key={conv.id} className="flex items-center gap-2">
+              <Button
+                variant={currentConversationId === conv.id ? "default" : "ghost"}
+                className="flex-1 justify-start text-left"
+                onClick={() => loadConversationMessages(conv.id)}
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                <div className="truncate">
+                  <div className="font-medium truncate">{conv.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {format(new Date(conv.updated_at), 'dd MMM yyyy', { locale: es })}
+                  </div>
                 </div>
-              </div>
-            </Button>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleDeleteConversation(conv.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           ))}
         </div>
       </div>

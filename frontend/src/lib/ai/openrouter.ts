@@ -208,7 +208,7 @@ Fecha actual: ${new Date().toLocaleDateString()}`;
  * Convierte las conversaciones anteriores al formato de mensajes de OpenRouter
  */
 export function formatConversationHistory(
-  conversations: Array<{ content: string; sender: 'user' | 'ai'; timestamp: Date }>
+  conversations: Array<{ content: string; sender: 'user' | 'assistant'; timestamp: Date }>
 ): OpenRouterMessage[] {
   return conversations.map(msg => ({
     role: msg.sender === 'user' ? 'user' : 'assistant',

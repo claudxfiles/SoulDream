@@ -77,7 +77,7 @@ export type Tables = {
     user_id: string;
     conversation_id: string;
     content: string;
-    sender: 'user' | 'ai';
+    sender: 'user' | 'assistant';
     timestamp: string;
     created_at: string;
     updated_at?: string;

@@ -40,7 +40,7 @@ import { es } from 'date-fns/locale';
 interface Message {
   id: string;
   content: string;
-  sender: 'user' | 'ai';
+  sender: 'user' | 'assistant';
   timestamp: Date;
   status?: 'sending' | 'sent' | 'error';
   context?: 'general' | 'goals' | 'tasks' | 'habits' | 'finances' | 'workout' | 'calendar';
@@ -109,7 +109,7 @@ export function AIAssistant() {
         const aiMessages = data.map(item => ({
           id: `response-${item.id}`,
           content: item.response || '',
-          sender: 'ai' as const,
+          sender: 'assistant' as const,
           timestamp: new Date(item.created_at),
           context: (item.context as Message['context']) || 'general',
           status: 'sent' as const,
@@ -216,7 +216,7 @@ export function AIAssistant() {
       const aiResponse: Message = {
         id: `response-${messageId}`,
         content: response.response,
-        sender: 'ai',
+        sender: 'assistant' as const,
         timestamp: new Date(),
         status: 'sent',
         context: activeContext,
