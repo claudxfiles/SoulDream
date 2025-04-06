@@ -4,6 +4,9 @@ from typing import List, Dict, Any, Optional
 import os
 from functools import lru_cache
 
+# Obtener la ruta absoluta al directorio backend
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 class AISettings(BaseSettings):
     """
     Configuración para los servicios de IA
@@ -35,7 +38,7 @@ class AISettings(BaseSettings):
     REQUEST_TIMEOUT_SECONDS: int = 30    # Timeout para solicitudes
     
     class Config:
-        env_file = ".env"
+        env_file = os.path.join(BACKEND_DIR, ".env")
         case_sensitive = True
         extra = "allow"  # Permitir variables de entorno adicionales
 

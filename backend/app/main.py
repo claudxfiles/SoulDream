@@ -58,24 +58,29 @@ if os.environ.get("ENV", "development") == "production":
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["*"],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["Content-Type", "Accept", "Authorization"],
         max_age=3600,  # Cache preflight requests for 1 hour
     )
 else:
-    # En desarrollo, permitir todos los orígenes
-    origins = ["*"]
-    logger.info("Ejecutando en modo desarrollo con CORS abierto")
+    # En desarrollo, permitir orígenes locales
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"
+    ]
+    logger.info("Ejecutando en modo desarrollo con CORS para orígenes locales")
     
     # Configurar CORS para desarrollo
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["*"],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["Content-Type", "Accept", "Authorization"],
     )
 
 # Añadir middleware de timing

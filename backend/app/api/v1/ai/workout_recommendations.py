@@ -112,7 +112,7 @@ async def generate_workout_recommendations(
         try:
             headers = {
                 "Authorization": f"Bearer {api_key}",
-                "HTTP-Referer": "https://soul-dream.com",
+                "HTTP-Referer": "https://www.presentandflow.cl/",
                 "X-Title": "SoulDream Workout Recommendations"
             }
             

@@ -162,6 +162,8 @@ class StreamingResponse(BaseModel):
     Respuesta para streaming de chat
     """
     content: str
+    role: MessageRole
+    is_complete: bool = False
     is_error: bool = False
     response_type: str = "content"  # content, goal_metadata, error
 

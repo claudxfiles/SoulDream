@@ -2,21 +2,38 @@ export interface Goal {
   id?: string;
   title: string;
   description: string;
-  category: string;
-  timeframe?: {
-    startDate: Date | string;
-    endDate: Date | string;
-    durationDays?: number;
-  };
-  progressPercentage?: number;
-  status: 'active' | 'completed' | 'abandoned';
-  steps?: string[];
+  type: 'financial' | 'health' | 'career' | 'personal' | 'other';
+  deadline?: Date;
   priority: 'low' | 'medium' | 'high';
-  visualizationImageUrl?: string;
-  type: string;
-  userId?: string;
-  createdAt?: Date | string;
-  updatedAt?: Date | string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  progress: number;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  steps?: string[];
+  tasks?: {
+    id: string;
+    title: string;
+    description: string;
+    dueDate?: Date;
+    priority: 'low' | 'medium' | 'high';
+    status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  }[];
+  milestones?: {
+    id: string;
+    title: string;
+    description: string;
+    targetDate: Date;
+    achieved: boolean;
+  }[];
+  metrics?: {
+    id: string;
+    name: string;
+    value: number;
+    unit: string;
+    targetValue: number;
+    currentValue: number;
+  }[];
 }
 
 export interface GoalStep {

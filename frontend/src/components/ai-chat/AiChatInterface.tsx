@@ -29,8 +29,9 @@ import { useRouter } from 'next/navigation';
 import { toast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Message } from '@/types';
+import { Message } from '@/types/message';
 import { aiService } from '@/services/ai';
+import { useAuth } from '@/hooks/useAuth';
 
 // Tipos para los mensajes
 interface PersonalizedPlan {
@@ -130,12 +131,14 @@ const ChatSuggestions = ({ onSelectSuggestion }: { onSelectSuggestion: (suggesti
 };
 
 export function AiChatInterface() {
+  const { user, signInWithGoogle } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       content: "¡Hola! Soy tu asistente personal en SoulDream. ¿En qué puedo ayudarte hoy?",
       sender: 'ai',
-      timestamp: new Date()
+      timestamp: new Date(),
+      status: 'sent'
     }
   ]);
   const [inputValue, setInputValue] = useState('');
@@ -179,6 +182,19 @@ export function AiChatInterface() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
     
+    // Verificar autenticación
+    if (!user) {
+      // Guardar el mensaje actual para recuperarlo después del login
+      localStorage.setItem('pendingMessage', inputValue);
+      toast({
+        title: "Sesión no iniciada",
+        description: "Por favor, inicia sesión para usar el chat. Te redirigiremos a la página de login.",
+        variant: "default"
+      });
+      router.push('/login');
+      return;
+    }
+
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
       content: inputValue,
@@ -192,78 +208,87 @@ export function AiChatInterface() {
     setInputValue('');
     setIsLoading(true);
     
+    let eventSource: EventSource | null = null;
+
     try {
-      // Obtener historial de mensajes relevante
-      const messageHistory = messages.map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'assistant',
-        content: msg.content
-      }));
-      
-      // Iniciar streaming de respuesta
-      const eventSource = new EventSource(`/api/v1/ai/openrouter-chat-stream?message=${encodeURIComponent(inputValue)}`);
-      let aiMessageId = `ai-${Date.now()}`;
-      let aiMessage = {
+      // Crear mensaje inicial de AI
+      const aiMessageId = `ai-${Date.now()}`;
+      const aiMessage: Message = {
         id: aiMessageId,
         content: '',
-        sender: 'ai' as const,
+        sender: 'ai',
         timestamp: new Date(),
-        status: 'receiving' as const
+        status: 'receiving'
       };
       
       // Agregar mensaje inicial de AI
       setMessages(prev => [...prev, aiMessage]);
+
+      // Iniciar streaming de chat
+      eventSource = await aiService.createChatStream(inputValue);
       
-      eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        if (data === '[DONE]') {
-          eventSource.close();
-          // Actualizar estado del mensaje a completado
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.id === aiMessageId 
-                ? { ...msg, status: 'sent' }
-                : msg
-            )
-          );
-          setIsLoading(false);
-          return;
-        }
-        
-        if (data.text) {
-          // Actualizar contenido del mensaje
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.id === aiMessageId 
-                ? { ...msg, content: msg.content + data.text }
-                : msg
-            )
-          );
-        }
-        
-        if (data.goal_metadata) {
-          // Manejar metadata de meta si existe
-          handleGoalDetection(data.goal_metadata);
+      eventSource.onmessage = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'done') {
+            eventSource?.close();
+            // Actualizar estado del mensaje a completado
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === aiMessageId 
+                  ? { ...msg, status: 'sent' }
+                  : msg
+              )
+            );
+            setIsLoading(false);
+            return;
+          }
+          
+          if (data.text) {
+            // Actualizar contenido del mensaje
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === aiMessageId 
+                  ? { ...msg, content: msg.content + data.text }
+                  : msg
+              )
+            );
+          }
+          
+          if (data.goal_metadata) {
+            // Manejar metadata de meta si existe
+            handleGoalDetection(data.goal_metadata);
+          }
+        } catch (error) {
+          console.error('Error al procesar mensaje:', error);
+          if (eventSource) {
+            handleStreamError(eventSource, aiMessageId);
+          }
         }
       };
       
-      eventSource.onerror = (error) => {
+      eventSource.onerror = (error: Event) => {
         console.error('Error en streaming:', error);
-        eventSource.close();
-        setIsLoading(false);
-        // Actualizar estado del mensaje a error
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === aiMessageId 
-              ? { ...msg, status: 'error', content: 'Error en la comunicación' }
-              : msg
-          )
-        );
+        if (eventSource) {
+          handleStreamError(eventSource, aiMessageId);
+        }
       };
       
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
       setIsLoading(false);
+      
+      // Manejar diferentes tipos de errores
+      let errorMessage = "No se pudo enviar el mensaje. Por favor, intenta de nuevo.";
+      if (error instanceof Error) {
+        if (error.message.includes('iniciar sesión')) {
+          errorMessage = "Necesitas iniciar sesión para usar el chat.";
+          // Redirigir al login
+          router.push('/login');
+        }
+      }
+      
       // Actualizar estado del mensaje a error
       setMessages(prev => 
         prev.map(msg => 
@@ -272,7 +297,34 @@ export function AiChatInterface() {
             : msg
         )
       );
+      
+      // Mostrar toast de error
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
     }
+  };
+  
+  const handleStreamError = (eventSource: EventSource, messageId: string) => {
+    eventSource.close();
+    setIsLoading(false);
+    // Actualizar estado del mensaje a error
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.id === messageId 
+          ? { ...msg, status: 'error', content: msg.content || 'Error en la comunicación' }
+          : msg
+      )
+    );
+    
+    // Mostrar toast de error
+    toast({
+      title: "Error",
+      description: "Hubo un problema con la conexión. Por favor, intenta de nuevo.",
+      variant: "destructive"
+    });
   };
   
   const handleSelectSuggestion = (suggestion: string) => {

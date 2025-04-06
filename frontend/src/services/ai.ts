@@ -1,4 +1,6 @@
-import { api } from '@/lib/axios';
+import { api } from './api';
+import { ChatCompletionRequest, ChatCompletionResponse } from '@/types/ai';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export interface AIMessage {
   id: string;
@@ -86,6 +88,38 @@ export const aiService = {
       console.error('Error al enviar mensaje al chat de IA:', error);
       throw error;
     }
+  },
+
+  /**
+   * Inicia una conexión de streaming para el chat
+   */
+  async createChatStream(message: string): Promise<EventSource> {
+    // Obtener la sesión actual
+    const supabase = createClientComponentClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error('Necesitas iniciar sesión para usar el chat');
+    }
+
+    // Obtener la URL base del backend
+    const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+
+    // Crear la URL con los parámetros necesarios
+    const url = new URL('/api/v1/ai/openrouter-chat-stream', baseURL);
+    url.searchParams.append('message', message);
+    url.searchParams.append('authorization', `Bearer ${session.access_token}`);
+
+    // Crear y retornar el EventSource
+    const eventSource = new EventSource(url.toString());
+
+    // Configurar manejadores de eventos básicos
+    eventSource.onerror = (error) => {
+      console.error('Error en la conexión EventSource:', error);
+      eventSource.close();
+    };
+
+    return eventSource;
   },
 
   /**

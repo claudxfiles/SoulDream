@@ -225,11 +225,22 @@ class AIService:
             logger.error(f"Error generando plan: {str(e)}")
             return {"error": f"Error generando plan: {str(e)}"}
 
-    async def chat_stream(self, messages: List[ChatMessage]) -> AsyncGenerator[StreamingResponse, None]:
+    async def chat_stream(self, messages: List[ChatMessage]):
         """
         Genera respuestas en streaming para el chat
         """
         try:
+            # Verificar la API key
+            if not self.api_key:
+                yield StreamingResponse(
+                    content="Error: API key no configurada",
+                    role=MessageRole.ASSISTANT,
+                    is_error=True,
+                    is_complete=True
+                )
+                return
+
+            # Formatear mensajes
             formatted_messages = [
                 {"role": "system", "content": CHAT_SYSTEM_PROMPT}
             ] + [
@@ -237,24 +248,60 @@ class AIService:
                 for msg in messages
             ]
             
-            response = await self._send_request(
-                messages=formatted_messages,
-                temperature=get_ai_settings().TEMPERATURE_CHAT,
-                max_tokens=get_ai_settings().MAX_TOKENS_RESPONSE,
-                stream=True
-            )
+            # Crear cliente
+            client = await self._create_client()
             
-            async for chunk in response:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    yield StreamingResponse(
-                        content=chunk.choices[0].delta.content,
-                        role=MessageRole.ASSISTANT
-                    )
+            try:
+                # Obtener respuesta streaming
+                response = await client.chat.completions.create(
+                    model=self.model,
+                    messages=formatted_messages,
+                    temperature=get_ai_settings().TEMPERATURE_CHAT,
+                    max_tokens=get_ai_settings().MAX_TOKENS_RESPONSE,
+                    stream=True,
+                    extra_body={
+                        "provider": {
+                            "order": ["Groq", "Fireworks"],
+                            "allow_fallbacks": False
+                        }
+                    }
+                )
+                
+                async for chunk in response:
+                    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                        yield StreamingResponse(
+                            content=chunk.choices[0].delta.content,
+                            role=MessageRole.ASSISTANT,
+                            is_error=False,
+                            is_complete=False
+                        )
+                
+                # Señalar fin del streaming
+                yield StreamingResponse(
+                    content="",
+                    role=MessageRole.ASSISTANT,
+                    is_error=False,
+                    is_complete=True
+                )
+                
+            except Exception as e:
+                logger.error(f"Error en streaming de chat: {str(e)}")
+                yield StreamingResponse(
+                    content=f"Error en la comunicación: {str(e)}",
+                    role=MessageRole.ASSISTANT,
+                    is_error=True,
+                    is_complete=True
+                )
+            finally:
+                await client.close()
+                
         except Exception as e:
-            logger.error(f"Error en streaming de chat: {str(e)}")
+            logger.error(f"Error general en chat_stream: {str(e)}")
             yield StreamingResponse(
-                content=f"Error en la comunicación: {str(e)}",
-                role=MessageRole.ASSISTANT
+                content=f"Error en el servicio: {str(e)}",
+                role=MessageRole.ASSISTANT,
+                is_error=True,
+                is_complete=True
             )
 
     def _format_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
@@ -690,6 +737,66 @@ class AIService:
         except Exception as e:
             logger.error(f"Error generando adaptación de aprendizaje: {str(e)}")
             return {"error": f"Error generando adaptación de aprendizaje: {str(e)}"}
+
+    def _extract_goal_metadata(self, text: str) -> Optional[Dict[str, Any]]:
+        """
+        Extrae metadatos de metas del texto de respuesta
+        
+        Args:
+            text: Texto de respuesta a analizar
+            
+        Returns:
+            Diccionario con metadatos de la meta o None si no se encuentra
+        """
+        try:
+            # Buscar patrones comunes de metas financieras
+            financial_keywords = [
+                "ahorrar", "invertir", "presupuesto", "gastos", "ingresos",
+                "dinero", "finanzas", "comprar", "pagar", "deuda"
+            ]
+            
+            # Buscar patrones comunes de metas de salud
+            health_keywords = [
+                "ejercicio", "dieta", "nutrición", "peso", "dormir",
+                "meditar", "yoga", "correr", "gimnasio", "salud"
+            ]
+            
+            # Buscar patrones comunes de metas de aprendizaje
+            learning_keywords = [
+                "estudiar", "aprender", "curso", "certificación", "carrera",
+                "educación", "desarrollo", "habilidades", "conocimiento", "práctica"
+            ]
+            
+            # Detectar tipo de meta basado en keywords
+            text_lower = text.lower()
+            
+            if any(keyword in text_lower for keyword in financial_keywords):
+                goal_type = "financial"
+            elif any(keyword in text_lower for keyword in health_keywords):
+                goal_type = "health"
+            elif any(keyword in text_lower for keyword in learning_keywords):
+                goal_type = "learning"
+            else:
+                goal_type = "other"
+            
+            # Extraer detalles básicos
+            goal_data = {
+                "has_goal": True,
+                "goal": {
+                    "type": goal_type,
+                    "description": text.strip(),
+                    "detected_keywords": [
+                        keyword for keyword in financial_keywords + health_keywords + learning_keywords
+                        if keyword in text_lower
+                    ]
+                }
+            }
+            
+            return goal_data
+            
+        except Exception as e:
+            logger.error(f"Error extrayendo metadatos de meta: {str(e)}")
+            return None
 
 # Instancia global del servicio
 openrouter_service = AIService() 

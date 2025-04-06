@@ -119,18 +119,29 @@ def verify_token(token: str) -> Optional[User]:
     except jwt.PyJWTError:
         return None
 
-async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[User]:
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    authorization: Optional[str] = None
+) -> Optional[User]:
     """
     Obtiene el usuario actual a partir del token JWT de Supabase
+    Acepta el token tanto del header como de los parámetros de la URL
     """
-    if not credentials:
+    token = None
+    
+    # Intentar obtener el token del header
+    if credentials:
+        token = credentials.credentials
+    # Si no hay token en el header, intentar obtenerlo de los parámetros
+    elif authorization and authorization.startswith('Bearer '):
+        token = authorization.split(' ')[1]
+    
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No se proporcionaron credenciales",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    token = credentials.credentials
     
     try:
         # Usar el cliente de Supabase para verificar el token
