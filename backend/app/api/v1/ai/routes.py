@@ -5,6 +5,7 @@ from app.core.auth import get_current_user
 from fastapi.responses import StreamingResponse
 from jose import JWTError, jwt
 from app.core.config import settings
+from app.core.ai_config import CHAT_SYSTEM_PROMPT
 import logging
 import json
 from typing import Optional, Dict, Any
