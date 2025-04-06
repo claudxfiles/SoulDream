@@ -147,7 +147,7 @@ const createAnalyticsService = () => {
     // Este es un ejemplo simplificado
     const { data: habitsData, error: habitsError } = await supabase
       .from("habits")
-      .select("id, name, completions:habit_completions(*)");
+      .select("id, title, logs:habit_logs(*)");
 
     if (habitsError) {
       console.error("Error generating habit metrics:", habitsError);
@@ -158,8 +158,8 @@ const createAnalyticsService = () => {
     // Este es un cálculo de ejemplo, el real dependería de tu implementación de hábitos
     const habitStreaks = habitsData.map(habit => ({
       habitId: habit.id,
-      habitName: habit.name,
-      streak: (habit.completions as any[]).length, // Simplificado, en realidad habría que calcular las rachas consecutivas
+      habitName: habit.title,
+      streak: (habit.logs as any[]).length, // Simplificado, en realidad habría que calcular las rachas consecutivas
       date: new Date().toISOString().split("T")[0]
     }));
 
