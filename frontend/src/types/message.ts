@@ -1,9 +1,13 @@
+export type MessageStatus = 'sending' | 'sent' | 'error' | 'receiving';
+export type MessageSender = 'user' | 'ai';
+
 export interface Message {
-  id: string;
+  id?: string;
   content: string;
-  sender: 'user' | 'ai';
+  sender: 'user' | 'assistant';
   timestamp: Date;
-  status?: 'sending' | 'sent' | 'error' | 'receiving';
+  status?: 'sending' | 'sent' | 'error';
+  conversation_id?: string;
   metadata?: {
     goal?: {
       title?: string;

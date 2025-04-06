@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { User, Session } from '@supabase/supabase-js';
+import { Session } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
+import { AuthUser } from '@/types/auth';
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -25,12 +26,22 @@ export function useAuth() {
         const { data: { session }, error } = await supabaseClient.auth.getSession();
         if (error) throw error;
         
-        if (mounted) {
+        if (mounted && session) {
           setSession(session);
-          setUser(session?.user ?? null);
+          // Incluir el token de acceso en el objeto de usuario
+          const userWithToken = {
+            ...session.user,
+            access_token: session.access_token
+          };
+          setUser(userWithToken);
+        } else {
+          setSession(null);
+          setUser(null);
         }
       } catch (error) {
         console.error('Error al obtener la sesión:', error);
+        setSession(null);
+        setUser(null);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -46,8 +57,18 @@ export function useAuth() {
       async (_event, session) => {
         if (!mounted) return;
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        if (session) {
+          setSession(session);
+          // Incluir el token de acceso en el objeto de usuario
+          const userWithToken = {
+            ...session.user,
+            access_token: session.access_token
+          };
+          setUser(userWithToken);
+        } else {
+          setSession(null);
+          setUser(null);
+        }
         setLoading(false);
       }
     );

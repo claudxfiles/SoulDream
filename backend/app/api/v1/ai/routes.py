@@ -43,17 +43,76 @@ async def create_conversation(current_user = Depends(get_current_user)):
     Crea una nueva conversación para el usuario
     """
     try:
+        if not current_user:
+            logger.error("No se proporcionó usuario actual")
+            raise HTTPException(
+                status_code=401,
+                detail="Usuario no autenticado"
+            )
+            
+        logger.info(f"Current user data: {current_user}")
+            
         user_id = current_user.get("sub")
+        if not user_id:
+            logger.error("No se encontró sub en el token")
+            raise HTTPException(
+                status_code=401,
+                detail="ID de usuario no encontrado en el token"
+            )
+            
+        # Verificar que el ID es un UUID válido
+        try:
+            from uuid import UUID
+            UUID(user_id)
+        except ValueError:
+            logger.error(f"ID de usuario no es un UUID válido: {user_id}")
+            raise HTTPException(
+                status_code=400,
+                detail="ID de usuario inválido"
+            )
+            
         data = {
             "user_id": user_id,
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat(),
+            "title": "Nueva conversación",
+            "status": "active"
         }
         
+        logger.info(f"Intentando crear conversación con datos: {data}")
+        
+        # Verificar la conexión con Supabase
+        try:
+            test_query = supabase_client.table('conversations').select("id").limit(1).execute()
+            logger.info("Conexión con Supabase verificada")
+        except Exception as e:
+            logger.error(f"Error al verificar conexión con Supabase: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error de conexión con la base de datos"
+            )
+        
+        # Intentar crear la conversación
         result = supabase_client.table('conversations').insert(data).execute()
-        return {"conversation_id": result.data[0]["id"]} if result.data else None
+        
+        if not result.data:
+            logger.error("No se recibieron datos después de la inserción")
+            raise HTTPException(
+                status_code=500,
+                detail="Error al crear la conversación en la base de datos"
+            )
+            
+        conversation_id = result.data[0]["id"]
+        logger.info(f"Conversación creada exitosamente con ID: {conversation_id}")
+        return {"conversation_id": conversation_id}
+        
     except Exception as e:
         logger.error(f"Error creando conversación: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        if hasattr(e, 'status_code'):
+            raise e
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al crear la conversación: {str(e)}"
+        )
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_ai(

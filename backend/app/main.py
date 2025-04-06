@@ -36,7 +36,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
 # Crear la aplicación FastAPI
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version=settings.PROJECT_VERSION,
+    version=settings.VERSION,
     description="API para el proyecto AI Task Manager",
     openapi_url="/api/openapi.json",
     docs_url="/api/docs",
@@ -68,8 +68,8 @@ else:
     origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000"
+        "http://localhost:8080",
+        "http://127.0.0.1:8080"
     ]
     logger.info("Ejecutando en modo desarrollo con CORS para orígenes locales")
     

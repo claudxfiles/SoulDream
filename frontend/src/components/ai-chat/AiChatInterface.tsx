@@ -17,7 +17,9 @@ import {
   CheckSquare,
   User,
   MessageCircle,
-  Activity
+  Activity,
+  PlusCircle,
+  Loader2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { GoalChatIntegration } from './GoalChatIntegration';
@@ -26,12 +28,14 @@ import { PatternAnalyzer } from './PatternAnalyzer';
 import { LearningAdaptation } from './LearningAdaptation';
 import { Goal } from '@/types/goal';
 import { useRouter } from 'next/navigation';
-import { toast } from '@/components/ui/use-toast';
+import { toast, useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Message } from '@/types/message';
 import { aiService } from '@/services/ai';
 import { useAuth } from '@/hooks/useAuth';
+import { Input } from "@/components/ui/input";
+import { AuthUser } from '@/types/auth';
 
 // Tipos para los mensajes
 interface PersonalizedPlan {
@@ -132,20 +136,15 @@ const ChatSuggestions = ({ onSelectSuggestion }: { onSelectSuggestion: (suggesti
 
 export function AiChatInterface() {
   const { user, signInWithGoogle } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: "¡Hola! Soy tu asistente personal en SoulDream. ¿En qué puedo ayudarte hoy?",
-      sender: 'ai',
-      timestamp: new Date(),
-      status: 'sent'
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [lastUserMessage, setLastUserMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const { toast } = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const [createdGoals, setCreatedGoals] = useState<Partial<Goal>[]>([]);
   const [createdTasks, setCreatedTasks] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [messageMetadata, setMessageMetadata] = useState<any>(null);
   const [showPlanGenerator, setShowPlanGenerator] = useState(false);
   const [showPatternAnalyzer, setShowPatternAnalyzer] = useState(false);
@@ -156,58 +155,79 @@ export function AiChatInterface() {
     aiPersonality: 'balanced',
     // Otros ajustes configurables
   });
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
-  
-  // Scroll al final de los mensajes cuando se añade uno nuevo
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-  
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
-  };
-  
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-  
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
-    
-    // Verificar autenticación
-    if (!user) {
-      // Guardar el mensaje actual para recuperarlo después del login
-      localStorage.setItem('pendingMessage', inputValue);
+
+  const createNewConversation = async () => {
+    if (!user?.access_token) {
       toast({
-        title: "Sesión no iniciada",
-        description: "Por favor, inicia sesión para usar el chat. Te redirigiremos a la página de login.",
-        variant: "default"
+        title: "Error de autenticación",
+        description: "Por favor, inicia sesión nuevamente",
+        variant: "destructive"
       });
-      router.push('/login');
       return;
     }
 
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai/new-conversation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al crear nueva conversación: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCurrentConversationId(data.conversation_id);
+      setMessages([]); // Limpiar mensajes al iniciar nueva conversación
+      
+      toast({
+        title: "Nueva conversación iniciada",
+        description: "Puedes empezar a chatear",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear una nueva conversación",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Crear una nueva conversación al cargar el componente si no hay una activa y el usuario está autenticado
+  useEffect(() => {
+    if (user?.access_token && !currentConversationId && !isLoading) {
+      createNewConversation();
+    }
+  }, [user, currentConversationId, isLoading]);
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading || !currentConversationId) return;
+
+    // Crear mensaje del usuario
     const userMessage: Message = {
-      id: `msg-${Date.now()}`,
+      id: `user-${Date.now()}`,
       content: inputValue,
       sender: 'user',
       timestamp: new Date(),
       status: 'sending'
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
-    setLastUserMessage(inputValue);
     setInputValue('');
     setIsLoading(true);
-    
+
     let eventSource: EventSource | null = null;
 
     try {
@@ -221,11 +241,16 @@ export function AiChatInterface() {
         status: 'receiving'
       };
       
-      // Agregar mensaje inicial de AI
       setMessages(prev => [...prev, aiMessage]);
 
+      // Construir URL con el ID de conversación
+      const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai/openrouter-chat-stream`);
+      url.searchParams.append('message', inputValue);
+      url.searchParams.append('conversation_id', currentConversationId);
+      url.searchParams.append('authorization', `Bearer ${user?.access_token}`);
+
       // Iniciar streaming de chat
-      eventSource = await aiService.createChatStream(inputValue);
+      eventSource = new EventSource(url.toString());
       
       eventSource.onmessage = (event: MessageEvent) => {
         try {
@@ -233,7 +258,6 @@ export function AiChatInterface() {
           
           if (data.type === 'done') {
             eventSource?.close();
-            // Actualizar estado del mensaje a completado
             setMessages(prev => 
               prev.map(msg => 
                 msg.id === aiMessageId 
@@ -246,7 +270,6 @@ export function AiChatInterface() {
           }
           
           if (data.text) {
-            // Actualizar contenido del mensaje
             setMessages(prev => 
               prev.map(msg => 
                 msg.id === aiMessageId 
@@ -257,7 +280,6 @@ export function AiChatInterface() {
           }
           
           if (data.goal_metadata) {
-            // Manejar metadata de meta si existe
             handleGoalDetection(data.goal_metadata);
           }
         } catch (error) {
@@ -279,17 +301,14 @@ export function AiChatInterface() {
       console.error('Error al enviar mensaje:', error);
       setIsLoading(false);
       
-      // Manejar diferentes tipos de errores
       let errorMessage = "No se pudo enviar el mensaje. Por favor, intenta de nuevo.";
       if (error instanceof Error) {
         if (error.message.includes('iniciar sesión')) {
           errorMessage = "Necesitas iniciar sesión para usar el chat.";
-          // Redirigir al login
           router.push('/login');
         }
       }
       
-      // Actualizar estado del mensaje a error
       setMessages(prev => 
         prev.map(msg => 
           msg.id === userMessage.id 
@@ -298,7 +317,6 @@ export function AiChatInterface() {
         )
       );
       
-      // Mostrar toast de error
       toast({
         title: "Error",
         description: errorMessage,
@@ -306,7 +324,7 @@ export function AiChatInterface() {
       });
     }
   };
-  
+
   const handleStreamError = (eventSource: EventSource, messageId: string) => {
     eventSource.close();
     setIsLoading(false);
@@ -326,7 +344,7 @@ export function AiChatInterface() {
       variant: "destructive"
     });
   };
-  
+
   const handleSelectSuggestion = (suggestion: string) => {
     setInputValue(suggestion);
   };
@@ -535,158 +553,46 @@ He actualizado mis ajustes según tus preferencias:
   };
 
   return (
-    <div className="flex flex-col h-full rounded-md border bg-background shadow">
-      <div className="flex items-center justify-between border-b px-4 py-2">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-5 w-5" />
-          <h2 className="font-semibold">Asistente de IA</h2>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="gap-1"
-            onClick={() => setShowPlanGenerator(true)}
-          >
-            <User className="h-4 w-4" />
-            <span className="hidden sm:inline">Plan Personalizado</span>
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="gap-1"
-            onClick={() => setShowPatternAnalyzer(true)}
-          >
-            <Activity className="h-4 w-4" />
-            <span className="hidden sm:inline">Análisis de Patrones</span>
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="gap-1"
-            onClick={() => setShowLearningSystem(true)}
-          >
-            <Sparkles className="h-4 w-4" />
-            <span className="hidden sm:inline">Aprendizaje</span>
-          </Button>
-        </div>
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center p-4 border-b">
+        <h2 className="text-xl font-semibold">Chat con IA</h2>
+        <Button 
+          onClick={createNewConversation}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <PlusCircle className="w-4 h-4" />
+          Nueva Conversación
+        </Button>
       </div>
-      
-      <div className="flex-1 flex flex-col min-h-0">
-        <Card className="flex-1 flex flex-col p-4 overflow-hidden">
-          {showPlanGenerator ? (
-            <div className="flex-1 overflow-y-auto p-2">
-              <PersonalizedPlanGenerator 
-                userData={mockUserData}
-                onClose={() => setShowPlanGenerator(false)}
-                onPlanCreated={handlePlanCreated}
-              />
-            </div>
-          ) : showPatternAnalyzer ? (
-            <div className="flex-1 overflow-y-auto p-2">
-              <PatternAnalyzer
-                userData={mockUserData}
-                onClose={() => setShowPatternAnalyzer(false)}
-                onAnalysisComplete={handleAnalysisComplete}
-              />
-            </div>
-          ) : showLearningSystem ? (
-            <div className="flex-1 overflow-y-auto p-2">
-              <LearningAdaptation
-                userData={mockUserData}
-                interactionHistory={mockInteractionHistory}
-                onClose={() => setShowLearningSystem(false)}
-                onSettingsUpdated={handleSettingsUpdated}
-              />
-            </div>
-          ) : (
-            <>
-              <div className="flex-1 overflow-y-auto mb-4 pr-2">
-                {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))}
-                
-                {/* Componente de integración de metas */}
-                {lastUserMessage && messageMetadata && (
-                  <GoalChatIntegration 
-                    message={lastUserMessage}
-                    metadata={messageMetadata}
-                    onCreateGoal={handleCreateGoal}
-                    onCreateTask={handleCreateTask}
-                  />
-                )}
-                
-                {/* Mostrar botones para ver metas y tareas creadas */}
-                {(createdGoals.length > 0 || createdTasks.length > 0) && (
-                  <div className="flex justify-center my-4 gap-3">
-                    {createdGoals.length > 0 && (
-                      <button 
-                        className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full text-sm flex items-center hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors"
-                        onClick={handleViewGoals}
-                      >
-                        <Target className="h-4 w-4 mr-2" />
-                        Ver {createdGoals.length} {createdGoals.length === 1 ? 'meta creada' : 'metas creadas'}
-                      </button>
-                    )}
-                    
-                    {createdTasks.length > 0 && (
-                      <button 
-                        className="px-4 py-2 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full text-sm flex items-center hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors"
-                        onClick={handleViewTasks}
-                      >
-                        <CheckSquare className="h-4 w-4 mr-2" />
-                        Ver {createdTasks.length} {createdTasks.length === 1 ? 'tarea creada' : 'tareas creadas'}
-                      </button>
-                    )}
-                  </div>
-                )}
-                
-                <div ref={messagesEndRef} />
-              </div>
-              
-              {messages.length === 1 && (
-                <>
-                  <ChatSuggestions onSelectSuggestion={handleSelectSuggestion} />
-                  
-                  <div className="mt-3 mb-2">
-                    <button 
-                      className="w-full px-4 py-3 bg-primary/10 hover:bg-primary/20 transition-colors rounded-lg text-sm flex items-center justify-center gap-2"
-                      onClick={() => setShowPlanGenerator(true)}
-                    >
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      <span>Generar un plan personalizado con IA</span>
-                    </button>
-                  </div>
-                </>
-              )}
-              
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Escribe un mensaje..."
-                  className="flex-1 px-4 py-2 rounded-full border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800"
-                  disabled={isLoading}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading}
-                  className="p-2 rounded-full bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? (
-                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Send className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
-            </>
-          )}
-        </Card>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message) => (
+          <ChatMessage key={message.id} message={message} />
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="p-4 border-t">
+        <div className="flex gap-2">
+          <Input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            placeholder="Escribe tu mensaje..."
+            disabled={isLoading || !currentConversationId}
+          />
+          <Button 
+            onClick={handleSendMessage}
+            disabled={isLoading || !inputValue.trim() || !currentConversationId}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
