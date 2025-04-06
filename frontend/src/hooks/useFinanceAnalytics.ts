@@ -14,9 +14,16 @@ interface ExpenseTrend {
   expense: number;
 }
 
+interface SubscriptionAnalytics {
+  total_monthly: number;
+  by_category: ExpenseCategory[];
+  count: number;
+}
+
 interface FinanceAnalyticsData {
   expenses_by_category: ExpenseCategory[];
   expense_trend: ExpenseTrend[];
+  subscriptions: SubscriptionAnalytics;
 }
 
 export function useFinanceAnalytics() {

@@ -16,6 +16,12 @@ interface ExpenseTrend {
   expense: number;
 }
 
+interface SubscriptionAnalytics {
+  total_monthly: number;
+  by_category: ExpenseCategory[];
+  count: number;
+}
+
 const CATEGORY_COLORS = {
   'Alimentación': '#10b981', // verde
   'Transporte': '#ef4444', // rojo
@@ -48,7 +54,7 @@ export function FinanceAnalytics() {
     return null;
   }
 
-  const { expenses_by_category, expense_trend } = data;
+  const { expenses_by_category, expense_trend, subscriptions } = data;
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -95,7 +101,7 @@ export function FinanceAnalytics() {
       </Card>
 
       {/* Gráfico de Distribución de Gastos por Categoría */}
-      <Card className="col-span-2">
+      <Card>
         <CardHeader>
           <CardTitle>Distribución de Gastos por Categoría</CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -116,6 +122,44 @@ export function FinanceAnalytics() {
                   label={({ category, percentage }: ExpenseCategory) => `${category}: ${percentage}%`}
                 >
                   {expenses_by_category.map((entry: ExpenseCategory, index: number) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={CATEGORY_COLORS[entry.category as keyof typeof CATEGORY_COLORS] || CATEGORY_COLORS.Otros}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number) => `$${value.toLocaleString('es-CL')}`}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gráfico de Suscripciones por Categoría */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Suscripciones Mensuales</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Total: ${subscriptions.total_monthly.toLocaleString('es-CL')} · {subscriptions.count} suscripciones activas
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={subscriptions.by_category}
+                  dataKey="amount"
+                  nameKey="category"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={({ category, percentage }: ExpenseCategory) => `${category}: ${percentage}%`}
+                >
+                  {subscriptions.by_category.map((entry: ExpenseCategory, index: number) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={CATEGORY_COLORS[entry.category as keyof typeof CATEGORY_COLORS] || CATEGORY_COLORS.Otros}

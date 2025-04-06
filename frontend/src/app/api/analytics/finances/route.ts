@@ -33,13 +33,37 @@ export async function GET() {
       return NextResponse.json({ error: 'Error al obtener transacciones' }, { status: 500 });
     }
 
-    // Calcular gastos por categoría
+    // Obtener las suscripciones activas del usuario
+    const { data: subscriptions, error: subscriptionsError } = await supabase
+      .from('subscriptions_tracker')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active');
+
+    if (subscriptionsError) {
+      console.error('Error fetching subscriptions:', subscriptionsError);
+      return NextResponse.json({ error: 'Error al obtener suscripciones' }, { status: 500 });
+    }
+
+    // Calcular gastos por categoría (incluyendo suscripciones)
     const expensesByCategory: { [key: string]: number } = {};
+    
+    // Agregar gastos regulares
     transactions
       .filter(t => t.type === 'expense')
       .forEach(transaction => {
         expensesByCategory[transaction.category] = (expensesByCategory[transaction.category] || 0) + transaction.amount;
       });
+
+    // Agregar gastos de suscripciones
+    subscriptions.forEach(subscription => {
+      // Convertir el monto mensual/anual a mensual
+      const monthlyAmount = subscription.billing_cycle === 'annual' 
+        ? subscription.amount / 12 
+        : subscription.amount;
+      
+      expensesByCategory[subscription.category] = (expensesByCategory[subscription.category] || 0) + monthlyAmount;
+    });
 
     // Calcular el total de gastos por categoría y sus porcentajes
     const totalExpenses = Object.values(expensesByCategory).reduce((a, b) => a + b, 0);
@@ -63,15 +87,48 @@ export async function GET() {
       return acc;
     }, {});
 
+    // Agregar gastos de suscripciones al gráfico de líneas
+    const monthlySubscriptionTotal = subscriptions.reduce((total, subscription) => {
+      return total + (subscription.billing_cycle === 'annual' 
+        ? subscription.amount / 12 
+        : subscription.amount);
+    }, 0);
+
+    // Distribuir el gasto de suscripciones uniformemente a lo largo del mes
+    Object.keys(dateRange).forEach(date => {
+      const daysInMonth = new Date(date).getDate();
+      dateRange[date].expense += monthlySubscriptionTotal / daysInMonth;
+    });
+
     const expenseTrend = Object.entries(dateRange).map(([date, values]) => ({
       date,
       income: values.income,
-      expense: values.expense
+      expense: Math.round(values.expense * 100) / 100 // Redondear a 2 decimales
     }));
+
+    // Preparar datos de suscripciones
+    const subscriptionsByCategory = subscriptions.reduce((acc: { [key: string]: number }, subscription) => {
+      const monthlyAmount = subscription.billing_cycle === 'annual' 
+        ? subscription.amount / 12 
+        : subscription.amount;
+      acc[subscription.category] = (acc[subscription.category] || 0) + monthlyAmount;
+      return acc;
+    }, {});
+
+    const subscriptionAnalytics = {
+      total_monthly: monthlySubscriptionTotal,
+      by_category: Object.entries(subscriptionsByCategory).map(([category, amount]) => ({
+        category,
+        amount,
+        percentage: Math.round((amount / monthlySubscriptionTotal) * 100)
+      })),
+      count: subscriptions.length
+    };
 
     return NextResponse.json({
       expenses_by_category: expensesByCategoryWithPercentage,
-      expense_trend: expenseTrend
+      expense_trend: expenseTrend,
+      subscriptions: subscriptionAnalytics
     });
 
   } catch (error) {
