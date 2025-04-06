@@ -6,16 +6,54 @@ from fastapi.responses import StreamingResponse
 from jose import JWTError, jwt
 from app.core.config import settings
 from app.core.ai_config import CHAT_SYSTEM_PROMPT
+from app.db.supabase import supabase_client
 import logging
 import json
 from typing import Optional, Dict, Any
 import os
+from datetime import datetime
 
 # Configuración del logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 router = APIRouter()
+
+async def save_message(user_id: str, conversation_id: str, content: str, sender: str):
+    """
+    Guarda un mensaje en la base de datos
+    """
+    try:
+        data = {
+            "conversation_id": conversation_id,
+            "content": content,
+            "sender": sender,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        result = supabase_client.table('messages').insert(data).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.error(f"Error guardando mensaje: {str(e)}")
+        return None
+
+@router.post("/new-conversation")
+async def create_conversation(current_user = Depends(get_current_user)):
+    """
+    Crea una nueva conversación para el usuario
+    """
+    try:
+        user_id = current_user.get("sub")
+        data = {
+            "user_id": user_id,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        result = supabase_client.table('conversations').insert(data).execute()
+        return {"conversation_id": result.data[0]["id"]} if result.data else None
+    except Exception as e:
+        logger.error(f"Error creando conversación: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_ai(
@@ -70,6 +108,7 @@ async def generate_personalized_plan(
 @router.get("/openrouter-chat-stream")
 async def openrouter_chat_stream(
     message: str,
+    conversation_id: str,
     authorization: str = None,
     request: OpenRouterChatRequest = None,
     current_user = Depends(get_current_user)
@@ -95,20 +134,30 @@ async def openrouter_chat_stream(
         if request is None:
             request = OpenRouterChatRequest(message=message)
             
+        # Guardar el mensaje del usuario
+        await save_message(user_id, conversation_id, request.message, "user")
+            
         # Convertir el mensaje a formato ChatMessage y agregar el mensaje del sistema
         messages = [
             ChatMessage(role=MessageRole.SYSTEM, content=CHAT_SYSTEM_PROMPT),
             ChatMessage(role=MessageRole.USER, content=request.message)
         ]
         
-        # Agregar historial de mensajes si existe
-        if request.messageHistory:
+        # Obtener historial de mensajes de la base de datos
+        history_result = supabase_client.table('messages')\
+            .select('*')\
+            .eq('conversation_id', conversation_id)\
+            .order('created_at', desc=False)\
+            .limit(10)\
+            .execute()
+            
+        if history_result.data:
             messages.extend([
                 ChatMessage(
-                    role=MessageRole.USER if msg.get("role") == "user" else MessageRole.ASSISTANT,
-                    content=msg.get("content", "")
+                    role=MessageRole.USER if msg["sender"] == "user" else MessageRole.ASSISTANT,
+                    content=msg["content"]
                 )
-                for msg in request.messageHistory
+                for msg in history_result.data
             ])
 
         async def generate():
@@ -117,8 +166,10 @@ async def openrouter_chat_stream(
                 # Obtener el generador de streaming
                 async for chunk in openrouter_service.chat_stream(messages):
                     if chunk.is_complete:
-                        # Analizar si hay una meta solo al final del streaming
+                        # Guardar la respuesta completa del asistente
                         if response_buffer:
+                            await save_message(user_id, conversation_id, response_buffer, "assistant")
+                            # Analizar si hay una meta
                             goal_metadata = openrouter_service._extract_goal_metadata(response_buffer)
                             if goal_metadata and goal_metadata.get("has_goal", False):
                                 yield f"data: {json.dumps({'goal_metadata': goal_metadata})}\n\n"
