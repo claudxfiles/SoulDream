@@ -18,24 +18,24 @@ class AISettings(BaseSettings):
     OPENROUTER_REFERER: str = "https://task-manager.app"  # Dominio de la aplicación
 
     # Configuración para tokens máximos en diferentes contextos
-    MAX_TOKENS_RESPONSE: int = 800
-    MAX_TOKENS_GOAL_DETECTION: int = 500
-    MAX_TOKENS_GOAL_PLAN: int = 1000
-    MAX_TOKENS_PERSONALIZED_PLAN: int = 1500
-    MAX_TOKENS_PATTERN_ANALYSIS: int = 1000
-    MAX_TOKENS_LEARNING_ADAPTATION: int = 1200
+    MAX_TOKENS_RESPONSE: int = 1500  # Reducido de 800 a 1500 para chat
+    MAX_TOKENS_GOAL_DETECTION: int = 500  # Mantenido para detección de metas
+    MAX_TOKENS_GOAL_PLAN: int = 1000  # Mantenido para planificación
+    MAX_TOKENS_PERSONALIZED_PLAN: int = 1500  # Mantenido para planes personalizados
+    MAX_TOKENS_PATTERN_ANALYSIS: int = 1000  # Mantenido para análisis
+    MAX_TOKENS_LEARNING_ADAPTATION: int = 1200  # Mantenido para adaptación
     
     # Configuración para temperaturas para diferentes propósitos
-    TEMPERATURE_CHAT: float = 0.7        # Más creativo para chat general
-    TEMPERATURE_GOAL_DETECTION: float = 0.2  # Más determinista para detección
-    TEMPERATURE_GOAL_PLAN: float = 0.4   # Balance para planificación
-    TEMPERATURE_PERSONALIZED_PLAN: float = 0.5  # Balance para planificación personalizada
-    TEMPERATURE_PATTERN_ANALYSIS: float = 0.3   # Más determinista para análisis
-    TEMPERATURE_LEARNING_ADAPTATION: float = 0.6  # Más creativo para adaptación
+    TEMPERATURE_CHAT: float = 0.7  # Mantenido para chat general
+    TEMPERATURE_GOAL_DETECTION: float = 0.2  # Mantenido para detección
+    TEMPERATURE_GOAL_PLAN: float = 0.4  # Mantenido para planificación
+    TEMPERATURE_PERSONALIZED_PLAN: float = 0.5  # Mantenido para planificación personalizada
+    TEMPERATURE_PATTERN_ANALYSIS: float = 0.3  # Mantenido para análisis
+    TEMPERATURE_LEARNING_ADAPTATION: float = 0.6  # Mantenido para adaptación
 
     # Parámetros para control de frecuencia/limitaciones
-    MAX_REQUESTS_PER_MINUTE: int = 10    # Limitar solicitudes a la API
-    REQUEST_TIMEOUT_SECONDS: int = 30    # Timeout para solicitudes
+    MAX_REQUESTS_PER_MINUTE: int = 10
+    REQUEST_TIMEOUT_SECONDS: int = 30
     
     class Config:
         env_file = os.path.join(BACKEND_DIR, ".env")

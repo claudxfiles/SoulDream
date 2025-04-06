@@ -101,20 +101,23 @@ async def openrouter_chat_stream(
 
         async def generate():
             try:
+                response_buffer = ""
                 # Obtener el generador de streaming
                 async for chunk in openrouter_service.chat_stream(messages):
                     if chunk.is_complete:
+                        # Analizar si hay una meta solo al final del streaming
+                        if response_buffer:
+                            goal_metadata = openrouter_service._extract_goal_metadata(response_buffer)
+                            if goal_metadata and goal_metadata.get("has_goal", False):
+                                yield f"data: {json.dumps({'goal_metadata': goal_metadata})}\n\n"
                         yield f"data: {json.dumps({'type': 'done'})}\n\n"
                         break
                     
                     if chunk.content:
+                        # Acumular el contenido para análisis posterior
+                        response_buffer += chunk.content
                         # Enviar el contenido del chunk
                         yield f"data: {json.dumps({'text': chunk.content})}\n\n"
-                        
-                        # Analizar si hay una meta
-                        goal_metadata = openrouter_service._extract_goal_metadata(chunk.content)
-                        if goal_metadata and goal_metadata.get("has_goal", False):
-                            yield f"data: {json.dumps({'goal_metadata': goal_metadata})}\n\n"
                     
                     if chunk.is_error:
                         yield f"data: {json.dumps({'error': chunk.content})}\n\n"
