@@ -29,16 +29,10 @@ import { useRouter } from 'next/navigation';
 import { toast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Message } from '@/types';
+import { aiService } from '@/services/ai';
 
 // Tipos para los mensajes
-interface Message {
-  id: string;
-  content: string;
-  sender: 'user' | 'ai';
-  timestamp: Date;
-  status?: 'sending' | 'sent' | 'error';
-}
-
 interface PersonalizedPlan {
   title: string;
   summary: string;
@@ -185,7 +179,6 @@ export function AiChatInterface() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
     
-    // Crear un nuevo mensaje del usuario
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
       content: inputValue,
@@ -194,79 +187,91 @@ export function AiChatInterface() {
       status: 'sending'
     };
     
-    // Actualizar el estado con el mensaje del usuario
-    setMessages(prevMessages => [...prevMessages, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setLastUserMessage(inputValue);
     setInputValue('');
     setIsLoading(true);
     
     try {
-      // Preparar el historial de mensajes para enviar al backend
+      // Obtener historial de mensajes relevante
       const messageHistory = messages.map(msg => ({
-        content: msg.content,
-        sender: msg.sender,
-        timestamp: msg.timestamp
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.content
       }));
       
-      // Enviar solicitud a la API
-      const response = await fetch('/api/v1/ai/openrouter-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage.content,
-          model: "qwen/qwq-32b:online",
-          messageHistory
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Error al comunicarse con la API');
-      }
-      
-      const data = await response.json();
-      
-      // Actualizar el estado del mensaje a enviado
-      setMessages(prevMessages => 
-        prevMessages.map(msg => 
-          msg.id === userMessage.id ? { ...msg, status: 'sent' } : msg
-        )
-      );
-      
-      // Guardar los metadatos para la detección de metas
-      if (data.metadata) {
-        setMessageMetadata(data.metadata);
-      }
-      
-      // Crear mensaje de respuesta de la IA
-      const aiMessage: Message = {
-        id: `msg-${Date.now()}`,
-        content: data.response,
-        sender: 'ai',
-        timestamp: new Date()
+      // Iniciar streaming de respuesta
+      const eventSource = new EventSource(`/api/v1/ai/openrouter-chat-stream?message=${encodeURIComponent(inputValue)}`);
+      let aiMessageId = `ai-${Date.now()}`;
+      let aiMessage = {
+        id: aiMessageId,
+        content: '',
+        sender: 'ai' as const,
+        timestamp: new Date(),
+        status: 'receiving' as const
       };
       
-      // Añadir mensaje de la IA a la conversación
-      setMessages(prevMessages => [...prevMessages, aiMessage]);
+      // Agregar mensaje inicial de AI
+      setMessages(prev => [...prev, aiMessage]);
+      
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data === '[DONE]') {
+          eventSource.close();
+          // Actualizar estado del mensaje a completado
+          setMessages(prev => 
+            prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { ...msg, status: 'sent' }
+                : msg
+            )
+          );
+          setIsLoading(false);
+          return;
+        }
+        
+        if (data.text) {
+          // Actualizar contenido del mensaje
+          setMessages(prev => 
+            prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { ...msg, content: msg.content + data.text }
+                : msg
+            )
+          );
+        }
+        
+        if (data.goal_metadata) {
+          // Manejar metadata de meta si existe
+          handleGoalDetection(data.goal_metadata);
+        }
+      };
+      
+      eventSource.onerror = (error) => {
+        console.error('Error en streaming:', error);
+        eventSource.close();
+        setIsLoading(false);
+        // Actualizar estado del mensaje a error
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === aiMessageId 
+              ? { ...msg, status: 'error', content: 'Error en la comunicación' }
+              : msg
+          )
+        );
+      };
+      
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
-      
-      // Actualizar el estado del mensaje a error
-      setMessages(prevMessages => 
-        prevMessages.map(msg => 
-          msg.id === userMessage.id ? { ...msg, status: 'error' } : msg
+      setIsLoading(false);
+      // Actualizar estado del mensaje a error
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === userMessage.id 
+            ? { ...msg, status: 'error' }
+            : msg
         )
       );
-      
-      // Mostrar mensaje de error
-      toast({
-        title: 'Error',
-        description: 'No se pudo enviar el mensaje. Inténtalo de nuevo.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
   
@@ -470,6 +475,11 @@ He actualizado mis ajustes según tus preferencias:
     
     setMessages(prev => [...prev, newMessage]);
     setShowLearningSystem(false);
+  };
+
+  const handleGoalDetection = (goalMetadata: any) => {
+    // Implementar lógica para manejar metas detectadas
+    console.log('Meta detectada:', goalMetadata);
   };
 
   return (

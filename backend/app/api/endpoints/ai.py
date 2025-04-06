@@ -9,12 +9,11 @@ from fastapi.responses import StreamingResponse
 
 from app.api.deps import get_current_user
 from app.schemas.ai import AIChatRequest, AIChatResponse, ChatResponse
-from app.services.ai import generate_ai_response
 from app.services.ai.ai_service import openrouter_service
 
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
+# Configuración del logger
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 router = APIRouter(tags=["ai"])
 

@@ -1,14 +1,12 @@
 import json
 import logging
-import aiohttp
-import asyncio
-from typing import Dict, List, Any, Optional, AsyncGenerator
-from datetime import datetime
 import os
+from typing import Dict, List, Any, Optional, AsyncGenerator, Tuple
+from datetime import datetime
 from pydantic import BaseModel
-
+from openai import AsyncOpenAI
 from app.core.ai_config import (
-    get_ai_settings, 
+    get_ai_settings,
     GOAL_DETECTION_PROMPT,
     GOAL_PLAN_PROMPT,
     CHAT_SYSTEM_PROMPT,
@@ -18,9 +16,31 @@ from app.core.ai_config import (
 )
 from app.schemas.ai import ChatMessage, MessageRole, StreamingResponse
 from app.schemas.goal import GoalMetadata
+import dotenv
 
-# Configuración del logger
+# Configuración mejorada del logger
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Crear un formateador para los logs
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Crear y configurar el manejador para archivo
+log_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'logs', 'ai_assistant.log')
+os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+file_handler = logging.FileHandler(log_file_path)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+
+# Crear y configurar el manejador para consola
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+
+# Agregar los manejadores al logger
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 class AIService:
     """
@@ -30,348 +50,213 @@ class AIService:
         """
         Inicializa el servicio con la configuración desde variables de entorno
         """
-        self.api_key = get_ai_settings().OPENROUTER_API_KEY
+        self.api_key = None
+        self.api_key_source = None
+        self._initialize_api_key()
+        
         self.base_url = get_ai_settings().OPENROUTER_BASE_URL
         self.model = get_ai_settings().OPENROUTER_DEFAULT_MODEL
         self.referer = get_ai_settings().OPENROUTER_REFERER
-        
-        # Verificar configuración
-        if not self.api_key:
-            logger.warning("OpenRouter API key no configurada. El servicio de IA no funcionará correctamente.")
             
-    async def _send_request(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _initialize_api_key(self) -> None:
+        """
+        Inicializa la API key intentando diferentes fuentes
+        """
+        # 1. Intentar desde .env
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), '.env')
+        logger.info(f"Intentando cargar API key desde: {env_path}")
+        dotenv.load_dotenv(env_path)
+        
+        try:
+            with open(env_path, 'r') as f:
+                env_content = f.read()
+                for line in env_content.split('\n'):
+                    if line.startswith('OPENROUTER_API_KEY='):
+                        self.api_key = line.split('=', 1)[1].strip()
+                        self.api_key_source = '.env file'
+                        logger.info("API key encontrada en archivo .env")
+                        return
+        except Exception as e:
+            logger.error(f"Error leyendo archivo .env: {str(e)}")
+
+        # 2. Intentar desde settings
+        try:
+            settings_key = get_ai_settings().OPENROUTER_API_KEY
+            if settings_key:
+                self.api_key = settings_key
+                self.api_key_source = 'settings'
+                logger.info("API key encontrada en settings")
+                return
+        except Exception as e:
+            logger.error(f"Error obteniendo API key desde settings: {str(e)}")
+
+        logger.error("No se encontró API key en ninguna fuente")
+
+    def check_api_key_status(self) -> Tuple[bool, str]:
+        """
+        Verifica el estado de la API key
+        
+        Returns:
+            Tuple[bool, str]: (está_configurada, mensaje_de_estado)
+        """
+        if not self.api_key:
+            return False, "API key no configurada"
+        
+        return True, f"API key configurada (fuente: {self.api_key_source})"
+
+    async def _create_client(self) -> AsyncOpenAI:
+        """
+        Crea un cliente de OpenAI con la configuración correcta
+        """
+        is_configured, status = self.check_api_key_status()
+        if not is_configured:
+            raise ValueError(status)
+            
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "HTTP-Referer": self.referer,
+            "X-Title": "SoulDream AI Assistant"
+        }
+        
+        return AsyncOpenAI(
+            api_key="ANON",
+            base_url=self.base_url,
+            default_headers=headers
+        )
+
+    async def _send_request(self, messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 800, stream: bool = False) -> Any:
         """
         Envía una solicitud a la API de OpenRouter
-        
-        Args:
-            payload: Datos para la solicitud
-            
-        Returns:
-            Respuesta de la API
         """
         if not self.api_key:
             raise ValueError("OpenRouter API key no configurada")
             
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "HTTP-Referer": self.referer,
-            "Content-Type": "application/json",
-            "X-Title": "SoulDream AI",
-            "OpenRouter-Providers": "Groq,Fireworks"
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=get_ai_settings().REQUEST_TIMEOUT_SECONDS
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(f"Error en OpenRouter API: Status {response.status}, {error_text}")
-                        raise Exception(f"Error en OpenRouter API: {response.status}")
-                    
-                    return await response.json()
-            except aiohttp.ClientError as e:
-                logger.error(f"Error de conexión con OpenRouter: {str(e)}")
-                raise
-            except Exception as e:
-                logger.error(f"Error inesperado con OpenRouter: {str(e)}")
-                raise
-                
-    async def _stream_request(self, payload: Dict[str, Any]) -> AsyncGenerator[StreamingResponse, None]:
-        """
-        Envía una solicitud en streaming a la API de OpenRouter
-        
-        Args:
-            payload: Datos para la solicitud
-            
-        Yields:
-            Partes de la respuesta a medida que llegan
-        """
-        if not self.api_key:
-            raise ValueError("OpenRouter API key no configurada")
-            
-        # Asegurar que la solicitud sea en streaming
-        payload["stream"] = True
-        
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "HTTP-Referer": self.referer,
-            "Content-Type": "application/json",
-            "Accept": "text/event-stream",
-            "X-Title": "SoulDream AI",
-            "OpenRouter-Providers": "Groq,Fireworks"
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=get_ai_settings().REQUEST_TIMEOUT_SECONDS
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        logger.error(f"Error en OpenRouter API streaming: Status {response.status}, {error_text}")
-                        yield StreamingResponse(
-                            text=f"Error en la generación de respuesta: {response.status}",
-                            is_complete=True
-                        )
-                        return
-                    
-                    buffer = ""
-                    async for line in response.content:
-                        line = line.decode('utf-8')
-                        if line.startswith('data: '):
-                            line = line[6:]  # Eliminar el prefijo 'data: '
-                            
-                            # Comprobar si es el final del stream
-                            if line.strip() == "[DONE]":
-                                yield StreamingResponse(text="", is_complete=True)
-                                break
-                                
-                            try:
-                                data = json.loads(line)
-                                if "choices" in data and len(data["choices"]) > 0:
-                                    delta = data["choices"][0].get("delta", {})
-                                    if "content" in delta:
-                                        content = delta["content"]
-                                        buffer += content
-                                        yield StreamingResponse(text=content, is_complete=False)
-                            except json.JSONDecodeError:
-                                logger.warning(f"Error decodificando JSON de streaming: {line}")
-            
-            except aiohttp.ClientError as e:
-                logger.error(f"Error de conexión con OpenRouter streaming: {str(e)}")
-                yield StreamingResponse(
-                    text=f"Error de conexión: {str(e)}",
-                    is_complete=True
-                )
-            except Exception as e:
-                logger.error(f"Error inesperado con OpenRouter streaming: {str(e)}")
-                yield StreamingResponse(
-                    text=f"Error inesperado: {str(e)}",
-                    is_complete=True
-                )
-                
-    def _extract_goal_metadata(self, text: str) -> Optional[Dict[str, Any]]:
-        """
-        Extrae metadatos de metas a partir del texto de la respuesta
-        
-        Args:
-            text: Texto de la respuesta
-            
-        Returns:
-            Metadatos de la meta si fueron detectados
-        """
-        try:
-            # Buscar un bloque JSON en la respuesta
-            start_idx = text.find('{')
-            end_idx = text.rfind('}')
-            
-            if start_idx >= 0 and end_idx > start_idx:
-                json_text = text[start_idx:end_idx+1]
-                data = json.loads(json_text)
-                
-                # Verificar si contiene información de una meta
-                if "has_goal" in data:
-                    return data
-                elif "goal" in data:
-                    return {"has_goal": True, "goal": data["goal"]}
-                
-            return None
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.warning(f"No se pudo extraer metadata JSON de la respuesta: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Error inesperado extrayendo metadata: {e}")
-            return None
-            
-    async def generate_chat_response(
-        self,
-        messages: List[Dict[str, str]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        stream: bool = False
-    ) -> Any:
-        """
-        Genera una respuesta del chatbot usando OpenRouter
-        
-        Args:
-            messages: Lista de mensajes en formato [{"role": "user", "content": "Hola"}, ...]
-            temperature: Temperatura para la generación (creatividad)
-            max_tokens: Número máximo de tokens a generar
-            stream: Si la respuesta debe ser en streaming
-            
-        Returns:
-            Texto de la respuesta o generador de streaming
-        """
-        # Usar valores por defecto si no se especifican
-        temperature = temperature if temperature is not None else get_ai_settings().TEMPERATURE_CHAT
-        max_tokens = max_tokens if max_tokens is not None else get_ai_settings().MAX_TOKENS_RESPONSE
-        
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "stream": stream
-        }
+        client = await self._create_client()
         
         try:
-            if stream:
-                return self._stream_request(payload)
-            else:
-                response = await self._send_request(payload)
-                if "choices" in response and len(response["choices"]) > 0:
-                    return response["choices"][0]["message"]["content"]
-                else:
-                    logger.error(f"Respuesta inválida: {response}")
-                    return "Error: No se pudo generar una respuesta válida"
-        except Exception as e:
-            logger.error(f"Error generando respuesta: {str(e)}")
-            return f"Error al generar respuesta: {str(e)}"
+            response = await client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=stream,
+                extra_body={
+                    "provider": {
+                        "order": ["Groq", "Fireworks"],
+                        "allow_fallbacks": False
+                    }
+                }
+            )
             
+            return response
+        except Exception as e:
+            logger.error(f"Error en OpenRouter API: {str(e)}")
+            raise
+        finally:
+            await client.close()
+
     async def detect_goal_from_message(self, message: str) -> Optional[Dict[str, Any]]:
         """
         Detecta si un mensaje contiene una meta
-        
-        Args:
-            message: Mensaje del usuario
-            
-        Returns:
-            Metadata de la meta si se detecta una
         """
         try:
-            # Preparar el prompt para detección de metas
             messages = [
                 {"role": "system", "content": GOAL_DETECTION_PROMPT},
                 {"role": "user", "content": message}
             ]
             
-            # Configuración específica para detección de metas
-            payload = {
-                "model": self.model,
-                "messages": messages,
-                "temperature": get_ai_settings().TEMPERATURE_GOAL_DETECTION,
-                "max_tokens": get_ai_settings().MAX_TOKENS_GOAL_DETECTION,
-                "stream": False
-            }
+            response = await self._send_request(
+                messages=messages,
+                temperature=get_ai_settings().TEMPERATURE_GOAL_DETECTION,
+                max_tokens=get_ai_settings().MAX_TOKENS_GOAL_DETECTION
+            )
             
-            # Enviar solicitud
-            response = await self._send_request(payload)
-            
-            if "choices" in response and len(response["choices"]) > 0:
-                response_text = response["choices"][0]["message"]["content"]
+            if response and response.choices:
+                content = response.choices[0].message.content.strip()
                 
-                # Intentar extraer JSON del texto
                 try:
-                    # Buscar un bloque JSON en la respuesta
-                    start_idx = response_text.find('{')
-                    end_idx = response_text.rfind('}')
-                    
-                    if start_idx >= 0 and end_idx > start_idx:
-                        json_text = response_text[start_idx:end_idx+1]
-                        data = json.loads(json_text)
-                        
-                        if "has_goal" in data:
-                            if data["has_goal"] and "goal" in data:
-                                logger.info(f"Meta detectada: {data['goal']['title']}")
-                                return data
-                            else:
-                                logger.info("No se detectó ninguna meta")
-                                return {"has_goal": False}
-                    
-                    logger.warning("No se pudo encontrar un JSON válido en la respuesta")
+                    data = json.loads(content)
+                    logger.info("Meta detectada y parseada correctamente")
+                    return data
+                except json.JSONDecodeError as e:
+                    logger.error(f"Error parseando respuesta JSON: {str(e)}")
                     return None
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.warning(f"Error decodificando JSON: {e}")
-                    return None
-            else:
-                logger.error(f"Respuesta inválida de la API: {response}")
-                return None
+            
+            return None
         except Exception as e:
             logger.error(f"Error detectando meta: {str(e)}")
             return None
-            
+
     async def generate_goal_plan(self, goal_metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
         Genera un plan detallado para una meta
-        
-        Args:
-            goal_metadata: Metadatos de la meta
-            
-        Returns:
-            Plan detallado con pasos a seguir
         """
         try:
-            # Extraer información de la meta
             if not goal_metadata.get("has_goal", False) or "goal" not in goal_metadata:
                 logger.error("No hay información de meta válida para generar un plan")
                 return {"error": "No hay información de meta válida"}
                 
             goal = goal_metadata["goal"]
             
-            # Preparar el prompt para el plan
-            goal_description = f"""
-            Título: {goal['title']}
-            Descripción: {goal['description']}
-            Área: {goal.get('area', 'no especificada')}
-            Tipo: {goal.get('type', 'no especificado')}
-            Fecha objetivo: {goal.get('target_date', 'no especificada')}
-            Prioridad: {goal.get('priority', 'media')}
-            """
-            
             messages = [
                 {"role": "system", "content": GOAL_PLAN_PROMPT},
-                {"role": "user", "content": f"Genera un plan detallado para esta meta: {goal_description}"}
+                {"role": "user", "content": json.dumps(goal)}
             ]
             
-            # Configuración específica para planificación
-            payload = {
-                "model": self.model,
-                "messages": messages,
-                "temperature": get_ai_settings().TEMPERATURE_GOAL_PLAN,
-                "max_tokens": get_ai_settings().MAX_TOKENS_GOAL_PLAN,
-                "stream": False
-            }
+            response = await self._send_request(
+                messages=messages,
+                temperature=get_ai_settings().TEMPERATURE_GOAL_PLAN,
+                max_tokens=get_ai_settings().MAX_TOKENS_GOAL_PLAN
+            )
             
-            # Enviar solicitud
-            response = await self._send_request(payload)
-            
-            if "choices" in response and len(response["choices"]) > 0:
-                response_text = response["choices"][0]["message"]["content"]
+            if response and response.choices:
+                content = response.choices[0].message.content.strip()
                 
-                # Intentar extraer JSON del texto
                 try:
-                    # Buscar un bloque JSON en la respuesta
-                    start_idx = response_text.find('{')
-                    end_idx = response_text.rfind('}')
-                    
-                    if start_idx >= 0 and end_idx > start_idx:
-                        json_text = response_text[start_idx:end_idx+1]
-                        data = json.loads(json_text)
-                        
-                        if "plan" in data:
-                            logger.info(f"Plan generado: {data['plan']['title']}")
-                            return data
-                    
-                    logger.warning("No se pudo encontrar un JSON válido en la respuesta del plan")
-                    return {"error": "Formato de respuesta inválido"}
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.warning(f"Error decodificando JSON del plan: {e}")
+                    data = json.loads(content)
+                    logger.info("Plan generado correctamente")
+                    return data
+                except json.JSONDecodeError as e:
+                    logger.error(f"Error parseando respuesta JSON: {str(e)}")
                     return {"error": f"Error procesando respuesta: {str(e)}"}
-            else:
-                logger.error(f"Respuesta inválida de la API: {response}")
-                return {"error": "No se pudo generar el plan"}
+            
+            return {"error": "No se pudo generar el plan"}
         except Exception as e:
             logger.error(f"Error generando plan: {str(e)}")
             return {"error": f"Error generando plan: {str(e)}"}
-    
+
+    async def chat_stream(self, messages: List[ChatMessage]) -> AsyncGenerator[StreamingResponse, None]:
+        """
+        Genera respuestas en streaming para el chat
+        """
+        try:
+            formatted_messages = [
+                {"role": "system", "content": CHAT_SYSTEM_PROMPT}
+            ] + [
+                {"role": msg.role, "content": msg.content}
+                for msg in messages
+            ]
+            
+            response = await self._send_request(
+                messages=formatted_messages,
+                temperature=get_ai_settings().TEMPERATURE_CHAT,
+                max_tokens=get_ai_settings().MAX_TOKENS_RESPONSE,
+                stream=True
+            )
+            
+            async for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield StreamingResponse(
+                        content=chunk.choices[0].delta.content,
+                        role=MessageRole.ASSISTANT
+                    )
+        except Exception as e:
+            logger.error(f"Error en streaming de chat: {str(e)}")
+            yield StreamingResponse(
+                content=f"Error en la comunicación: {str(e)}",
+                role=MessageRole.ASSISTANT
+            )
+
     def _format_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
         Formatea los mensajes para la API de OpenRouter
