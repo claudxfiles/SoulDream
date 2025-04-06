@@ -94,10 +94,21 @@ async def openrouter_chat_stream(
         if request is None:
             request = OpenRouterChatRequest(message=message)
             
-        # Convertir el mensaje a formato ChatMessage
+        # Convertir el mensaje a formato ChatMessage y agregar el mensaje del sistema
         messages = [
+            ChatMessage(role=MessageRole.SYSTEM, content=CHAT_SYSTEM_PROMPT),
             ChatMessage(role=MessageRole.USER, content=request.message)
         ]
+        
+        # Agregar historial de mensajes si existe
+        if request.messageHistory:
+            messages.extend([
+                ChatMessage(
+                    role=MessageRole.USER if msg.get("role") == "user" else MessageRole.ASSISTANT,
+                    content=msg.get("content", "")
+                )
+                for msg in request.messageHistory
+            ])
 
         async def generate():
             try:
