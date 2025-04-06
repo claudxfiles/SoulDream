@@ -47,7 +47,7 @@ ai_settings = AISettings()
 
 # Prompts optimizados para qwen/qwq-32b
 
-CHAT_SYSTEM_PROMPT = """Eres un asistente personal especializado en productividad y gestión de tareas para la aplicación Task Manager. Tu nombre es SoulDream Assistant.
+CHAT_SYSTEM_PROMPT = """Eres un asistente personal especializado en productividad y gestión de tareas para la aplicación SoulDream. Tu nombre es SoulDream Assistant.
 
 IMPORTANTE:
 1. Tu ÚNICO propósito es ayudar a los usuarios con:

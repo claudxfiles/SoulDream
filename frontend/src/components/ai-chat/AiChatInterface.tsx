@@ -19,7 +19,8 @@ import {
   MessageCircle,
   Activity,
   PlusCircle,
-  Loader2
+  Loader2,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { GoalChatIntegration } from './GoalChatIntegration';
@@ -36,6 +37,7 @@ import { aiService } from '@/services/ai';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from "@/components/ui/input";
 import { AuthUser } from '@/types/auth';
+import { supabase } from '@/lib/supabase';
 
 // Tipos para los mensajes
 interface PersonalizedPlan {
@@ -67,6 +69,13 @@ interface AISettings {
   detailLevel: number;
   aiPersonality: string;
   [key: string]: any;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Componente para un mensaje individual
@@ -137,6 +146,7 @@ const ChatSuggestions = ({ onSelectSuggestion }: { onSelectSuggestion: (suggesti
 export function AiChatInterface() {
   const { user, signInWithGoogle } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
@@ -164,6 +174,61 @@ export function AiChatInterface() {
     scrollToBottom();
   }, [messages]);
 
+  // Cargar conversaciones existentes
+  const loadConversations = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      setConversations(data || []);
+    } catch (error) {
+      console.error('Error al cargar conversaciones:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las conversaciones",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Cargar mensajes de una conversación específica
+  const loadConversationMessages = async (conversationId: string) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const formattedMessages = (data || []).map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.sender,
+        timestamp: new Date(msg.created_at)
+      }));
+
+      setMessages(formattedMessages);
+      setCurrentConversationId(conversationId);
+    } catch (error) {
+      console.error('Error al cargar mensajes:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los mensajes",
+        variant: "destructive"
+      });
+    }
+  };
+
   const createNewConversation = async () => {
     if (!user?.access_token) {
       toast({
@@ -190,6 +255,7 @@ export function AiChatInterface() {
       const data = await response.json();
       setCurrentConversationId(data.conversation_id);
       setMessages([]); // Limpiar mensajes al iniciar nueva conversación
+      loadConversations(); // Recargar lista de conversaciones
       
       toast({
         title: "Nueva conversación iniciada",
@@ -205,144 +271,84 @@ export function AiChatInterface() {
     }
   };
 
-  // Crear una nueva conversación al cargar el componente si no hay una activa y el usuario está autenticado
+  // Cargar conversaciones al iniciar
   useEffect(() => {
-    if (user?.access_token && !currentConversationId && !isLoading) {
-      createNewConversation();
+    if (user) {
+      loadConversations();
     }
-  }, [user, currentConversationId, isLoading]);
+  }, [user]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading || !currentConversationId) return;
+    if (!inputValue.trim() || !currentConversationId || !user?.access_token) return;
 
-    // Crear mensaje del usuario
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
+    const newMessage = {
+      id: Date.now().toString(),
       content: inputValue,
-      sender: 'user',
-      timestamp: new Date(),
-      status: 'sending'
+      sender: 'user' as const,
+      timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => [...prev, newMessage]);
     setInputValue('');
     setIsLoading(true);
 
-    let eventSource: EventSource | null = null;
-
     try {
-      // Crear mensaje inicial de AI
-      const aiMessageId = `ai-${Date.now()}`;
-      const aiMessage: Message = {
-        id: aiMessageId,
-        content: '',
-        sender: 'ai',
-        timestamp: new Date(),
-        status: 'receiving'
-      };
-      
-      setMessages(prev => [...prev, aiMessage]);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai/openrouter-chat-stream`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: inputValue,
+          conversation_id: currentConversationId
+        })
+      });
 
-      // Construir URL con el ID de conversación
-      const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai/openrouter-chat-stream`);
-      url.searchParams.append('message', inputValue);
-      url.searchParams.append('conversation_id', currentConversationId);
-      url.searchParams.append('authorization', `Bearer ${user?.access_token}`);
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
 
-      // Iniciar streaming de chat
-      eventSource = new EventSource(url.toString());
-      
-      eventSource.onmessage = (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data);
+      // Procesar respuesta y actualizar mensajes
+      const reader = response.body?.getReader();
+      let aiResponse = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
           
-          if (data.type === 'done') {
-            eventSource?.close();
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === aiMessageId 
-                  ? { ...msg, status: 'sent' }
-                  : msg
-              )
-            );
-            setIsLoading(false);
-            return;
-          }
+          const text = new TextDecoder().decode(value);
+          aiResponse += text;
           
-          if (data.text) {
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === aiMessageId 
-                  ? { ...msg, content: msg.content + data.text }
-                  : msg
-              )
-            );
-          }
-          
-          if (data.goal_metadata) {
-            handleGoalDetection(data.goal_metadata);
-          }
-        } catch (error) {
-          console.error('Error al procesar mensaje:', error);
-          if (eventSource) {
-            handleStreamError(eventSource, aiMessageId);
-          }
-        }
-      };
-      
-      eventSource.onerror = (error: Event) => {
-        console.error('Error en streaming:', error);
-        if (eventSource) {
-          handleStreamError(eventSource, aiMessageId);
-        }
-      };
-      
-    } catch (error) {
-      console.error('Error al enviar mensaje:', error);
-      setIsLoading(false);
-      
-      let errorMessage = "No se pudo enviar el mensaje. Por favor, intenta de nuevo.";
-      if (error instanceof Error) {
-        if (error.message.includes('iniciar sesión')) {
-          errorMessage = "Necesitas iniciar sesión para usar el chat.";
-          router.push('/login');
+          // Actualizar mensajes con la respuesta parcial
+          setMessages(prev => {
+            const lastMessage = prev[prev.length - 1];
+            if (lastMessage && lastMessage.sender === 'assistant') {
+              return [...prev.slice(0, -1), { ...lastMessage, content: aiResponse }];
+            } else {
+              return [...prev, {
+                id: Date.now().toString(),
+                content: aiResponse,
+                sender: 'assistant',
+                timestamp: new Date()
+              }];
+            }
+          });
         }
       }
-      
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === userMessage.id 
-            ? { ...msg, status: 'error' }
-            : msg
-        )
-      );
-      
+
+      loadConversations(); // Recargar lista de conversaciones para actualizar timestamps
+    } catch (error) {
+      console.error('Error:', error);
       toast({
         title: "Error",
-        description: errorMessage,
+        description: "No se pudo enviar el mensaje",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const handleStreamError = (eventSource: EventSource, messageId: string) => {
-    eventSource.close();
-    setIsLoading(false);
-    // Actualizar estado del mensaje a error
-    setMessages(prev => 
-      prev.map(msg => 
-        msg.id === messageId 
-          ? { ...msg, status: 'error', content: msg.content || 'Error en la comunicación' }
-          : msg
-      )
-    );
-    
-    // Mostrar toast de error
-    toast({
-      title: "Error",
-      description: "Hubo un problema con la conexión. Por favor, intenta de nuevo.",
-      variant: "destructive"
-    });
   };
 
   const handleSelectSuggestion = (suggestion: string) => {
@@ -553,45 +559,67 @@ He actualizado mis ajustes según tus preferencias:
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center p-4 border-b">
-        <h2 className="text-xl font-semibold">Chat con IA</h2>
+    <div className="flex h-full">
+      {/* Lista de conversaciones */}
+      <div className="w-64 border-r p-4 overflow-y-auto">
         <Button 
           onClick={createNewConversation}
           variant="outline"
-          className="flex items-center gap-2"
+          className="w-full mb-4 flex items-center gap-2"
         >
           <PlusCircle className="w-4 h-4" />
           Nueva Conversación
         </Button>
+
+        <div className="space-y-2">
+          {conversations.map((conv) => (
+            <Button
+              key={conv.id}
+              variant={currentConversationId === conv.id ? "default" : "ghost"}
+              className="w-full justify-start text-left"
+              onClick={() => loadConversationMessages(conv.id)}
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              <div className="truncate">
+                <div className="font-medium truncate">{conv.title}</div>
+                <div className="text-xs text-muted-foreground">
+                  {format(new Date(conv.updated_at), 'dd MMM yyyy', { locale: es })}
+                </div>
+              </div>
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
+      {/* Área de chat */}
+      <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.map((message) => (
+            <ChatMessage key={message.id} message={message} />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
 
-      <div className="p-4 border-t">
-        <div className="flex gap-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="Escribe tu mensaje..."
-            disabled={isLoading || !currentConversationId}
-          />
-          <Button 
-            onClick={handleSendMessage}
-            disabled={isLoading || !inputValue.trim() || !currentConversationId}
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </Button>
+        <div className="p-4 border-t">
+          <div className="flex gap-2">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+              placeholder="Escribe tu mensaje..."
+              disabled={isLoading || !currentConversationId}
+            />
+            <Button 
+              onClick={handleSendMessage}
+              disabled={isLoading || !inputValue.trim() || !currentConversationId}
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
