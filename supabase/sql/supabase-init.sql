@@ -176,6 +176,27 @@ CREATE POLICY "Los usuarios pueden ver su propio historial de pagos" ON payment_
 CREATE POLICY "Solo administradores pueden crear registros de pago" ON payment_history
   FOR INSERT WITH CHECK (auth.uid() = user_id OR auth.jwt()->>'role' = 'admin');
 
+-- Habilitar RLS para transactions
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+
+-- Políticas de seguridad para transactions
+CREATE POLICY "Los usuarios pueden ver sus propias transacciones" ON transactions
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Los usuarios pueden crear sus propias transacciones" ON transactions
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Los usuarios pueden actualizar sus propias transacciones" ON transactions
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Los usuarios pueden eliminar sus propias transacciones" ON transactions
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Crear índices para búsquedas eficientes en transactions
+CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
+
 -- Datos iniciales para planes de suscripción
 INSERT INTO subscription_plans (name, description, price, currency, interval, features, is_active)
 VALUES 

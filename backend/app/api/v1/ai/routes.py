@@ -12,6 +12,7 @@ import json
 from typing import Optional, Dict, Any
 import os
 from datetime import datetime
+import uuid
 
 # Configuración del logger
 logger = logging.getLogger(__name__)
@@ -164,17 +165,12 @@ async def generate_personalized_plan(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/openrouter-chat-stream")
-@router.get("/openrouter-chat-stream")
 async def openrouter_chat_stream(
-    message: str,
-    conversation_id: str,
-    authorization: str = None,
-    request: OpenRouterChatRequest = None,
+    request: OpenRouterChatRequest,
     current_user = Depends(get_current_user)
 ):
     """
     Genera una respuesta de chat en streaming utilizando OpenRouter
-    Soporta tanto GET (con query params) como POST (con body)
     """
     try:
         # Verificación de autenticación
@@ -189,71 +185,64 @@ async def openrouter_chat_stream(
         user_id = current_user.get("sub")
         logger.info(f"User authenticated successfully: {user_id}")
 
-        # Si es GET, crear el request object manualmente
-        if request is None:
-            request = OpenRouterChatRequest(message=message)
+        # Validar que tenemos un mensaje
+        if not request.message:
+            raise HTTPException(
+                status_code=422,
+                detail="El mensaje no puede estar vacío"
+            )
             
         # Guardar el mensaje del usuario
+        conversation_id = str(uuid.uuid4())  # Generar un nuevo ID si no se proporciona
         await save_message(user_id, conversation_id, request.message, "user")
             
-        # Convertir el mensaje a formato ChatMessage y agregar el mensaje del sistema
+        # Convertir el mensaje a formato ChatMessage
         messages = [
             ChatMessage(role=MessageRole.SYSTEM, content=CHAT_SYSTEM_PROMPT),
             ChatMessage(role=MessageRole.USER, content=request.message)
         ]
         
-        # Obtener historial de mensajes de la base de datos
-        history_result = supabase_client.table('messages')\
-            .select('*')\
-            .eq('conversation_id', conversation_id)\
-            .order('created_at', desc=False)\
-            .limit(10)\
-            .execute()
-            
-        if history_result.data:
-            messages.extend([
-                ChatMessage(
-                    role=MessageRole.USER if msg["sender"] == "user" else MessageRole.ASSISTANT,
-                    content=msg["content"]
-                )
-                for msg in history_result.data
-            ])
+        # Obtener historial de mensajes si existe conversation_id
+        if conversation_id:
+            history_result = supabase_client.table('messages')\
+                .select('*')\
+                .eq('conversation_id', conversation_id)\
+                .order('created_at', desc=False)\
+                .limit(10)\
+                .execute()
+                
+            if history_result.data:
+                messages.extend([
+                    ChatMessage(
+                        role=MessageRole.USER if msg["sender"] == "user" else MessageRole.ASSISTANT,
+                        content=msg["content"]
+                    )
+                    for msg in history_result.data
+                ])
 
         async def generate():
             try:
                 response_buffer = ""
-                # Obtener el generador de streaming
                 async for chunk in openrouter_service.chat_stream(messages):
+                    if chunk.is_error:
+                        yield f"data: {json.dumps({'error': chunk.content})}\n\n"
+                        continue
+                        
+                    response_buffer += chunk.content
+                    yield f"data: {json.dumps({'text': chunk.content})}\n\n"
+                    
                     if chunk.is_complete:
                         # Guardar la respuesta completa del asistente
                         if response_buffer:
                             await save_message(user_id, conversation_id, response_buffer, "assistant")
-                            # Analizar si hay una meta
-                            goal_metadata = openrouter_service._extract_goal_metadata(response_buffer)
-                            if goal_metadata and goal_metadata.get("has_goal", False):
-                                yield f"data: {json.dumps({'goal_metadata': goal_metadata})}\n\n"
-                        yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                        break
-                    
-                    if chunk.content:
-                        # Acumular el contenido para análisis posterior
-                        response_buffer += chunk.content
-                        # Enviar el contenido del chunk
-                        yield f"data: {json.dumps({'text': chunk.content})}\n\n"
-                    
-                    if chunk.is_error:
-                        yield f"data: {json.dumps({'error': chunk.content})}\n\n"
-                        break
-
+                            
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                
             except Exception as e:
                 logger.error(f"Error en stream generator: {str(e)}")
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                yield f"data: {json.dumps({'text': 'Lo siento, hubo un error en la comunicación.'})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-        # Determinar el origen permitido basado en el entorno
-        allowed_origin = "http://localhost:3000" if os.environ.get("ENV", "development") == "development" else "https://presentandflow.cl"
-        
         return StreamingResponse(
             generate(),
             media_type="text/event-stream",
@@ -261,30 +250,15 @@ async def openrouter_chat_stream(
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "Content-Type": "text/event-stream",
-                "Access-Control-Allow-Origin": allowed_origin,
+                "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Headers": "Authorization, Content-Type",
-                "Access-Control-Allow-Methods": "GET, POST",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
                 "Access-Control-Allow-Credentials": "true",
             }
         )
     except Exception as e:
         logger.error(f"Error en openrouter_chat_stream: {str(e)}")
-        async def fallback_response():
-            yield f"data: {json.dumps({'text': 'Lo siento, hubo un problema con el servicio.'})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-            
-        allowed_origin = "http://localhost:3000" if os.environ.get("ENV", "development") == "development" else "https://presentandflow.cl"
-        
-        return StreamingResponse(
-            fallback_response(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Content-Type": "text/event-stream",
-                "Access-Control-Allow-Origin": allowed_origin,
-                "Access-Control-Allow-Headers": "Authorization, Content-Type",
-                "Access-Control-Allow-Methods": "GET, POST",
-                "Access-Control-Allow-Credentials": "true",
-            }
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
         ) 

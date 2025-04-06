@@ -307,7 +307,7 @@ export function AiChatInterface() {
         },
         body: JSON.stringify({
           message: inputValue,
-          conversation_id: currentConversationId
+          model: "qwen/qwq-32b:online"
         })
       });
 
@@ -315,7 +315,6 @@ export function AiChatInterface() {
         throw new Error(`Error: ${response.status}`);
       }
 
-      // Procesar respuesta y actualizar mensajes
       const reader = response.body?.getReader();
       let aiResponse = '';
 
@@ -325,33 +324,55 @@ export function AiChatInterface() {
           if (done) break;
           
           const text = new TextDecoder().decode(value);
-          aiResponse += text;
+          const lines = text.split('\n');
           
-          // Actualizar mensajes con la respuesta parcial
-          setMessages(prev => {
-            const lastMessage = prev[prev.length - 1];
-            if (lastMessage && lastMessage.sender === 'assistant') {
-              return [...prev.slice(0, -1), { ...lastMessage, content: aiResponse }];
-            } else {
-              return [...prev, {
-                id: Date.now().toString(),
-                content: aiResponse,
-                sender: 'assistant',
-                timestamp: new Date()
-              }];
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.error) {
+                  console.error('Error from server:', data.error);
+                  continue;
+                }
+                
+                if (data.text) {
+                  aiResponse += data.text;
+                  setMessages(prev => {
+                    const lastMessage = prev[prev.length - 1];
+                    if (lastMessage && lastMessage.sender === 'assistant') {
+                      return [...prev.slice(0, -1), { ...lastMessage, content: aiResponse }];
+                    } else {
+                      return [...prev, {
+                        id: Date.now().toString(),
+                        content: aiResponse,
+                        sender: 'assistant',
+                        timestamp: new Date()
+                      }];
+                    }
+                  });
+                }
+                
+                if (data.type === 'done') {
+                  break;
+                }
+              } catch (e) {
+                console.error('Error parsing SSE data:', e);
+              }
             }
-          });
+          }
         }
       }
 
-      loadConversations(); // Recargar lista de conversaciones para actualizar timestamps
+      loadConversations(); // Recargar lista de conversaciones
     } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo enviar el mensaje",
-        variant: "destructive"
-      });
+      console.error('Error sending message:', error);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        content: 'Lo siento, hubo un error al procesar tu mensaje.',
+        sender: 'assistant',
+        timestamp: new Date()
+      }]);
     } finally {
       setIsLoading(false);
     }
