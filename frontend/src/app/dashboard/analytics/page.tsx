@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductivityAnalytics } from "@/components/analytics/ProductivityAnalytics";
 import { HabitAnalytics } from "@/components/analytics/HabitAnalytics";
 import { FinanceAnalytics } from "@/components/analytics/FinanceAnalytics";
+import { AllInsights } from "@/components/analytics/AllInsights";
 
 export default function AnalyticsPage() {
   return (
@@ -37,7 +38,7 @@ export default function AnalyticsPage() {
         <TabsContent value="insights" className="space-y-4">
           <div className="grid gap-4">
             <h3 className="text-xl font-semibold">Todos los Insights</h3>
-            {/* TODO: Implementar vista general de insights */}
+            <AllInsights />
           </div>
         </TabsContent>
       </Tabs>

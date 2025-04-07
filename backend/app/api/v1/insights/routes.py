@@ -2,22 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from app.schemas.ai import AIInsight
 from app.db.database import get_supabase_client
+from app.api.deps import get_current_user
 from datetime import datetime, timedelta
-from app.api.v1.subscriptions import routes as subscription_routes
-from app.api.v1.auth import routes as auth_routes
-# ... otros imports
 
-api_router = APIRouter()
+router = APIRouter()
 
-api_router.include_router(
-    subscription_routes.router,
-    prefix="/subscriptions",
-    tags=["subscriptions"]
-)
-
-# ... otros routers 
-
-@api_router.get("/insights/", response_model=List[AIInsight])
+@router.get("/", response_model=List[AIInsight])
 async def get_insights(user_id: str = Depends(get_current_user)):
     """
     Obtiene los insights del usuario, incluyendo:
