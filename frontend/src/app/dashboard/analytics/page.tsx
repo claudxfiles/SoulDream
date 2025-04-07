@@ -1,6 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductivityAnalytics } from "@/components/analytics/ProductivityAnalytics";
-import { HabitAnalytics } from "@/components/analytics/HabitAnalytics";
+import { HabitsAnalytics } from "@/components/analytics/HabitsAnalytics";
 import { FinanceAnalytics } from "@/components/analytics/FinanceAnalytics";
 import { AllInsights } from "@/components/analytics/AllInsights";
 
@@ -26,7 +26,7 @@ export default function AnalyticsPage() {
         <TabsContent value="habitos" className="space-y-4">
           <div className="grid gap-4">
             <h3 className="text-xl font-semibold">Análisis de Hábitos</h3>
-            <HabitAnalytics />
+            <HabitsAnalytics />
           </div>
         </TabsContent>
         <TabsContent value="finanzas" className="space-y-4">

@@ -5,6 +5,8 @@ from app.db.database import get_supabase_client
 from datetime import datetime, timedelta
 from app.api.v1.subscriptions import routes as subscription_routes
 from app.api.v1.auth import routes as auth_routes
+from app.api.v1.insights import routes as insights_routes
+from app.api.v1.habits import routes as habits_routes
 # ... otros imports
 
 api_router = APIRouter()
@@ -13,6 +15,18 @@ api_router.include_router(
     subscription_routes.router,
     prefix="/subscriptions",
     tags=["subscriptions"]
+)
+
+api_router.include_router(
+    insights_routes.router,
+    prefix="/insights",
+    tags=["insights"]
+)
+
+api_router.include_router(
+    habits_routes.router,
+    prefix="/habits",
+    tags=["habits"]
 )
 
 # ... otros routers 

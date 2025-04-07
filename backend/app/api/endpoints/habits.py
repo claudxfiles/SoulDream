@@ -23,6 +23,103 @@ def get_service_client():
     """Obtiene un cliente Supabase con rol de servicio (con caché)"""
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
 
+@router.get("/analytics", response_model=dict)
+async def get_habits_analytics(
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Obtiene analíticas de los hábitos del usuario
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Obteniendo analíticas para el usuario: {current_user.id}")
+    
+    try:
+        supabase_service = get_service_client()
+        
+        # Obtener todos los hábitos activos del usuario
+        habits_response = supabase_service.table("habits") \
+            .select("*") \
+            .eq("user_id", current_user.id) \
+            .eq("is_active", True) \
+            .execute()
+            
+        habits = habits_response.data
+        
+        # Obtener los logs de los últimos 30 días para todos los hábitos
+        today = datetime.now().date()
+        thirty_days_ago = today - timedelta(days=30)
+        
+        habit_streaks = []
+        daily_completions = []
+        completion_heatmap = []
+        
+        for habit in habits:
+            # Obtener logs del hábito
+            logs_response = supabase_service.table("habit_logs") \
+                .select("*") \
+                .eq("habit_id", habit["id"]) \
+                .gte("completed_date", thirty_days_ago.isoformat()) \
+                .order("completed_date") \
+                .execute()
+                
+            logs = logs_response.data
+            
+            # Calcular racha actual y mejor racha
+            current_streak = habit.get("current_streak", 0)
+            best_streak = habit.get("best_streak", 0)
+            
+            # Calcular tasa de completado
+            total_days = (today - thirty_days_ago).days
+            completed_days = len(logs)
+            completion_rate = (completed_days / total_days) * 100 if total_days > 0 else 0
+            
+            habit_streaks.append({
+                "habit_name": habit["title"],
+                "current_streak": current_streak,
+                "best_streak": best_streak,
+                "completion_rate": round(completion_rate, 2)
+            })
+            
+            # Agregar datos para el heatmap
+            for log in logs:
+                completion_heatmap.append({
+                    "date": log["completed_date"],
+                    "value": 1
+                })
+            
+            # Calcular completados por día
+            daily_counts = {}
+            for log in logs:
+                date = log["completed_date"]
+                if date not in daily_counts:
+                    daily_counts[date] = {
+                        "completed_count": 0,
+                        "total_count": len(habits)
+                    }
+                daily_counts[date]["completed_count"] += 1
+            
+            # Convertir daily_counts a lista
+            for date, counts in daily_counts.items():
+                daily_completions.append({
+                    "date": date,
+                    "completed_count": counts["completed_count"],
+                    "total_count": counts["total_count"],
+                    "completion_rate": (counts["completed_count"] / counts["total_count"]) * 100
+                })
+        
+        return {
+            "habit_streaks": habit_streaks,
+            "daily_completions": sorted(daily_completions, key=lambda x: x["date"]),
+            "completion_heatmap": sorted(completion_heatmap, key=lambda x: x["date"])
+        }
+        
+    except Exception as e:
+        logger.error(f"Error al obtener analíticas de hábitos: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener analíticas de hábitos: {str(e)}"
+        )
+
 @router.get("/", response_model=List[Habit])
 async def read_habits(
     current_user: User = Depends(get_current_user)

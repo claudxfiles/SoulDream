@@ -4,6 +4,24 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
+class InsightType(str, Enum):
+    productivity = "productivity"
+    habits = "habits"
+    financial = "financial"
+    goal_achievement = "goal_achievement"
+    time_management = "time_management"
+    prediction = "prediction"
+
+class AIInsight(BaseModel):
+    id: str
+    user_id: str
+    insight_type: InsightType
+    description: str
+    data: Dict[str, Any]
+    relevance: int = Field(ge=0, le=100)
+    created_at: str
+    related_metrics: Optional[Dict[str, Any]] = None
+
 class MessageSender(str, Enum):
     user = "user"
     ai = "ai"
