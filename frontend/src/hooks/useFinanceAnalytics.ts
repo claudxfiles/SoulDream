@@ -8,31 +8,28 @@ interface ExpenseCategory {
   percentage: number;
 }
 
-interface ExpenseTrend {
-  date: string;
-  income: number;
-  expense: number;
+interface Subscription {
+  name: string;
+  amount: number;
+  billing_cycle: string;
 }
 
-interface SubscriptionAnalytics {
-  total_monthly: number;
-  by_category: ExpenseCategory[];
-  count: number;
-}
-
-interface FinanceAnalyticsData {
+interface FinanceData {
   expenses_by_category: ExpenseCategory[];
-  expense_trend: ExpenseTrend[];
-  subscriptions: SubscriptionAnalytics;
+  expense_trend: Array<{
+    date: string;
+    amount: number;
+  }>;
+  subscriptions: Subscription[];
 }
 
 export function useFinanceAnalytics() {
-  return useQuery<FinanceAnalyticsData>({
+  return useQuery<FinanceData>({
     queryKey: ['financeAnalytics'],
     queryFn: async () => {
-      const response = await fetch('/api/analytics/finances');
+      const response = await fetch('/api/analytics/finance');
       if (!response.ok) {
-        throw new Error('Error al obtener datos de análisis financiero');
+        throw new Error('Error al obtener datos financieros');
       }
       return response.json();
     },

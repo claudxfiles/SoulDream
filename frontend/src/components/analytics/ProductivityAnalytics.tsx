@@ -1,9 +1,9 @@
 'use client';
 
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useProductivityAnalytics } from "@/hooks/useProductivityAnalytics";
-import { LineChart as LineChartIcon, Wallet } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart as LineChartIcon, Wallet, PieChart as PieChartIcon, BarChart as BarChartIcon } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { PieChart, Pie, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -33,104 +33,140 @@ export function ProductivityAnalytics() {
   ];
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+    <div className="grid gap-6">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
         {/* Card de Productividad */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between space-y-2">
-            <h3 className="text-sm font-medium">Productividad</h3>
-            <LineChartIcon className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="mt-4">
-            <p className="text-2xl font-bold">
-              {productivityPercentage > 0 ? '+' : ''}{productivityPercentage}%
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Has completado más tareas de alta prioridad esta semana que la semana pasada
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <p>Esta semana</p>
-                <p className="text-lg font-bold">{data.current_week_high_priority}</p>
+        <Card className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 transition-all duration-300 hover:shadow-lg">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">Productividad</CardTitle>
+              <LineChartIcon className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-baseline">
+                <p className="text-4xl font-bold text-indigo-600 dark:text-indigo-400 tracking-tight">
+                  {productivityPercentage > 0 ? '+' : ''}{productivityPercentage}%
+                </p>
+                <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">vs semana anterior</span>
               </div>
-              <div>
-                <p>Semana pasada</p>
-                <p className="text-lg font-bold">{data.last_week_high_priority}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Has completado más tareas de alta prioridad esta semana que la semana pasada
+              </p>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Esta semana</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{data.current_week_high_priority}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Semana pasada</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{data.last_week_high_priority}</p>
+                </div>
               </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
 
         {/* Card de Distribución de Tareas */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between space-y-2">
-            <h3 className="text-sm font-medium">Distribución de Tareas por Prioridad</h3>
-          </div>
-          <div className="mt-4 h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={priorityData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {priorityData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={Object.values(PRIORITY_COLORS)[index]} 
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-              <div className="flex items-center">
-                <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: PRIORITY_COLORS.high }} />
-                <span>Alta: {data.tasks_by_priority.high}%</span>
-              </div>
-              <div className="flex items-center">
-                <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: PRIORITY_COLORS.medium }} />
-                <span>Media: {data.tasks_by_priority.medium}%</span>
-              </div>
-              <div className="flex items-center">
-                <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: PRIORITY_COLORS.low }} />
-                <span>Baja: {data.tasks_by_priority.low}%</span>
-              </div>
+        <Card className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 transition-all duration-300 hover:shadow-lg">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">Distribución de Tareas</CardTitle>
+              <PieChartIcon className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             </div>
-          </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={priorityData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {priorityData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={Object.values(PRIORITY_COLORS)[index]}
+                        className="transition-all duration-300 hover:opacity-80" 
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      borderRadius: '8px',
+                      border: 'none',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-6 grid grid-cols-3 gap-4">
+              {priorityData.map((item, index) => (
+                <div key={item.name} className="flex flex-col items-center space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <div 
+                      className="h-3 w-3 rounded-full" 
+                      style={{ backgroundColor: Object.values(PRIORITY_COLORS)[index] }} 
+                    />
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{item.name}</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{item.value}%</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
         </Card>
       </div>
 
       {/* Gráfico de Tendencia */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between space-y-2">
-          <h3 className="text-sm font-medium">Tareas Completadas</h3>
-        </div>
-        <div className="mt-4 h-[200px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data.tasks_completion_trend}>
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={(date) => format(parseISO(date), 'dd/MM', { locale: es })}
-              />
-              <YAxis />
-              <Tooltip 
-                labelFormatter={(date) => format(parseISO(date), 'dd MMMM yyyy', { locale: es })}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="completed" 
-                stroke="#4f46e5" 
-                strokeWidth={2} 
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      <Card className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 transition-all duration-300 hover:shadow-lg col-span-2">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">Tareas Completadas</CardTitle>
+            <BarChartIcon className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.tasks_completion_trend}>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={(date) => format(parseISO(date), 'dd/MM', { locale: es })}
+                  className="text-sm"
+                />
+                <YAxis className="text-sm" />
+                <Tooltip 
+                  labelFormatter={(date) => format(parseISO(date), 'dd MMMM yyyy', { locale: es })}
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderRadius: '8px',
+                    border: 'none',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="completed" 
+                  stroke="#4f46e5" 
+                  strokeWidth={3}
+                  dot={{ fill: '#4f46e5', strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: '#4f46e5', strokeWidth: 0 }}
+                  className="transition-all duration-300"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );
