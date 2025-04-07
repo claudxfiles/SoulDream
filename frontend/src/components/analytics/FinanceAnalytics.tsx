@@ -22,13 +22,21 @@ interface SubscriptionAnalytics {
   count: number;
 }
 
+// Colores primarios del sistema de diseño
+const PRIMARY_COLOR = '#4f46e5'; // Indigo
+const SECONDARY_COLOR = '#10b981'; // Emerald
+const ACCENT_COLOR = '#f59e0b'; // Amber
+
 const CATEGORY_COLORS = {
-  'Alimentación': '#10b981', // verde
-  'Transporte': '#ef4444', // rojo
-  'Hogar': '#3b82f6', // azul
-  'Salud': '#ec4899', // rosa
-  'Ocio': '#f59e0b', // naranja
-  'Otros': '#6b7280', // gris
+  'Vivienda': PRIMARY_COLOR,
+  'Servicios': '#6366f1', // Indigo más claro
+  'Ropa': '#818cf8', // Indigo aún más claro
+  'Suscripciones': SECONDARY_COLOR,
+  'Software': '#34d399', // Emerald más claro
+  'Alimentación': '#6ee7b7', // Emerald aún más claro
+  'Transporte': ACCENT_COLOR,
+  'Ocio': '#fcd34d', // Amber más claro
+  'Otros': '#94a3b8', // Slate
 };
 
 export function FinanceAnalytics() {
@@ -83,14 +91,14 @@ export function FinanceAnalytics() {
                 <Line 
                   type="monotone" 
                   dataKey="income" 
-                  stroke="#10b981" 
+                  stroke={SECONDARY_COLOR}
                   name="Ingresos"
                   strokeWidth={2}
                 />
                 <Line 
                   type="monotone" 
                   dataKey="expense" 
-                  stroke="#ef4444" 
+                  stroke={PRIMARY_COLOR}
                   name="Gastos"
                   strokeWidth={2}
                 />
