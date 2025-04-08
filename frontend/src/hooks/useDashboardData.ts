@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { differenceInDays, endOfDay, format, startOfDay, startOfMonth } from 'date-fns';
 
 interface Goal {
   id: string;
@@ -23,20 +24,52 @@ interface AreaProgressMap {
   [key: string]: AreaProgress;
 }
 
+interface Task {
+  id: string;
+  title: string;
+  due_date: string | null;
+  priority: 'low' | 'medium' | 'high';
+}
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string | null;
+  description?: string;
+}
+
+interface FinancialSummary {
+  income: number;
+  fixedExpenses: number;
+  variableExpenses: number;
+  savings: number;
+  balance: number;
+  monthlyChange: number;
+}
+
+interface HabitWithProgress {
+  id: string;
+  name: string;
+  progress: number;
+  last_completed?: string;
+}
+
 interface DashboardData {
   goalsProgress: number;
   topHabit: {
     name: string;
     streak: number;
   };
-  finances: {
-    balance: number;
-    monthlyChange: number;
-  };
+  finances: FinancialSummary;
   nextEvent: {
     title: string;
     time: string;
-  };
+  } | null;
+  upcomingTasks: Task[];
+  goalsList: (Goal & { progress: number })[];
+  todayEvents: CalendarEvent[];
+  habitsList: HabitWithProgress[];
 }
 
 export function useDashboardData() {
@@ -46,227 +79,213 @@ export function useDashboardData() {
 
   useEffect(() => {
     async function fetchDashboardData() {
+      setLoading(true);
+      setError(null);
       try {
-        // First check if we have an authenticated user
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           throw new Error('No authenticated user');
         }
-
         const userId = session.user.id;
+        const now = new Date();
 
-        // Obtener metas activas del usuario
-        const { data: goals, error: goalsError } = await supabase
+        const { data: goalsData, error: goalsError } = await supabase
           .from('goals')
-          .select('id, title, area')
-          .eq('user_id', userId);
+          .select('id, title, area, status')
+          .eq('user_id', userId)
+          .neq('status', 'archived');
         
-        if (goalsError) {
-          console.error('Error fetching goals:', goalsError);
-          throw goalsError;
-        }
+        if (goalsError) throw goalsError;
+        const goals: Goal[] = goalsData || [];
 
-        // Obtener los pasos de todas las metas
-        const { data: steps, error: stepsError } = await supabase
+        const { data: stepsData, error: stepsError } = await supabase
           .from('goal_steps')
           .select('id, goal_id, status')
-          .in('goal_id', goals?.map(g => g.id) || []);
+          .in('goal_id', goals.map(g => g.id));
 
-        if (stepsError) {
-          console.error('Error fetching goal steps:', stepsError);
-          throw stepsError;
-        }
+        if (stepsError) throw stepsError;
+        const steps: GoalStep[] = stepsData || [];
 
-        // Agrupar los pasos por área y calcular progreso
-        const goalsByArea = (goals as Goal[])?.reduce<AreaProgressMap>((acc, goal) => {
-          if (!acc[goal.area]) {
-            acc[goal.area] = { goals: [], totalSteps: 0, completedSteps: 0 };
-          }
-          const goalSteps = (steps as GoalStep[])?.filter(step => step.goal_id === goal.id) || [];
+        const goalsWithProgress = goals.map(goal => {
+          const goalSteps = steps.filter(step => step.goal_id === goal.id);
           const completedSteps = goalSteps.filter(step => step.status === 'completed').length;
-          
-          acc[goal.area].goals.push({
+          return {
             ...goal,
-            progress: goalSteps.length > 0 ? (completedSteps / goalSteps.length) * 100 : 0
-          });
-          acc[goal.area].totalSteps += goalSteps.length;
-          acc[goal.area].completedSteps += completedSteps;
-          
-          return acc;
-        }, {});
+            progress: goalSteps.length > 0 ? Math.round((completedSteps / goalSteps.length) * 100) : 0,
+          };
+        });
 
-        // Calcular el progreso promedio total
-        const areas = Object.values(goalsByArea || {});
-        const totalProgress = areas.length > 0
-          ? areas.reduce((acc, area) => {
-              const areaProgress = area.totalSteps > 0 
-                ? (area.completedSteps / area.totalSteps) * 100 
-                : 0;
-              return acc + areaProgress;
-            }, 0) / areas.length
-          : 0;
+        const totalSteps = steps.length;
+        const totalCompletedSteps = steps.filter(step => step.status === 'completed').length;
+        const overallGoalsProgress = totalSteps > 0 ? Math.round((totalCompletedSteps / totalSteps) * 100) : 0;
 
-        // Obtener hábitos
-        const { data: habits, error: habitsError } = await supabase
+        const { data: habitsData, error: habitsError } = await supabase
           .from('habits')
           .select('id, title')
           .eq('user_id', userId)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: true });
 
-        if (habitsError) {
-          console.error('Error fetching habits:', habitsError);
-          throw habitsError;
-        }
+        if (habitsError) throw habitsError;
+        const habits = habitsData || [];
 
-        // Obtener logs para los hábitos
-        const habitIds = habits?.map(h => h.id) || [];
-        const { data: habitLogs, error: logsError } = await supabase
+        const { data: habitLogsData, error: logsError } = await supabase
           .from('habit_logs')
           .select('habit_id, completed_date, value')
-          .in('habit_id', habitIds)
+          .in('habit_id', habits.map(h => h.id))
           .order('completed_date', { ascending: false });
 
-        if (logsError) {
-          console.error('Error fetching habit logs:', logsError);
-          throw logsError;
-        }
+        if (logsError) throw logsError;
+        const habitLogs = habitLogsData || [];
 
-        // Combinar hábitos con sus logs
-        const habitsWithLogs = habits?.map(habit => ({
-          ...habit,
-          name: habit.title,
-          habit_logs: habitLogs?.filter(log => log.habit_id === habit.id) || []
-        }));
-
-        // Calcular racha para cada hábito
-        const habitsWithStreaks = habitsWithLogs?.map(habit => {
-          const logs = habit.habit_logs || [];
+        let topHabitResult = { name: 'No habits yet', streak: 0 };
+        const habitsListWithProgress: HabitWithProgress[] = habits.map(habit => {
+          const logs = habitLogs.filter(log => log.habit_id === habit.id);
           const completedLogs = logs
             .filter(log => log.value > 0)
             .sort((a, b) => new Date(b.completed_date).getTime() - new Date(a.completed_date).getTime());
 
-          let streak = 0;
-          if (completedLogs.length > 0) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            let currentDate = new Date(completedLogs[0].completed_date);
-            currentDate.setHours(0, 0, 0, 0);
+          let currentStreak = 0;
+          let lastCompletedDate: string | undefined = undefined;
 
-            // Si el último log no es de hoy o ayer, no hay racha activa
-            const diffDays = Math.floor((today.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays <= 1) {
-              streak = 1;
-              
-              // Contar días consecutivos hacia atrás
-              for (let i = 1; i < completedLogs.length; i++) {
-                const prevDate = new Date(completedLogs[i].completed_date);
-                prevDate.setHours(0, 0, 0, 0);
-                
-                const diff = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-                if (diff === 1) {
-                  streak++;
-                  currentDate = prevDate;
-                } else {
-                  break;
-                }
-              }
-            }
+          if (completedLogs.length > 0) {
+             lastCompletedDate = completedLogs[0].completed_date;
+             const today = startOfDay(now);
+             let currentDate = startOfDay(new Date(completedLogs[0].completed_date));
+
+             const diffDays = differenceInDays(today, currentDate);
+
+             if (diffDays <= 1) {
+               currentStreak = 1;
+               for (let i = 1; i < completedLogs.length; i++) {
+                 const prevDate = startOfDay(new Date(completedLogs[i].completed_date));
+                 if (differenceInDays(currentDate, prevDate) === 1) {
+                   currentStreak++;
+                   currentDate = prevDate;
+                 } else {
+                   break;
+                 }
+               }
+             }
+          }
+
+          if (currentStreak > topHabitResult.streak) {
+             topHabitResult = { name: habit.title, streak: currentStreak };
           }
 
           return {
-            name: habit.name,
-            streak
+            id: habit.id,
+            name: habit.title,
+            progress: currentStreak,
+            last_completed: lastCompletedDate
           };
-        }) || [];
+        });
 
-        // Obtener el hábito con la racha más larga
-        const topHabit = habitsWithStreaks.reduce((max, habit) => 
-          habit.streak > max.streak ? habit : max, 
-          { name: 'No habits yet', streak: 0 }
-        );
+        const startOfMonthDate = startOfMonth(now);
+        const endOfToday = endOfDay(now);
 
-        // Obtener balance financiero
-        const currentDate = new Date();
-        const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-
-        // Obtener todas las transacciones del mes actual
-        const { data: transactions, error: transactionsError } = await supabase
+        const { data: transactionsData, error: transactionsError } = await supabase
           .from('transactions')
-          .select('*')
+          .select('amount, type, category')
           .eq('user_id', userId)
-          .gte('date', firstDayOfMonth.toISOString())
-          .lte('date', currentDate.toISOString());
+          .gte('date', startOfMonthDate.toISOString())
+          .lte('date', endOfToday.toISOString());
 
         if (transactionsError) throw transactionsError;
+        const transactions = transactionsData || [];
 
-        // Calcular ingresos y gastos
-        const monthlyIncome = transactions
-          ?.filter(t => t.type.toLowerCase() === 'income')
-          .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+        let income = 0;
+        let fixedExpenses = 0;
+        let variableExpenses = 0;
+        transactions.forEach(t => {
+          if (t.type === 'income') {
+            income += t.amount;
+          } else if (t.type === 'expense') {
+            if (['rent', 'loan', 'subscription'].includes(t.category?.toLowerCase() || '')) {
+               fixedExpenses += t.amount;
+            } else {
+               variableExpenses += t.amount;
+            }
+          }
+        });
+        const totalExpenses = fixedExpenses + variableExpenses;
+        const currentBalance = income - totalExpenses;
+        const savings = income - totalExpenses;
 
-        const monthlyExpenses = transactions
-          ?.filter(t => t.type.toLowerCase() === 'expense')
-          .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0) || 0;
+        const financialSummary: FinancialSummary = {
+          income,
+          fixedExpenses,
+          variableExpenses,
+          savings: savings > 0 ? savings : 0,
+          balance: currentBalance,
+          monthlyChange: 50,
+        };
 
-        // Obtener gastos de suscripciones
-        const { data: subscriptions_tracker } = await supabase
-          .from('subscriptions_tracker')
-          .select('amount')
+        const { data: tasksData, error: tasksError } = await supabase
+          .from('tasks')
+          .select('id, title, due_date, priority')
           .eq('user_id', userId)
-          .eq('status', 'active');
+          .eq('status', 'pending')
+          .order('due_date', { ascending: true, nullsFirst: false })
+          .limit(3);
 
-        const subscriptionExpenses = subscriptions_tracker
-          ?.reduce((sum, sub) => sum + Number(sub.amount), 0) || 0;
+        if (tasksError) throw tasksError;
+        const upcomingTasks: Task[] = tasksData || [];
 
-        const currentBalance = monthlyIncome - (monthlyExpenses + subscriptionExpenses);
+        const startOfToday = startOfDay(now);
 
-        // Calcular el cambio porcentual respecto al mes anterior
-        const monthlyChange = monthlyIncome > 0 
-          ? ((monthlyIncome - (monthlyExpenses + subscriptionExpenses)) / monthlyIncome) * 100 
-          : 0;
+        const { data: eventsData, error: eventsError } = await supabase
+           .from('calendar_events')
+           .select('id, title, start_time, end_time, description')
+           .eq('user_id', userId)
+           .gte('start_time', startOfToday.toISOString())
+           .lte('start_time', endOfToday.toISOString())
+           .order('start_time', { ascending: true });
 
-        // Obtener próximo evento
-        const { data: events, error: eventsError } = await supabase
-          .from('calendar_events')
-          .select('title, start_time')
-          .eq('user_id', userId)
-          .gte('start_time', new Date().toISOString())
-          .order('start_time')
-          .limit(1);
+         if (eventsError) throw eventsError;
+         const todayEvents: CalendarEvent[] = eventsData || [];
 
-        if (eventsError) {
-          console.error('Error fetching events:', eventsError);
-          throw eventsError;
+         const { data: nextEventData, error: nextEventError } = await supabase
+           .from('calendar_events')
+           .select('title, start_time')
+           .eq('user_id', userId)
+           .gte('start_time', now.toISOString())
+           .order('start_time', { ascending: true })
+           .limit(1)
+           .single();
+
+        let nextEventResult = null;
+        if (nextEventData && !nextEventError) {
+          nextEventResult = {
+            title: nextEventData.title,
+            time: format(new Date(nextEventData.start_time), 'HH:mm'),
+          };
+        } else if (nextEventError && nextEventError.code !== 'PGRST116') {
+            throw nextEventError;
         }
 
         setData({
-          goalsProgress: Math.round(totalProgress),
-          topHabit: {
-            name: topHabit.name,
-            streak: topHabit.streak,
-          },
-          finances: {
-            balance: currentBalance,
-            monthlyChange: Math.round(monthlyChange),
-          },
-          nextEvent: {
-            title: events?.[0]?.title || 'No upcoming events',
-            time: events?.[0]?.start_time ? new Date(events[0].start_time).toLocaleTimeString('es-ES', {
-              hour: '2-digit',
-              minute: '2-digit'
-            }) : '-',
-          },
+          goalsProgress: overallGoalsProgress,
+          topHabit: topHabitResult,
+          finances: financialSummary,
+          nextEvent: nextEventResult,
+          upcomingTasks: upcomingTasks,
+          goalsList: goalsWithProgress,
+          todayEvents: todayEvents,
+          habitsList: habitsListWithProgress,
         });
+
       } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError(err as Error);
+        console.error("Error fetching dashboard data:", err);
+        setError(err instanceof Error ? err : new Error('An unknown error occurred'));
       } finally {
         setLoading(false);
       }
     }
 
     fetchDashboardData();
+
+    return () => {
+    };
   }, []);
 
   return { data, loading, error };
