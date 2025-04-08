@@ -22,6 +22,7 @@ import { CalendarDayCard } from '@/components/dashboard/CalendarDayCard';
 import { FinanceSummaryCard } from '@/components/dashboard/FinanceSummaryCard';
 import { HabitsListCard } from '@/components/dashboard/HabitsListCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FinanceOverviewCard } from '@/components/dashboard/FinanceOverviewCard';
 
 export default function DashboardPage() {
   const { data, loading, error } = useDashboardData();
@@ -118,6 +119,8 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          <FinanceOverviewCard finances={safeData.finances} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6">

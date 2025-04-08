@@ -193,14 +193,41 @@ export function useDashboardData() {
         if (transactionsError) throw transactionsError;
         const transactions = transactionsData || [];
 
+        const { data: subscriptionsTrackerData, error: subscriptionsTrackerError } = await supabase
+          .from('subscriptions_tracker')
+          .select('amount, billing_cycle, status')
+          .eq('user_id', userId)
+          .eq('status', 'active');
+
+        if (subscriptionsTrackerError) throw subscriptionsTrackerError;
+        const subscriptionsFromTracker = subscriptionsTrackerData || [];
+
+        let monthlySubscriptionCost = 0;
+        subscriptionsFromTracker.forEach(sub => {
+          switch (sub.billing_cycle?.toLowerCase()) {
+            case 'monthly':
+              monthlySubscriptionCost += sub.amount;
+              break;
+            case 'yearly':
+              monthlySubscriptionCost += sub.amount / 12;
+              break;
+            case 'quarterly':
+              monthlySubscriptionCost += sub.amount / 3;
+              break;
+          }
+        });
+
         let income = 0;
-        let fixedExpenses = 0;
+        let fixedExpenses = monthlySubscriptionCost;
         let variableExpenses = 0;
         transactions.forEach(t => {
           if (t.type === 'income') {
             income += t.amount;
           } else if (t.type === 'expense') {
-            if (['rent', 'loan', 'subscription'].includes(t.category?.toLowerCase() || '')) {
+            const categoryLower = t.category?.toLowerCase() || '';
+            const fixedCategories = ['rent', 'loan', 'subscription', 'suscripciones', 'vivienda', 'seguro'];
+            
+            if (fixedCategories.includes(categoryLower)) {
                fixedExpenses += t.amount;
             } else {
                variableExpenses += t.amount;
@@ -211,13 +238,15 @@ export function useDashboardData() {
         const currentBalance = income - totalExpenses;
         const savings = income - totalExpenses;
 
+        const placeholderMonthlyChange = 0;
+
         const financialSummary: FinancialSummary = {
           income,
           fixedExpenses,
           variableExpenses,
           savings: savings > 0 ? savings : 0,
           balance: currentBalance,
-          monthlyChange: 50,
+          monthlyChange: placeholderMonthlyChange,
         };
 
         const { data: tasksData, error: tasksError } = await supabase
