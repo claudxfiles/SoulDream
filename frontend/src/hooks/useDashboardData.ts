@@ -1,6 +1,28 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
+interface Goal {
+  id: string;
+  title: string;
+  area: string;
+}
+
+interface GoalStep {
+  id: string;
+  goal_id: string;
+  status: 'completed' | 'in_progress' | 'pending';
+}
+
+interface AreaProgress {
+  goals: (Goal & { progress: number })[];
+  totalSteps: number;
+  completedSteps: number;
+}
+
+interface AreaProgressMap {
+  [key: string]: AreaProgress;
+}
+
 interface DashboardData {
   goalsProgress: number;
   topHabit: {
@@ -33,26 +55,56 @@ export function useDashboardData() {
 
         const userId = session.user.id;
 
-        // Obtener progreso de metas activas
+        // Obtener metas activas del usuario
         const { data: goals, error: goalsError } = await supabase
           .from('goals')
-          .select('current_value, target_value')
-          .eq('user_id', userId)
-          .neq('status', 'completed');
+          .select('id, title, area')
+          .eq('user_id', userId);
         
         if (goalsError) {
           console.error('Error fetching goals:', goalsError);
           throw goalsError;
         }
 
-        // Calcular el progreso promedio de las metas
-        const averageProgress = goals?.reduce((acc, goal) => {
-          if (goal.target_value && goal.target_value > 0) {
-            const progress = (goal.current_value || 0) / goal.target_value * 100;
-            return acc + progress;
+        // Obtener los pasos de todas las metas
+        const { data: steps, error: stepsError } = await supabase
+          .from('goal_steps')
+          .select('id, goal_id, status')
+          .in('goal_id', goals?.map(g => g.id) || []);
+
+        if (stepsError) {
+          console.error('Error fetching goal steps:', stepsError);
+          throw stepsError;
+        }
+
+        // Agrupar los pasos por área y calcular progreso
+        const goalsByArea = (goals as Goal[])?.reduce<AreaProgressMap>((acc, goal) => {
+          if (!acc[goal.area]) {
+            acc[goal.area] = { goals: [], totalSteps: 0, completedSteps: 0 };
           }
+          const goalSteps = (steps as GoalStep[])?.filter(step => step.goal_id === goal.id) || [];
+          const completedSteps = goalSteps.filter(step => step.status === 'completed').length;
+          
+          acc[goal.area].goals.push({
+            ...goal,
+            progress: goalSteps.length > 0 ? (completedSteps / goalSteps.length) * 100 : 0
+          });
+          acc[goal.area].totalSteps += goalSteps.length;
+          acc[goal.area].completedSteps += completedSteps;
+          
           return acc;
-        }, 0) / (goals?.length || 1);
+        }, {});
+
+        // Calcular el progreso promedio total
+        const areas = Object.values(goalsByArea || {});
+        const totalProgress = areas.length > 0
+          ? areas.reduce((acc, area) => {
+              const areaProgress = area.totalSteps > 0 
+                ? (area.completedSteps / area.totalSteps) * 100 
+                : 0;
+              return acc + areaProgress;
+            }, 0) / areas.length
+          : 0;
 
         // Obtener hábitos
         const { data: habits, error: habitsError } = await supabase
@@ -135,24 +187,24 @@ export function useDashboardData() {
         );
 
         // Obtener balance financiero
+        const currentDate = new Date();
+        const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        
         const { data: transactions, error: transactionsError } = await supabase
           .from('transactions')
-          .select('amount, created_at')
+          .select('amount, type')
           .eq('user_id', userId)
-          .gte('created_at', new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString());
+          .gte('created_at', firstDayOfMonth.toISOString());
 
-        if (transactionsError) {
-          console.error('Error fetching transactions:', transactionsError);
-          throw transactionsError;
-        }
+        if (transactionsError) throw transactionsError;
 
-        const balance = transactions?.reduce((acc, tx) => acc + (tx.amount || 0), 0) || 0;
-        const previousBalance = transactions?.reduce((acc, tx) => {
-          if (new Date(tx.created_at).getMonth() === new Date().getMonth() - 1) {
-            return acc + (tx.amount || 0);
-          }
-          return acc;
-        }, 0) || 0;
+        const income = transactions?.reduce((acc, tx) => 
+          tx.amount > 0 ? acc + tx.amount : acc, 0) || 0;
+        
+        const expenses = transactions?.reduce((acc, tx) => 
+          tx.amount < 0 ? acc + Math.abs(tx.amount) : acc, 0) || 0;
+        
+        const balance = income - expenses;
 
         // Obtener próximo evento
         const { data: events, error: eventsError } = await supabase
@@ -169,14 +221,14 @@ export function useDashboardData() {
         }
 
         setData({
-          goalsProgress: Math.round(averageProgress),
+          goalsProgress: Math.round(totalProgress),
           topHabit: {
             name: topHabit.name,
             streak: topHabit.streak,
           },
           finances: {
-            balance,
-            monthlyChange: previousBalance ? ((balance - previousBalance) / Math.abs(previousBalance)) * 100 : 0,
+            balance: balance,
+            monthlyChange: income > 0 ? ((income - expenses) / income * 100) : 0,
           },
           nextEvent: {
             title: events?.[0]?.title || 'No upcoming events',
