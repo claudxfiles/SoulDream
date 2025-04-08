@@ -38,6 +38,9 @@ export function HabitsListCard({ habits }: HabitsListCardProps) {
       messageColor = "text-yellow-600 dark:text-yellow-400";
   }
 
+  // Assign the component reference to a PascalCase variable
+  const MessageIcon = messageIcon;
+
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -69,7 +72,8 @@ export function HabitsListCard({ habits }: HabitsListCardProps) {
         {/* Habit Completion Status Section (Example) */}
         {habits.length > 0 && (
           <div className={`mt-4 p-3 ${mostRecentlyCompleted ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'} rounded-lg flex items-start space-x-3`}>
-            <messageIcon className={`h-5 w-5 ${messageColor} flex-shrink-0 mt-1`} />
+            {/* Use the PascalCase variable here */}
+            <MessageIcon className={`h-5 w-5 ${messageColor} flex-shrink-0 mt-1`} />
             <div>
               <p className={`text-sm font-semibold ${mostRecentlyCompleted ? 'text-green-800 dark:text-green-200' : 'text-yellow-800 dark:text-yellow-200'}`}>
                 {mostRecentlyCompleted ? 'Hábito completado' : 'Pendiente'}
