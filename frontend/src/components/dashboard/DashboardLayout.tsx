@@ -371,38 +371,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           "h-screen overflow-hidden" // Ensure this container takes full height and hides its own overflow
         )}
       >
-        {/* Header */}
-        <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center">
-            <Link href="/dashboard" className="flex items-center">
-              {!sidebarCollapsed ? (
-                <span className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">SoulDream</span>
-              ) : (
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                </div>
-              )}
-            </Link>
-          </div>
-          <div className="flex">
-            <button 
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="hidden md:flex text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5"
-              title={sidebarCollapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
-            >
-              {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-            </button>
-            <button 
-              onClick={toggleSidebar}
-              className="md:hidden text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5"
-              title="Cerrar menú"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </header>
-
-        {/* Page Content */}
+        {/* Page Content - Ensure this takes full height now */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900">
           {children}
         </main>
