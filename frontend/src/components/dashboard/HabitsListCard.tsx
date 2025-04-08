@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { TrendingUp, CheckCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface HabitWithProgress {
   id: string;
@@ -17,9 +18,10 @@ interface HabitWithProgress {
 
 interface HabitsListCardProps {
   habits: HabitWithProgress[];
+  className?: string;
 }
 
-export function HabitsListCard({ habits }: HabitsListCardProps) {
+export function HabitsListCard({ habits, className }: HabitsListCardProps) {
   // Find the habit completed most recently today/yesterday
   const mostRecentlyCompleted = habits
       .filter(h => h.last_completed)
@@ -42,7 +44,7 @@ export function HabitsListCard({ habits }: HabitsListCardProps) {
   const MessageIcon = messageIcon;
 
   return (
-    <Card className="h-full">
+    <Card className={cn("h-full", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Hábitos</CardTitle>
         <Link href="/dashboard/habits" className="text-xs text-muted-foreground hover:text-primary">

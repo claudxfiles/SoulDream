@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, TrendingUp, TrendingDown, PiggyBank, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface FinancialSummary {
   income: number;
@@ -16,22 +17,25 @@ interface FinancialSummary {
 
 interface FinanceSummaryCardProps {
   summary: FinancialSummary;
+  className?: string;
 }
 
 const formatCurrency = (value: number) => {
   return `${value >= 0 ? '+' : ''}${value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}`;
 };
 
-export function FinanceSummaryCard({ summary }: FinanceSummaryCardProps) {
+export function FinanceSummaryCard({ summary, className }: FinanceSummaryCardProps) {
   const totalExpenses = summary.fixedExpenses + summary.variableExpenses;
   const hasSaved = summary.savings > 0;
   // Placeholder: Calculate a simple percentage saved from income
   const savingsPercentage = summary.income > 0 ? Math.round((summary.savings / summary.income) * 100) : 0;
+  const monthlyChange = summary.monthlyChange;
+  const isPositiveChange = monthlyChange >= 0;
 
   return (
-    <Card className="h-full">
+    <Card className={cn("h-full", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Finanzas</CardTitle>
+        <CardTitle className="text-sm font-medium">Resumen Financiero</CardTitle>
         <Link href="/dashboard/finance" className="text-xs text-muted-foreground hover:text-primary">
           Ver detalles
         </Link>

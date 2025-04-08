@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckSquare, Clock, AlertCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface Task {
   id: string;
@@ -16,6 +17,7 @@ interface Task {
 
 interface UpcomingTasksCardProps {
   tasks: Task[];
+  className?: string;
 }
 
 // Helper function to get priority icon and color
@@ -31,9 +33,9 @@ const getPriorityInfo = (priority: 'low' | 'medium' | 'high') => {
   }
 };
 
-export function UpcomingTasksCard({ tasks }: UpcomingTasksCardProps) {
+export function UpcomingTasksCard({ tasks, className }: UpcomingTasksCardProps) {
   return (
-    <Card className="h-full">
+    <Card className={cn("h-full", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Tareas próximas</CardTitle>
         <Link href="/dashboard/tasks" className="text-xs text-muted-foreground hover:text-primary">

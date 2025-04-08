@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface CalendarEvent {
   id: string;
@@ -17,11 +18,12 @@ interface CalendarEvent {
 
 interface CalendarDayCardProps {
   events: CalendarEvent[];
+  className?: string;
 }
 
-export function CalendarDayCard({ events }: CalendarDayCardProps) {
+export function CalendarDayCard({ events, className }: CalendarDayCardProps) {
   return (
-    <Card className="h-full">
+    <Card className={cn("h-full", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Calendario</CardTitle>
         <Link href="/dashboard/calendar" className="text-xs text-muted-foreground hover:text-primary">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Goal {
   id: string;
@@ -15,11 +16,12 @@ interface Goal {
 
 interface GoalsSummaryCardProps {
   goals: Goal[];
+  className?: string;
 }
 
-export function GoalsSummaryCard({ goals }: GoalsSummaryCardProps) {
+export function GoalsSummaryCard({ goals, className }: GoalsSummaryCardProps) {
   return (
-    <Card className="h-full">
+    <Card className={cn("h-full", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Mis Metas</CardTitle>
         <Link href="/dashboard/goals" className="text-xs text-muted-foreground hover:text-primary">
