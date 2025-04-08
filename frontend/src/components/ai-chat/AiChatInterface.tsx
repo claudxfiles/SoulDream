@@ -208,7 +208,7 @@ export function AiChatInterface() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      const { data: messages, error } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -216,10 +216,10 @@ export function AiChatInterface() {
 
       if (error) throw error;
 
-      const formattedMessages = (data || []).map(msg => ({
+      const formattedMessages = (messages || []).map(msg => ({
         id: msg.id,
         content: msg.content,
-        sender: msg.sender,
+        sender: msg.sender as 'user' | 'assistant',
         timestamp: new Date(msg.created_at)
       }));
 
@@ -229,7 +229,7 @@ export function AiChatInterface() {
       console.error('Error al cargar mensajes:', error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar los mensajes",
+        description: "No se pudieron cargar los mensajes de la conversación",
         variant: "destructive"
       });
     }
@@ -285,20 +285,30 @@ export function AiChatInterface() {
   }, [user]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !currentConversationId || !user?.access_token) return;
+    if (!inputValue.trim() || !user?.access_token || !currentConversationId) {
+      if (!currentConversationId) {
+        toast({
+          title: "Error",
+          description: "Por favor, crea o selecciona una conversación primero",
+          variant: "destructive"
+        });
+      }
+      return;
+    }
 
-    const newMessage = {
+    const userMessage = {
       id: Date.now().toString(),
       content: inputValue,
       sender: 'user' as const,
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, newMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
     try {
+      // Enviar el mensaje al backend
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai/openrouter-chat-stream`, {
         method: 'POST',
         headers: {
@@ -307,7 +317,7 @@ export function AiChatInterface() {
         },
         body: JSON.stringify({
           message: inputValue,
-          model: "qwen/qwq-32b:online"
+          conversation_id: currentConversationId
         })
       });
 
@@ -364,15 +374,15 @@ export function AiChatInterface() {
         }
       }
 
-      loadConversations(); // Recargar lista de conversaciones
+      // Recargar la lista de conversaciones para actualizar los timestamps
+      loadConversations();
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        content: 'Lo siento, hubo un error al procesar tu mensaje.',
-        sender: 'assistant',
-        timestamp: new Date()
-      }]);
+      toast({
+        title: "Error",
+        description: "No se pudo enviar el mensaje. Por favor, intenta de nuevo.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }

@@ -98,6 +98,7 @@ class AIPromptResponse(BaseModel):
 
 class OpenRouterChatRequest(BaseModel):
     message: str
+    conversation_id: str
     messageHistory: Optional[List[Dict[str, str]]] = None
     model: str = "qwen/qwq-32b:online"
 

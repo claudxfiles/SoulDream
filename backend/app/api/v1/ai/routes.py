@@ -25,6 +25,18 @@ async def save_message(user_id: str, conversation_id: str, content: str, sender:
     Guarda un mensaje en la base de datos
     """
     try:
+        # Primero verificamos que la conversación existe y pertenece al usuario
+        conversation = supabase_client.table('conversations')\
+            .select('*')\
+            .eq('id', conversation_id)\
+            .eq('user_id', user_id)\
+            .single()\
+            .execute()
+            
+        if not conversation.data:
+            logger.error(f"Conversación {conversation_id} no encontrada o no pertenece al usuario {user_id}")
+            return None
+            
         data = {
             "conversation_id": conversation_id,
             "content": content,
@@ -33,7 +45,15 @@ async def save_message(user_id: str, conversation_id: str, content: str, sender:
         }
         
         result = supabase_client.table('messages').insert(data).execute()
-        return result.data[0] if result.data else None
+        
+        if result.data:
+            # Actualizar el timestamp de la conversación
+            supabase_client.table('conversations')\
+                .update({"updated_at": datetime.utcnow().isoformat()})\
+                .eq('id', conversation_id)\
+                .execute()
+            return result.data[0]
+        return None
     except Exception as e:
         logger.error(f"Error guardando mensaje: {str(e)}")
         return None
@@ -185,16 +205,26 @@ async def openrouter_chat_stream(
         user_id = current_user.get("sub")
         logger.info(f"User authenticated successfully: {user_id}")
 
-        # Validar que tenemos un mensaje
+        # Validar que tenemos un mensaje y conversation_id
         if not request.message:
             raise HTTPException(
                 status_code=422,
                 detail="El mensaje no puede estar vacío"
             )
             
+        if not request.conversation_id:
+            raise HTTPException(
+                status_code=422,
+                detail="Se requiere el ID de la conversación"
+            )
+            
         # Guardar el mensaje del usuario
-        conversation_id = str(uuid.uuid4())  # Generar un nuevo ID si no se proporciona
-        await save_message(user_id, conversation_id, request.message, "user")
+        user_message = await save_message(user_id, request.conversation_id, request.message, "user")
+        if not user_message:
+            raise HTTPException(
+                status_code=404,
+                detail="No se encontró la conversación o no tienes permiso para acceder a ella"
+            )
             
         # Convertir el mensaje a formato ChatMessage
         messages = [
@@ -202,23 +232,22 @@ async def openrouter_chat_stream(
             ChatMessage(role=MessageRole.USER, content=request.message)
         ]
         
-        # Obtener historial de mensajes si existe conversation_id
-        if conversation_id:
-            history_result = supabase_client.table('messages')\
-                .select('*')\
-                .eq('conversation_id', conversation_id)\
-                .order('created_at', desc=False)\
-                .limit(10)\
-                .execute()
+        # Obtener historial de mensajes
+        history_result = supabase_client.table('messages')\
+            .select('*')\
+            .eq('conversation_id', request.conversation_id)\
+            .order('created_at', desc=False)\
+            .limit(10)\
+            .execute()
                 
-            if history_result.data:
-                messages.extend([
-                    ChatMessage(
-                        role=MessageRole.USER if msg["sender"] == "user" else MessageRole.ASSISTANT,
-                        content=msg["content"]
-                    )
-                    for msg in history_result.data
-                ])
+        if history_result.data:
+            messages.extend([
+                ChatMessage(
+                    role=MessageRole.USER if msg["sender"] == "user" else MessageRole.ASSISTANT,
+                    content=msg["content"]
+                )
+                for msg in history_result.data
+            ])
 
         async def generate():
             try:
@@ -234,7 +263,7 @@ async def openrouter_chat_stream(
                     if chunk.is_complete:
                         # Guardar la respuesta completa del asistente
                         if response_buffer:
-                            await save_message(user_id, conversation_id, response_buffer, "assistant")
+                            await save_message(user_id, request.conversation_id, response_buffer, "assistant")
                             
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
                 
