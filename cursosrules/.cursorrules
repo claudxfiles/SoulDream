@@ -30,12 +30,16 @@ porfavor responde en español
 	- Secondary: #10b981 (Emerald)
 	- Accent: #f59e0b (Amber)
 	- Backgrounds: #f8fafc (light), #0f172a (Dark)
-6. Branding y Activos: [Logo, Imágenes, etc.]
 
-7. Modelo de IA a Integrar: 
+6. Branding y Activos: 
 	- Logo minimalista con gradiente de azul a verde.
 	- Iconografia consistente (lucide Icons)
 	- Ilustraciones personalizadas para cada módulo
+
+7. Modelo de IA a Integrar: 
+	- Qwen/qwq-32b para Metas complejas
+	- Modelos adicionales según necesidades específicas
+	- Sistema de caché para respuestas frecuentes
 
 ## Tech Stack:
 
@@ -57,461 +61,121 @@ porfavor responde en español
 - Google Calendar API
 - PayPal para suscripciones.
 
-### Integración IA:
-- Qwen/qwq-32b para Metas complejas
-- Modelos adicionales según necesidades específicas
-- Sistema de caché para respuestas frecuentes
-
-### Pagos:
-- PayPal para suscripciones y pagos
-- Webhooks para gestión de eventos
-- Sistema de planes y límites por nivel
-
 ## Estructura de Directorios Frontend:
 
-souldream/
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx                         # App Router de Next.js
-│   │   │   ├── dashboard/                       # Dashboard y rutas protegidas
-│   │   │   ├── auth/                            # Login y registro
-│   │   │   └── api/                             # API Routes
-│   │   ├── components/                          # Componentes
-│   │   │   ├── ui/                              # UI base (shadcn/ui)
-│   │   │   ├── landing/                         # Componentes de landing
-│   │   │   ├── dashboard/                       # Layout y componentes del dashboard
-│   │   │   ├── Metas/                           # Componentes de gestión de Metas
-│   │   │   ├── habits/                          # Componentes de hábitos
-│   │   │   ├── finance/                         # Componentes financieros
-│   │   │   ├── workout/                         # Componentes de fitness
-│   │   │   ├── ai-chat/                         # Componentes de chat con IA
-│   │   │   ├── calendar/                        # Componentes de calendario
-│   │   │   ├── analytics/                       # Visualizaciones y gráficos
-│   │   │   ├── subscription/                    # Planes y pagos
-│   │   │   └── shared/                          # Componentes compartidos
-│   │   ├── hooks/                               # Hooks personalizados
-│   │   ├── lib/                                 # Utilidades y servicios
-│   │   │   ├── supabase.ts                      # Cliente Supabase centralizado
-│   │   │   ├── ai.ts                            # Integraciones de IA
-│   │   │   ├── Metas.ts                         # Servicio de Metas
-│   │   │   ├── habits.ts                        # Servicio de hábitos
-│   │   │   ├── finance.ts                       # Servicio financiero
-│   │   │   ├── workout.ts                       # Servicio de workout
-│   │   │   ├── calendar.ts                      # Servicio de calendario
-│   │   │   ├── analytics.ts                     # Servicio de analítica
-│   │   │   └── paypal.ts                        # Servicio de PayPal
-│   │   ├── store/                               # Estado global (Zustand)
-│   │   ├── types/                               # Definiciones TypeScript
-│   │   └── styles/                              # Estilos y animaciones
-│   │ 
-├── backend/
-│   ├── app/
-│   │   ├── api/                                 # Endpoints API
-│   │   │   ├── v1/
-│   │   │   │   ├── auth/                        # Autenticación
-│   │   │   │   ├── Metas/                       # Endpoints de Metas
-│   │   │   │   ├── habits/                      # Endpoints de hábitos
-│   │   │   │   ├── finance/                     # Endpoints financieros
-│   │   │   │   ├── workout/                     # Endpoints de workout
-│   │   │   │   ├── ai/                          # Endpoints de IA
-│   │   │   │   ├── calendar/                    # Endpoints de calendario
-│   │   │   │   ├── analytics/                   # Endpoints de analítica
-│   │   │   │   └── payments/                    # Endpoints de pagos
-│   │   ├── core/                                # Configuración central
-│   │   ├── db/                                  # Modelos y esquemas
-│   │   ├── services/                            # Lógica de negocio
-│   │   │   ├── ai/                              # Servicios de IA
-│   │   │   ├── calendar/                        # Servicios de calendario
-│   │   │   └── payment/                         # Servicios de pago
-│   │   └── utils/                               # Utilidades
-├── supabase/                                     # Configuración de Supabase
-    └── migrations/                               # Migraciones SQL
+```
+frontend/
+├── src/
+│   ├── app/                           # Next.js App Router
+│   │   ├── page.tsx                   # Homepage
+│   │   ├── dashboard/                 # Dashboard routes 
+│   │   ├── auth/                      # Auth routes
+│   │   └── api/                       # API Routes
+│   ├── components/                    # React components
+│   │   ├── ui/                        # shadcn/ui base components
+│   │   ├── landing/                   # Landing page components
+│   │   ├── dashboard/                 # Dashboard components
+│   │   ├── goals/                     # Goals components
+│   │   ├── habits/                    # Habits components
+│   │   ├── finance/                   # Finance components
+│   │   ├── workout/                   # Workout components
+│   │   ├── ai-chat/                   # AI chat components
+│   │   ├── calendar/                  # Calendar components
+│   │   ├── analytics/                 # Analytics components
+│   │   ├── subscription/              # Subscription components
+│   │   └── shared/                    # Shared components
+│   ├── hooks/                         # Custom React hooks
+│   ├── lib/                           # Utilities and services
+│   ├── store/                         # Global state (Zustand)
+│   ├── types/                         # TypeScript definitions
+│   └── styles/                        # Styles and animations
+```
 
+## Estructura de Directorios Backend:
 
-## Páginas Principales:
+```
+backend/
+├── app/
+│   ├── api/                           # API endpoints
+│   │   ├── v1/
+│   │   │   ├── auth/                  # Authentication endpoints
+│   │   │   ├── goals/                 # Goals endpoints
+│   │   │   ├── habits/                # Habits endpoints
+│   │   │   ├── finance/               # Finance endpoints
+│   │   │   ├── workout/               # Workout endpoints
+│   │   │   ├── ai/                    # AI endpoints
+│   │   │   ├── calendar/              # Calendar endpoints
+│   │   │   ├── analytics/             # Analytics endpoints
+│   │   │   └── payments/              # Payment endpoints
+│   ├── core/                          # Core configuration
+│   ├── db/                            # DB models and schemas
+│   ├── services/                      # Business logic
+│   │   ├── ai/                        # AI services
+│   │   ├── calendar/                  # Calendar services
+│   │   └── payment/                   # Payment services
+│   └── utils/                         # Utilities
+```
 
-### Landing Page:
-- Hero Section con clara proposición de valor
-- Features destacando los módulos principales
-- Testimonios y social proof
-- Planes y precios
-- FAQ
-- CTA para registro
-- Footer con enlaces importantes
+## Tablas en Supabase:
 
-### Dashboard:
-- Header con perfil y notificaciones
-- Navegación lateral para todas las secciones
-- Widgets personalizables
-- Resumen de Metas pendientes
-- Progreso de hábitos
-- Resumen financiero
-- Próximos workouts
-- Eventos del calendario
+1. **Tablas de Usuario y Perfil**:
+   - `profiles` ✅ (2 registros)
+   - `user_integrations` ✅
+   - `user_progress` ✅
 
-## Módulos Específicos:
+2. **Tablas de Calendario**:
+   - `calendar_events` ✅ (18 registros)
+   - `calendar_integrations` ✅
+   - `calendar_settings` ✅
+   - `calendar_reminders` ✅
+   - `calendar_sync_logs` ✅ (1 registro)
 
-1. **Metas y Tareas**:
-   - Tablero Kanban (pendientes, en progreso, completadas)
-   - Categorización con etiquetas
-   - Priorización y fechas límite
-   - Sugerencias de IA para optimizar Metas
+3. **Tablas de Metas y Tareas**:
+   - `goals` ✅ (3 registros)
+   - `goal_steps` ✅ (10 registros)
+   - `goal_updates` ✅
+   - `tasks` ✅ (10 registros)
 
-2. **Hábitos**:
-   - Tracking diario de hábitos
-   - Visualización de racha (streak)
-   - Estadísticas de consistencia
-   - Recordatorios inteligentes
+4. **Tablas de Hábitos**:
+   - `habits` ✅ (4 registros)
+   - `habit_logs` ✅ (17 registros)
 
-3. **Finanzas**:
-   - **Seguimiento de ingresos y gastos**:
-     - Dashboard financiero con balance actual y flujo de caja
-     - Sistema de registro manual simplificado con plantillas predefinidas
-     - Función de importación de extractos bancarios en formato CSV/PDF
-     - Categorización inteligente de transacciones con IA
-     - Recordatorios de pagos recurrentes y facturas
+5. **Tablas de Finanzas**:
+   - `finances` ✅
+   - `finance_goals` ✅
+   - `financial_assets` ✅ (3 registros)
+   - `transactions` ✅ (11 registros)
+   - `subscriptions_tracker` ✅
 
-   - **Planificador de activos y objetivos**:
-     - Visualizador de "Sueños financieros" con imágenes y progreso
-     - Calculadora inteligente de plazos para adquisiciones (vehículos, propiedades)
-     - Simulador de escenarios (cambio de trabajo, inversión, crédito)
-     - Timeline visual del camino hacia cada meta financiera
+6. **Tablas de Workout**:
+   - `workouts` ✅ (4 registros)
+   - `workout_exercises` ✅ (16 registros)
+   - `workout_templates` ✅ (17 registros)
+   - `workout_template_exercises` ✅ (55 registros)
+   - `workout_progress` ✅
 
-   - **Sistema de ahorro inteligente**:
-     - Análisis de capacidad de ahorro basado en entradas manuales
-     - Recomendaciones de "montos indoloros" para apartar periódicamente
-     - Reglas personalizables para ahorro (porcentajes de ingresos)
-     - Cálculo de interés compuesto y proyecciones a largo plazo
+7. **Tablas de IA**:
+   - `ai_interactions` ✅ (46 registros)
+   - `ai_generated_plans` ✅
+   - `ai_insights` ✅ (3 registros)
+   - `conversations` ✅
+   - `messages` ✅
 
-   - **Plan de adquisición de activos**:
-     - Creación de planes paso a paso generados por IA (casa, vehículo, negocio)
-     - Ajuste automático según variaciones en ingresos/gastos registrados
-     - Alertas de desviación del plan y sugerencias de corrección
-     - Opciones de financiamiento comparadas automáticamente (préstamo vs. leasing)
-  
-   - **Educación financiera integrada**:
-     - Micro-lecciones contextuales basadas en objetivos actuales
-     - Glosario interactivo de términos financieros
-     - Simuladores de inversión y retorno
-     - Contenido personalizado según nivel de conocimiento financiero
+8. **Tablas de Gamificación**:
+   - `achievements` ✅ (6 registros)
+   - `user_achievements` ✅
+   - `levels` ✅ (10 registros)
 
-   - **Suscripciones y gastos recurrentes**:
-     - Panel de control de todas las suscripciones registradas manualmente
-     - Análisis de valor y uso real de cada servicio
-     - Recomendaciones de optimización ("puedes ahorrar $X cancelando estas suscripciones poco utilizadas")
-     - Calendario visual de renovaciones con alertas anticipadas
+9. **Tablas de Suscripción y Pagos**:
+   - `subscriptions` ✅ (1 registro)
+   - `subscription_plans` ✅ (2 registros)
+   - `subscription_events` ✅
+   - `payments` ✅
+   - `payment_history` ✅
 
-4. **Workout**:
-   - Registro de ejercicios
-   - Seguimiento de progreso
-   - Rutinas recomendadas por IA
-   - Integración con calendario
-
-5. **Chat con IA**:
-   - **Asistente multi-contexto**:
-     - Consciencia del contexto completo del usuario (finanzas, hábitos, metas)
-     - Interfaz conversacional para todas las funcionalidades de la plataforma
-     - Capacidad para cambiar entre roles específicos (coach financiero, entrenador fitness, organizador de Metas)
-     - Memoria de conversaciones previas para continuidad
-
-   - **Generador de planes personalizados**:
-     - Creación de planes detallados para cada tipo de meta según área vital
-     - Para metas financieras: análisis de capacidad de ahorro, simulación de escenarios, recomendación de estrategias
-     - Para metas de salud: programas de ejercicio, dietas, hábitos de sueño
-     - Para metas educativas: programas de estudio, recursos, calendarización
-
-   - **Integración contextual en cada sección**:
-     - Asistente financiero especializado en la sección Finanzas
-     - Coach de fitness en la sección Workout
-     - Planificador de productividad en la sección Metas
-     - Interfaz unificada pero con "personalidades" adaptadas a cada contexto
-
-   - **Análisis avanzado de patrones**:
-     - Correlación entre diferentes áreas de vida (ej: cómo afectan tus hábitos de sueño a tus finanzas)
-     - Identificación de obstáculos recurrentes en la consecución de metas
-     - Sugerencias basadas en momentos óptimos de productividad personal
-     - Proyecciones de escenarios "qué pasaría si..." personalizados
-
-   - **Asistente de decisiones financieras**:
-     - Evaluación de opciones de compra (rentar vs. comprar)
-     - Análisis personalizado costo-beneficio de inversiones
-     - Recomendaciones de optimización de presupuesto
-     - Alertas preventivas basadas en patrones de gasto
-
-   - **Sistema de aprendizaje continuo**:
-     - Mejora constante basada en feedback y resultados del usuario
-     - Adaptación a preferencias de comunicación y nivel de detalle
-     - "Memoria a largo plazo" para referencia a conversaciones pasadas
-     - Personalización progresiva de recomendaciones
-
-6. **Calendario**:
-   - Vista diaria/semanal/mensual
-   - Integración con Google Calendar
-   - Eventos vinculados a Metas/hábitos/workouts
-   - Planificación sugerida por IA
-
-7. **Analítica**:
-   - Dashboard de métricas personales
-   - Visualización de tendencias
-   - Insights generados por IA
-   - Exportación de reportes
-
-8. **Planes/Suscripciones**:
-   - Free, Pro y Premium
-   - Gestión de pagos con PayPal
-   - Historial de facturación
-   - Opciones de actualización/downgrade
-
-9. **Autenticación y Seguridad**
-    - Registro e inicio de sesión
-    - Autenticación social (Google, GitHub)
-    - Permisos basados en roles
-    - Protección de datos
-
-10. **Sistema de Metas**:
-    - **Sistema multi-dimensional de metas**:
-      - Clasificación por áreas vitales (Desarrollo Personal, Salud y Bienestar, Educación, Finanzas, Hobbies)
-      - Conexión entre metas de diferentes áreas (ej: meta financiera vinculada a meta educativa)
-      - Descomposición automática en sub-metas y tareas accionables
-      - Visualización de interdependencias entre objetivos
-
-    - **Metas financieras avanzadas**:
-      - Visualizador 3D/AR de "objetos de deseo" (casa, auto, viaje)
-      - Simulación dinámica de escenarios para adquisición
-      - Calculadora de "esfuerzo vs. tiempo" (más ahorro = menos tiempo)
-      - Integración con mercados reales para precios actualizados (inmobiliario, vehículos)
-  
-    - **Gamificación del progreso**:
-      - Sistema de "niveles" por cada área vital
-      - Recompensas virtuales por hitos alcanzados
-      - Desafíos semanales personalizados
-      - Comparativa anónima con personas de perfil similar (opcional)
-
-    - **Planificación adaptativa**:
-      - Ajuste automático de metas basado en cambios en circunstancias financieras
-      - Detección de obstáculos potenciales y planes de contingencia
-      - Análisis predictivo de factibilidad usando histórico personal
-      - Recomendaciones de optimización de recursos entre diferentes metas
-
-## Diseño de Base de Datos (Supabase):
-
-1. Tabla users (gestionada por Supabase auth)
-
-2. Tabla profiles
-   - id (FK a auth.users.id)
-   - full_name
-   - avatar_url
-   - email_notifications (boolean)
-   - subscription_tier (free, pro, business)
-   - created_at
-   - updated_at
-
-3. Tabla tasks
-   - id (UUID)
-   - user_id (FK a auth.users.id)
-   - title
-   - description
-   - status (pending, in_progress, completed)
-   - priority (low, medium, high)
-   - due_date
-   - column_order (posición en Kanban)
-   - created_at
-   - updated_at
-   - is_deleted (soft delete)
-   - related_goal_id (FK a goals.id, opcional)
-   - category (trabajo, personal, etc.)
-   - tags (array de etiquetas)
-
-4. Tabla goals
-   - id (UUID)
-   - user_id (FK a auth.users.id)
-   - title
-   - description
-   - area (desarrollo_personal, salud_bienestar, educacion, finanzas, hobbies)
-   - target_date
-   - progress_percentage
-   - status (active, completed, abandoned)
-   - created_at
-   - updated_at
-   - parent_goal_id (FK a goals.id, para metas jerárquicas)
-   - priority (low, medium, high)
-   - visualization_image_url (URL de imagen asociada)
-   - type (adquisicion, aprendizaje, habito, otro)
-
-5. Tabla goal_steps
-   - id (UUID)
-   - goal_id (FK a goals.id)
-   - title
-   - description
-   - order_index
-   - status (pending, in_progress, completed)
-   - due_date
-   - created_at
-   - updated_at
-   - ai_generated (boolean)
-
-6. Tabla habits
-   - id (UUID)
-   - user_id (FK a auth.users.id)
-   - title
-   - description
-   - frequency (daily, weekly, specific_days)
-   - specific_days (array, si aplica)
-   - current_streak
-   - best_streak
-   - created_at
-   - updated_at
-   - related_goal_id (FK a goals.id, opcional)
-   - category (salud, productividad, aprendizaje, etc.)
-   - reminder_time (hora del día para recordatorio)
-   - cue (disparador del hábito)
-   - reward (recompensa asociada)
-
-7. Tabla habit_logs
-   - id (UUID)
-   - habit_id (FK a habits.id)
-   - completed_date
-   - notes
-   - quality_rating (opcional, 1-5)
-   - emotion (opcional, cómo se sintió)
-
-8. Tabla finances
-   - id (UUID)
-   - user_id (FK a auth.users.id)
-   - type (income, expense)
-   - amount
-   - currency
-   - category
-   - description
-   - date
-   - related_goal_id (FK a goals.id, opcional)
-   - created_at
-   - payment_method (opcional)
-   - recurring (boolean)
-   - recurring_frequency (monthly, weekly, etc., si aplica)
-
-9. Tabla finance_goals
-   - id (UUID)
-   - user_id (FK a auth.users.id)
-   - title
-   - description
-   - target_amount
-   - current_amount
-   - type (savings, debt_payoff, purchase)
-   - target_date
-   - status (active, completed, abandoned)
-   - created_at
-   - updated_at
-   - visualization_image_url
-   - related_goal_id (FK a goals.id)
-   - automatic_savings_amount (opcional)
-   - automatic_savings_frequency (opcional)
-   - milestones (array de hitos con montos)
-
-10. Tabla subscriptions_tracker
-    - id (UUID)
-    - user_id (FK a auth.users.id)
-    - service_name
-    - amount
-    - currency
-    - billing_cycle (monthly, yearly, etc.)
-    - next_billing_date
-    - category
-    - notes
-    - created_at
-    - updated_at
-    - reminder_days_before (anticipación del aviso)
-
-11. Tabla workouts
-    - id (UUID)
-    - user_id (FK a auth.users.id)
-    - name
-    - description
-    - duration_minutes
-    - date
-    - created_at
-    - calories_burned (opcional)
-    - workout_type (cardio, strength, flexibility, etc.)
-    - related_goal_id (FK a goals.id, opcional)
-    - rating (opcional, 1-5)
-
-12. Tabla workout_exercises
-    - id (UUID)
-    - workout_id (FK a workouts.id)
-    - name
-    - sets
-    - reps
-    - weight
-    - duration_seconds
-    - order_index
-    - notes
-
-13. Tabla ai_interactions
-    - id (UUID)
-    - user_id (FK a auth.users.id)
-    - query
-    - response
-    - model_used
-    - tokens_used
-    - created_at
-    - context (area relacionada: tasks, goals, finance, etc.)
-    - feedback_rating (opcional, calificación del usuario)
-    - conversation_id (para agrupar interacciones)
-
-14. Tabla ai_generated_plans
-    - id (UUID)
-    - user_id (FK a auth.users.id)
-    - goal_id (FK a goals.id)
-    - title
-    - description
-    - creation_date
-    - steps (array JSONB con pasos detallados)
-    - version_number
-    - status (active, archived, superseded)
-    - type (financial, personal_development, fitness, etc.)
-    - estimated_completion_time
-
-15. Tabla subscriptions
-    - id (UUID)
-    - user_id (FK a auth.users.id)
-    - paypal_subscription_id
-    - status (active, cancelled, expired)
-    - plan_type (free, pro, business)
-    - current_period_start
-    - current_period_end
-    - cancel_at_period_end
-    - created_at
-    - updated_at
-    - payment_method
-    - price_paid
-    - currency
-
-16. Tabla user_analytics
-    - id (UUID)
-    - user_id (FK a auth.users.id)
-    - date
-    - tasks_completed
-    - habits_completed
-    - workout_minutes
-    - financial_balance_change
-    - ai_interactions_count
-    - goals_progress (JSONB con progreso de metas)
-    - productivity_score
-    - streak_days
-
-17. Tabla notifications
-    - id (UUID)
-    - user_id (FK a auth.users.id)
-    - title
-    - message
-    - type (task, habit, goal, finance, etc.)
-    - is_read
-    - created_at
-    - action_url (opcional)
-    - priority (normal, high)
-    - related_entity_id (ID del objeto relacionado)
-    - related_entity_type (tipo de objeto relacionado)
+10. **Tablas de Analítica**:
+    - `user_analytics` ✅
+    - `analytics` ✅ (6 registros)
 
 ## Políticas RLS de Supabase:
 
@@ -553,36 +217,6 @@ Para todas las tablas se implementarán políticas RLS que garanticen:
 6. **Cálculo de métricas de analítica**:
    - Agregación periódica de datos para el dashboard de analítica
 
-## Implementación Frontend para Finanzas y Metas:
-
-### Módulo de Finanzas:
-
-1. **Dashboard Financiero**:
-   ```tsx
-   // components/finance/FinanceDashboard.tsx
-   import { useFinance } from '@/hooks/useFinance';
-   import { FinanceSummary } from './FinanceSummary';
-   import { RecentTransactions } from './RecentTransactions';
-   import { BudgetProgress } from './BudgetProgress';
-   import { FinancialGoals } from './FinancialGoals';
-   import { SubscriptionsOverview } from './SubscriptionsOverview';
-   
-   export function FinanceDashboard() {
-     const { summary, transactions, budgets, goals, subscriptions, isLoading } = useFinance();
-     
-     if (isLoading) return <LoadingSpinner />;
-     
-     return (
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-         <FinanceSummary data={summary} />
-         <BudgetProgress data={budgets} />
-         <FinancialGoals data={goals} />
-         <RecentTransactions data={transactions} className="md:col-span-2" />
-         <SubscriptionsOverview data={subscriptions} className="lg:col-span-3" />
-       </div>
-     );
-   }
-
 ## Diseño y UX:
 
 ### Sistema de Diseño:
@@ -606,7 +240,7 @@ Para todas las tablas se implementarán políticas RLS que garanticen:
 
 ### Integraciones:
 
-#### IA (OpenRouter + OpenAI/gpt-3.5-turbo):
+#### IA (OpenRouter):
 - Procesamiento asíncrono de consultas
 - Caché para respuestas frecuentes
 - Seguimiento de uso por usuario (cuotas)
@@ -629,186 +263,6 @@ Para todas las tablas se implementarán políticas RLS que garanticen:
 - Facturación recurrente
 - Manejo seguro de datos de pago
 
-## Estrategia de Implementación:
-
-1. **Fase 1**: Configuración básica y landing page
-   - Estructura del proyecto
-   - Landing page completa
-   - Auth y dashboard básico
-
-2. **Fase 2**: Funcionalidades core
-   - Módulos de Metas y hábitos
-   - Calendario básico
-   - Chat con IA simple
-
-3. **Fase 3**: Funcionalidades extendidas
-   - Finanzas y workout
-   - Analítica completa
-   - Integraciones avanzadas
-
-4. **Fase 4**: Monetización y optimización
-   - Sistema de suscripciones
-   - Optimización de rendimiento
-   - Tests de usabilidad
-
-## Implementación de Interfaz:
-
-### 1. Sidebar de Navegación
-
-Implementar un sidebar lateral con:
-- Logo de la aplicación
-- Menú de navegación principal
-- Avatar e información del usuario
-- Indicador de nivel de suscripción
-- Botón de modo oscuro/claro
-
-### 2. Dashboard Principal
-
-Diseñar un dashboard con:
-- Tarjetas de resumen (tareas pendientes, metas en progreso, etc.)
-- Gráficos de progreso diario/semanal
-- Widgets personalizables
-- Sección de "Sugerencias IA" destacada
-
-### 3. Tablero Kanban
-
-Implementar un tablero Kanban con:
-- Columnas para estados (Pendiente, En Progreso, Completado)
-- Funcionalidad de arrastrar y soltar
-- Filtros por prioridad, etiquetas, fecha
-- Búsqueda de tareas
-- Botón para crear nueva tarea
-
-### 4. Chat con IA
-
-Crear una interfaz de chat moderna:
-- Historial de mensajes
-- Indicador de escritura
-- Soporte para respuestas enriquecidas (Markdown)
-- Sugerencias predefinidas
-- Opción para exportar conversaciones
-
-### 5. Calendario
-
-Diseñar una vista de calendario con:
-- Vista mensual, semanal y diaria
-- Integración con tareas y eventos
-- Arrastrar y soltar para reasignar fechas
-- Recordatorios y alertas visuales
-
-### 6. Planes de Suscripción
-
-Crear una página de planes:
-- Comparativa de funcionalidades por nivel
-- Precios claros y beneficios destacados
-- Proceso de pago simplificado con PayPal
-- Gestión de suscripción actual
-
-## Principios de Diseño:
-
-1. UX/UI:
-   - Diseño limpio y minimalista
-   - Esquema de color coherente
-   - Interfaces adaptables (responsive)
-   - Microinteracciones y feedback visual
-   - Consistencia en componentes
-
-2. Rendimiento:
-   - Carga inicial rápida (< 2s)
-   - Server Components para contenido estático
-   - Client Components para interactividad
-   - Optimización de imágenes y assets
-   - Caché inteligente
-
-3. Accesibilidad:
-   - Cumplimiento de WCAG 2.1 AA
-   - Etiquetas semánticas HTML
-   - Soporte para teclado
-   - Alto contraste cuando sea necesario
-   - Textos alternativos para imágenes
-
-4. Seguridad:
-   - Autenticación segura
-   - Protección CSRF
-   - Row Level Security en Supabase
-   - Sanitización de inputs
-   - Rate limiting en endpoints sensibles
-
-## Implementación de IA:
-
-1. Asistencia en Metas:
-   - Sugerencias de priorización
-   - Estimación de tiempo realista
-   - Detección de dependencias entre tareas
-   - Recomendación de divisiones para Metas complejas
-
-2. Optimización de Calendario:
-   - Sugerencias de horarios óptimos
-   - Detección de sobrecarga
-   - Recomendaciones para equilibrio trabajo/descanso
-
-3. Análisis de Productividad:
-   - Identificación de patrones de procrastinación
-   - Sugerencias para mejorar eficiencia
-   - Reconocimiento de logros y motivación
-
-4. Asistente Conversacional:
-   - Respuestas a consultas sobre productividad
-   - Guía para establecer metas SMART
-   - Consejos personalizados según historial
-
-5. Integración entre Chat con IA y Metas:
-   - **Flujo de creación de metas asistido**:
-     - Conversación guiada para definir metas SMART
-     - Preguntas reflexivas para clarificar motivaciones y obstáculos
-     - Sugerencias basadas en valores y prioridades del usuario
-     - Creación automática de plan detallado con hitos y tareas
-
-   - **Panel de control "Meta → Plan → Acción"**:
-     - Interfaz visual que muestra la meta principal (ej: "Comprar moto")
-     - Plan generado por IA con fases detalladas y temporización
-     - Tareas accionables integradas con el sistema de gestión de Metas
-     - Actualización dinámica del plan según progreso y cambios en circunstancias
-
-   - **Área de "Visualización de futuro"**:
-     - Simulación visual de progreso hacia metas financieras
-     - "Gemelo digital financiero" con proyecciones personalizadas
-     - Escenarios alternativos con diferentes decisiones financieras
-     - Calculadora interactiva de "tiempo hasta meta" con variables ajustables
-
-   - **Dashboard integrado de metas por área vital**:
-     - Vista unificada de todas las metas organizadas por área
-     - Progreso visual con código de colores y porcentajes
-     - Sección de "próximos pasos" generada por IA para cada meta
-     - Correlaciones entre diferentes metas y áreas de vida
-
-## Mejores Prácticas:
-
-### Código:
-- TypeScript para todo el frontend
-- Tests unitarios y de integración
-- Documentación inline
-- Errores manejados apropiadamente
-
-### Rendimiento:
-- Optimización de imágenes
-- Lazy loading de componentes
-- Code splitting
-- Caching estratégico
-
-### Seguridad:
-- Autenticación robusta
-- Datos sensibles encriptados
-- RLS en Supabase
-- Validación de inputs
-
-### Despliegue:
-- CI/CD automatizado
-- Entornos separados (dev, staging, prod)
-- Monitoreo y alertas
-- Backups regulares
-
-
 ## Comandos Útiles:
 
 ```bash
@@ -830,8 +284,7 @@ bun add zustand @tanstack/react-query framer-motion lucide-react date-fns @supab
 cd frontend && bun run dev
 # Backend
 cd backend && uvicorn app.main:app --reload
-
-
+```
 
 # Mejora de Landing Page Factory - Template Estándar
 
@@ -943,8 +396,8 @@ souldream/
 │   │   │   ├── calendar/                  # Calendar services
 │   │   │   └── payment/                   # Payment services
 │   │   └── utils/                         # Utilities
-├── supabase/                              # Supabase configuration
-    └── migrations/                        # SQL migrations
+├── supabase/                                     # Configuración de Supabase
+    └── migrations/                               # Migraciones SQL
 
 
 ## Secciones Estándar Landing:
