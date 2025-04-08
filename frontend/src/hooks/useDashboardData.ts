@@ -189,22 +189,42 @@ export function useDashboardData() {
         // Obtener balance financiero
         const currentDate = new Date();
         const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        
+
+        // Obtener todas las transacciones del mes actual
         const { data: transactions, error: transactionsError } = await supabase
           .from('transactions')
-          .select('amount, type')
+          .select('*')
           .eq('user_id', userId)
-          .gte('created_at', firstDayOfMonth.toISOString());
+          .gte('date', firstDayOfMonth.toISOString())
+          .lte('date', currentDate.toISOString());
 
         if (transactionsError) throw transactionsError;
 
-        const income = transactions?.reduce((acc, tx) => 
-          tx.amount > 0 ? acc + tx.amount : acc, 0) || 0;
-        
-        const expenses = transactions?.reduce((acc, tx) => 
-          tx.amount < 0 ? acc + Math.abs(tx.amount) : acc, 0) || 0;
-        
-        const balance = income - expenses;
+        // Calcular ingresos y gastos
+        const monthlyIncome = transactions
+          ?.filter(t => t.type.toLowerCase() === 'income')
+          .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+
+        const monthlyExpenses = transactions
+          ?.filter(t => t.type.toLowerCase() === 'expense')
+          .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0) || 0;
+
+        // Obtener gastos de suscripciones
+        const { data: subscriptions_tracker } = await supabase
+          .from('subscriptions_tracker')
+          .select('amount')
+          .eq('user_id', userId)
+          .eq('status', 'active');
+
+        const subscriptionExpenses = subscriptions_tracker
+          ?.reduce((sum, sub) => sum + Number(sub.amount), 0) || 0;
+
+        const currentBalance = monthlyIncome - (monthlyExpenses + subscriptionExpenses);
+
+        // Calcular el cambio porcentual respecto al mes anterior
+        const monthlyChange = monthlyIncome > 0 
+          ? ((monthlyIncome - (monthlyExpenses + subscriptionExpenses)) / monthlyIncome) * 100 
+          : 0;
 
         // Obtener próximo evento
         const { data: events, error: eventsError } = await supabase
@@ -227,8 +247,8 @@ export function useDashboardData() {
             streak: topHabit.streak,
           },
           finances: {
-            balance: balance,
-            monthlyChange: income > 0 ? ((income - expenses) / income * 100) : 0,
+            balance: currentBalance,
+            monthlyChange: Math.round(monthlyChange),
           },
           nextEvent: {
             title: events?.[0]?.title || 'No upcoming events',
