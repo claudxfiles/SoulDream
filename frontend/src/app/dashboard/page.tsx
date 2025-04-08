@@ -56,13 +56,15 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 lg:p-8 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
-          {user && <p className="text-lg text-muted-foreground">Hola, {user.user_metadata?.full_name || user.email}!</p>}
-        </div>
-        <div className="bg-background border rounded-lg shadow-sm px-4 py-2">
-          <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, d MMMM yyyy', { locale: es })}</p>
+      <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 rounded-xl p-6 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">SoulDream Dashboard</h1>
+            {user && <p className="text-gray-600 dark:text-gray-300 mt-2">Hola, {user.user_metadata?.full_name || user.email}!</p>}
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm px-4 py-2 mt-4 md:mt-0">
+            <p className="text-sm text-gray-500 dark:text-gray-400">{format(new Date(), 'EEEE, d MMMM yyyy', { locale: es })}</p>
+          </div>
         </div>
       </div>
 
