@@ -36,11 +36,8 @@ export function AllInsights() {
 
   return (
     <div className="w-full">
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs defaultValue="productivity" className="w-full">
         <TabsList className="grid w-full grid-cols-4 mb-8">
-          <TabsTrigger value="all" className="text-sm">
-            Todos los Insights
-          </TabsTrigger>
           <TabsTrigger value="productivity" className="text-sm">
             <Activity className="w-4 h-4 mr-2" />
             Productividad
@@ -54,12 +51,6 @@ export function AllInsights() {
             Hábitos
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="all" className="space-y-4">
-          {insights?.map(insight => (
-            <InsightCard key={insight.id} insight={insight} />
-          ))}
-        </TabsContent>
 
         <TabsContent value="productivity" className="space-y-4">
           {productivityInsights.map(insight => (

@@ -334,7 +334,6 @@ export function AnalyticsDashboard() {
               <TabsTrigger value="productivity">Productividad</TabsTrigger>
               <TabsTrigger value="habits">Hábitos</TabsTrigger>
               <TabsTrigger value="finances">Finanzas</TabsTrigger>
-              <TabsTrigger value="insights">Todos los Insights</TabsTrigger>
             </TabsList>
             
             <TabsContent value="productivity" className="space-y-6">
@@ -399,29 +398,6 @@ export function AnalyticsDashboard() {
                   title="Distribución de Gastos por Categoría"
                   dataKeys={['value', 'name']}
                 />
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="insights" className="space-y-6">
-              <div className="grid grid-cols-1 gap-4">
-                {insights.length > 0 ? (
-                  insights.map(insight => (
-                    <InsightCard key={insight.id} insight={insight} />
-                  ))
-                ) : (
-                  <>
-                    <InsightCard insight={mockInsight} />
-                    <InsightCard insight={mockFinancialInsight} />
-                    <InsightCard insight={{
-                      ...mockInsight,
-                      id: '3',
-                      insight_type: 'habits',
-                      description: 'Has mantenido tu hábito de "Meditación" durante 14 días consecutivos',
-                      relevance: 90,
-                      data: { streak: 14, previousBest: 7 }
-                    }} />
-                  </>
-                )}
               </div>
             </TabsContent>
           </Tabs>

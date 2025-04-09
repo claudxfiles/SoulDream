@@ -48,13 +48,6 @@ export default function AnalyticsPage() {
             <DollarSign className="h-4 w-4 mr-2" />
             Finanzas
           </TabsTrigger>
-          <TabsTrigger 
-            value="insights"
-            className="data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-950/30 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 rounded-md transition-all duration-200"
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Todos los Insights
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="productividad" className="space-y-6 mt-6">
@@ -72,12 +65,6 @@ export default function AnalyticsPage() {
         <TabsContent value="finanzas" className="space-y-6 mt-6">
           <div className="grid gap-6">
             <FinanceAnalytics />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="insights" className="space-y-6 mt-6">
-          <div className="grid gap-6">
-            <AllInsights />
           </div>
         </TabsContent>
       </Tabs>
