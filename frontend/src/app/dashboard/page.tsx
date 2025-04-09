@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useAuth } from '@/hooks/useAuth';
+import { useCalendarEvents } from '@/hooks/useGoogleCalendar';
 
 import { UpcomingTasksCard } from '@/components/dashboard/UpcomingTasksCard';
 import { GoalsSummaryCard } from '@/components/dashboard/GoalsSummaryCard';
@@ -27,6 +28,23 @@ import { FinanceOverviewCard } from '@/components/dashboard/FinanceOverviewCard'
 export default function DashboardPage() {
   const { data, loading, error } = useDashboardData();
   const { user } = useAuth();
+  
+  // Obtener eventos del calendario para hoy
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const { 
+    data: calendarEvents = [], 
+    isLoading: isLoadingCalendar 
+  } = useCalendarEvents(today, tomorrow);
+
+  // Obtener el próximo evento (el más cercano a la hora actual)
+  const now = new Date();
+  const nextEvent = calendarEvents
+    .filter(event => new Date(event.start) > now)
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0];
 
   if (error) {
     return (
@@ -124,7 +142,9 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">PRÓXIMO EVENTO</p>
-                    <h3 className="text-lg font-bold mt-1">{data?.nextEvent?.title || 'No upcoming events'}</h3>
+                    <h3 className="text-lg font-bold mt-1">
+                      {isLoadingCalendar ? 'Cargando...' : nextEvent?.title || 'No hay eventos próximos'}
+                    </h3>
                   </div>
                   <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
                     <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -132,7 +152,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-2 flex items-center">
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Hoy - {data?.nextEvent?.time || '-'}
+                    {nextEvent ? format(new Date(nextEvent.start), 'HH:mm', { locale: es }) : '-'}
                   </p>
                 </div>
               </div>
