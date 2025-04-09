@@ -30,42 +30,114 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="p-4 lg:p-8 text-red-600">
+      <div className="p-4 text-red-600">
         Error al cargar los datos: {error.message}
       </div>
     );
   }
 
-  const safeData = data || {
-    goalsProgress: 0,
-    topHabit: { name: '...', streak: 0 },
-    finances: { balance: 0, monthlyChange: 0, income: 0, fixedExpenses: 0, variableExpenses: 0, savings: 0 },
-    nextEvent: null,
-    upcomingTasks: [],
-    goalsList: [],
-    todayEvents: [],
-    habitsList: [],
-  };
-
-  const monthlyChange = safeData.finances.monthlyChange;
+  const monthlyChange = data?.finances?.monthlyChange || 0;
   const isPositiveChange = monthlyChange >= 0;
 
-  const pendingTasksCount = safeData.upcomingTasks.length;
-  const todayEventsCount = safeData.todayEvents.length;
-  const habitStreak = safeData.topHabit.streak;
-  const financialBalance = safeData.finances.balance;
+  const pendingTasksCount = data?.upcomingTasks.length || 0;
+  const todayEventsCount = data?.todayEvents.length || 0;
+  const habitStreak = data?.topHabit.streak || 0;
+  const financialBalance = data?.finances.balance || 0;
 
   return (
-    <div className="p-4 lg:p-8 space-y-8">
-      <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 rounded-xl p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+    <div className="p-4">
+      {/* Hero Dashboard Section */}
+      <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 rounded-xl p-6 mb-8 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">SoulDream Dashboard</h1>
-            {user && <p className="text-gray-600 dark:text-gray-300 mt-2">Hola, {user.user_metadata?.full_name || user.email}!</p>}
+            {user && <p className="text-gray-600 dark:text-gray-300 mt-2">Bienvenido de nuevo, {user.user_metadata?.full_name || user.email}! Aquí está el resumen de tu progreso.</p>}
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm px-4 py-2 mt-4 md:mt-0">
             <p className="text-sm text-gray-500 dark:text-gray-400">{format(new Date(), 'EEEE, d MMMM yyyy', { locale: es })}</p>
           </div>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading ? (
+            <div className="col-span-4 flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+          ) : (
+            <>
+              {/* Progress overview cards */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm flex flex-col">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">PROGRESO DE METAS</p>
+                    <h3 className="text-xl font-bold mt-1">{data?.goalsProgress}%</h3>
+                  </div>
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
+                    <Target className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-4">
+                  <div 
+                    className="bg-indigo-600 dark:bg-indigo-500 h-2 rounded-full" 
+                    style={{ width: `${data?.goalsProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm flex flex-col">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">HÁBITO DESTACADO</p>
+                    <h3 className="text-lg font-bold mt-1">{data?.topHabit.name}</h3>
+                  </div>
+                  <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center">
+                  <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {data?.topHabit.streak} días consecutivos
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">FINANZAS</p>
+                    <h3 className="text-xl font-bold mt-1">${financialBalance.toLocaleString()}</h3>
+                  </div>
+                  <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
+                    <DollarSign className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center">
+                  <div className={`w-3 h-3 rounded-full ${isPositiveChange ? 'bg-green-500' : 'bg-red-500'} mr-2`}></div>
+                  <p className={`text-sm ${isPositiveChange ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {isPositiveChange ? '+' : ''}{Math.round(monthlyChange)}% este mes
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">PRÓXIMO EVENTO</p>
+                    <h3 className="text-lg font-bold mt-1">{data?.nextEvent?.title || 'No upcoming events'}</h3>
+                  </div>
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                    <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Hoy - {data?.nextEvent?.time || '-'}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -120,17 +192,17 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          <FinanceOverviewCard finances={safeData.finances} />
+          <FinanceOverviewCard finances={data.finances} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6">
-              <UpcomingTasksCard tasks={safeData.upcomingTasks} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
-              <CalendarDayCard events={safeData.todayEvents} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
+              <UpcomingTasksCard tasks={data.upcomingTasks} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
+              <CalendarDayCard events={data.todayEvents} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-              <GoalsSummaryCard goals={safeData.goalsList} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
-              <HabitsListCard habits={safeData.habitsList} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
+              <GoalsSummaryCard goals={data.goalsList} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
+              <HabitsListCard habits={data.habitsList} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
             </div>
           </div>
         </div>
