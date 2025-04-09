@@ -130,7 +130,6 @@ export default function DashboardPage() {
 
             <div className="lg:col-span-2 space-y-6">
               <GoalsSummaryCard goals={safeData.goalsList} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
-              <FinanceSummaryCard summary={safeData.finances} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
               <HabitsListCard habits={safeData.habitsList} className="transition-transform duration-200 ease-in-out hover:scale-[1.02]"/>
             </div>
           </div>
