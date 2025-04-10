@@ -60,9 +60,12 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
   // Verificar si el hábito ya se completó hoy
   const isCompletedToday = habit.isCompletedToday || false;
 
+  // Verificar si el hábito es temporal
+  const isTemporary = habit.id.startsWith('temp-');
+
   // Manejar la completación del hábito
   const handleComplete = async () => {
-    if (isCompleting || isCompletedToday) return;
+    if (isCompleting || isCompletedToday || isTemporary) return;
     
     setIsCompleting(true);
     try {
@@ -121,15 +124,17 @@ export const HabitCard: React.FC<HabitCardProps> = ({ habit, onComplete, onDelet
                 onClick={handleComplete}
                 size="sm" 
                 variant="outline"
-                disabled={isCompleting}
+                disabled={isCompleting || isTemporary}
                 className={cn(
                   "flex items-center gap-1 hover:bg-green-50 hover:text-green-600 hover:border-green-200 dark:hover:bg-green-950/50 dark:hover:text-green-400 dark:hover:border-green-800",
-                  isCompleting && "opacity-50 cursor-not-allowed"
+                  (isCompleting || isTemporary) && "opacity-50 cursor-not-allowed"
                 )}
                 aria-label="Completar hábito"
               >
                 <CheckCircle className="h-4 w-4 text-emerald-500" />
-                <span>{isCompleting ? 'Completando...' : 'Completar'}</span>
+                <span>
+                  {isCompleting ? 'Completando...' : isTemporary ? 'Guardando...' : 'Completar'}
+                </span>
               </Button>
             ) : (
               <div className="flex items-center text-emerald-500">

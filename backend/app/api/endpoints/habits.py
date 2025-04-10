@@ -606,4 +606,39 @@ async def setup_habits_table(
             "message": str(e),
             "table_exists": False,
             "sample_data": []
-        } 
+        }
+
+@router.get("/logs/today", response_model=List[dict])
+async def get_today_habits_logs(
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Obtiene los logs de hoy para todos los hábitos del usuario en una sola consulta
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Obteniendo logs de hoy para el usuario: {current_user.id}")
+    
+    try:
+        supabase_service = get_service_client()
+        today = date.today().isoformat()
+        
+        # Obtener todos los logs de hoy en una sola consulta
+        response = supabase_service.table("habit_logs") \
+            .select("habit_id, completed_date") \
+            .eq("completed_date", today) \
+            .execute()
+            
+        # Crear un mapa de hábitos completados
+        completed_habits = {
+            log["habit_id"]: True 
+            for log in response.data
+        }
+        
+        return [{"habit_id": habit_id, "completed": True} for habit_id in completed_habits]
+        
+    except Exception as e:
+        logger.error(f"Error al obtener logs de hábitos: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener logs de hábitos: {str(e)}"
+        ) 

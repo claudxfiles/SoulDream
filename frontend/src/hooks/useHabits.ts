@@ -1,16 +1,12 @@
-import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
-  getHabits, 
   getHabit, 
-  createHabit, 
-  updateHabit, 
-  deleteHabit, 
-  getHabitLogs, 
+  getHabitLogs,
   markHabitAsCompleted,
   calculateHabitStatistics
 } from '@/lib/habits';
 import { Habit, HabitCreate, HabitUpdate, HabitWithLogsAndProgress } from '@/types/habit';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { habitService } from '@/services/habitService';
 import { HabitLog, HabitLogCreate } from '@/types/habit';
 
@@ -18,57 +14,37 @@ export const useHabits = (category?: string) => {
   const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(category);
 
-  // Obtener todos los hábitos con optimizaciones
-  const { data: allHabits, isLoading, error, refetch } = useQuery({
+  // Obtener todos los hábitos
+  const { data: allHabits, isLoading: isLoadingHabits, error: habitsError, refetch: refetchHabits } = useQuery({
     queryKey: ['habits'],
-    queryFn: async () => {
-      // Obtener todos los hábitos
-      const habits = await habitService.getHabits();
-      
-      // Prefetch individual habits para el caché
-      habits.forEach(habit => {
-        queryClient.setQueryData(['habit', habit.id], habit);
-      });
-      
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Obtener los logs de hoy en una sola petición batch
-      const todayLogs = await Promise.all(
-        habits.map(habit => 
-          habitService.getHabitLogs(habit.id)
-            .then(logs => {
-              // Guardar los logs en caché
-              queryClient.setQueryData(['habitLogs', habit.id], logs);
-              return {
-                habitId: habit.id,
-                isCompletedToday: logs.some(log => log.completed_date.split('T')[0] === today)
-              };
-            })
-            .catch(() => ({ habitId: habit.id, isCompletedToday: false }))
-        )
-      );
-      
-      // Crear un mapa para acceso rápido
-      const completionMap = new Map(
-        todayLogs.map(({ habitId, isCompletedToday }) => [habitId, isCompletedToday])
-      );
-      
-      // Mapear los hábitos con su estado de completado
-      return habits.map(habit => ({
-        ...habit,
-        isCompletedToday: completionMap.get(habit.id) || false
-      }));
-    },
+    queryFn: () => habitService.getHabits(),
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
     gcTime: 10 * 60 * 1000,   // Garbage collection después de 10 minutos
     retry: 1,
     refetchOnWindowFocus: false,
   });
-  
+
+  // Obtener los logs de hoy en una sola consulta
+  const { data: todayLogs, isLoading: isLoadingLogs, refetch: refetchLogs } = useQuery({
+    queryKey: ['habits', 'todayLogs'],
+    queryFn: () => habitService.getTodayHabitLogs(),
+    enabled: !!allHabits,
+    staleTime: 1 * 60 * 1000, // Cache por 1 minuto
+    gcTime: 5 * 60 * 1000,    // Garbage collection después de 5 minutos
+  });
+
+  // Combinar hábitos con sus logs
+  const habits = allHabits && todayLogs ? allHabits.map(habit => ({
+    ...habit,
+    isCompletedToday: todayLogs.some((log: { habit_id: string; completed: boolean }) => 
+      log.habit_id === habit.id && log.completed
+    )
+  })) : [];
+
   // Filtrar por categoría si es necesario
-  const habits = allHabits && selectedCategory && selectedCategory !== 'all'
-    ? allHabits.filter((habit: Habit) => habit.category === selectedCategory)
-    : allHabits;
+  const filteredHabits = selectedCategory && selectedCategory !== 'all'
+    ? habits.filter((habit: Habit) => habit.category === selectedCategory)
+    : habits;
   
   // Mutación para crear un hábito con optimistic updates
   const createHabitMutation = useMutation({
@@ -78,8 +54,9 @@ export const useHabits = (category?: string) => {
       const previousHabits = queryClient.getQueryData(['habits']);
       
       // Optimistic update
+      const tempId = 'temp-' + Date.now();
       const optimisticHabit = {
-        id: 'temp-' + Date.now(),
+        id: tempId,
         ...newHabit,
         created_at: new Date().toISOString(),
         isCompletedToday: false
@@ -89,7 +66,18 @@ export const useHabits = (category?: string) => {
         old ? [...old, optimisticHabit] : [optimisticHabit]
       );
       
-      return { previousHabits };
+      return { previousHabits, tempId };
+    },
+    onSuccess: (createdHabit, _, context) => {
+      if (context?.tempId) {
+        // Actualizar el hábito temporal con el real
+        queryClient.setQueryData(['habits'], (old: Habit[] | undefined) => {
+          if (!old) return [createdHabit];
+          return old.map(habit => 
+            habit.id === context.tempId ? { ...createdHabit, isCompletedToday: false } : habit
+          );
+        });
+      }
     },
     onError: (err, newHabit, context) => {
       if (context?.previousHabits) {
@@ -188,11 +176,19 @@ export const useHabits = (category?: string) => {
   const changeCategory = useCallback((newCategory?: string) => {
     setSelectedCategory(newCategory);
   }, []);
-  
+
+  // Función para refrescar todos los datos
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      refetchHabits(),
+      refetchLogs()
+    ]);
+  }, [refetchHabits, refetchLogs]);
+
   return {
-    habits,
-    isLoading,
-    error,
+    habits: filteredHabits,
+    isLoading: isLoadingHabits || isLoadingLogs,
+    error: habitsError,
     refetch,
     createHabit: createHabitMutation.mutate,
     updateHabit: updateHabitMutation.mutate,

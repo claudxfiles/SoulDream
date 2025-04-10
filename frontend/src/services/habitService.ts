@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { Habit, HabitCreate, HabitUpdate, HabitLog, HabitLogCreate } from '@/types/habit';
+import { supabase } from '@/lib/supabase';
 
 // Servicio para gestionar hábitos
 export const habitService = {
@@ -154,6 +155,30 @@ export const habitService = {
     } catch (error) {
       console.error('Error al obtener diagnóstico:', error);
       throw error;
+    }
+  },
+
+  // Obtener los logs de hoy para todos los hábitos
+  getTodayHabitLogs: async (): Promise<{ habit_id: string; completed: boolean }[]> => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('habit_logs')
+        .select('habit_id, completed_date')
+        .eq('completed_date', today);
+
+      if (error) {
+        throw error;
+      }
+
+      return data.map(log => ({
+        habit_id: log.habit_id,
+        completed: true
+      }));
+    } catch (error) {
+      console.error('Error al obtener los logs de hábitos:', error);
+      return [];
     }
   }
 }; 

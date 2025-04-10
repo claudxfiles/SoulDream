@@ -7,6 +7,9 @@ import {
 } from '@/types/habit';
 import { apiClient } from './api-client';
 import { format, isToday, startOfWeek, startOfMonth, parseISO } from 'date-fns';
+import { API_URL } from '@/config';
+import { getToken } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 
 // Obtener todos los hábitos del usuario
 export const getHabits = async (category?: string): Promise<Habit[]> => {
@@ -113,4 +116,29 @@ export const calculateHabitStatistics = (habits: Habit[]): any => {
       best: maxBestStreak
     }
   };
+};
+
+export const habitService = {
+  getTodayHabitLogs: async (): Promise<{ habit_id: string; completed: boolean }[]> => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('habit_logs')
+        .select('habit_id, completed_date')
+        .eq('completed_date', today);
+
+      if (error) {
+        throw error;
+      }
+
+      return data.map(log => ({
+        habit_id: log.habit_id,
+        completed: true
+      }));
+    } catch (error) {
+      console.error('Error al obtener los logs de hábitos:', error);
+      return [];
+    }
+  },
 }; 
