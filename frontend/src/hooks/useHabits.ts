@@ -22,17 +22,28 @@ export const useHabits = (category?: string) => {
   const { data: allHabits, isLoading, error, refetch } = useQuery({
     queryKey: ['habits'],
     queryFn: async () => {
+      // Obtener todos los hábitos
       const habits = await habitService.getHabits();
+      
+      // Prefetch individual habits para el caché
+      habits.forEach(habit => {
+        queryClient.setQueryData(['habit', habit.id], habit);
+      });
+      
       const today = new Date().toISOString().split('T')[0];
       
-      // Obtener los logs de hoy en paralelo para todos los hábitos
+      // Obtener los logs de hoy en una sola petición batch
       const todayLogs = await Promise.all(
         habits.map(habit => 
           habitService.getHabitLogs(habit.id)
-            .then(logs => ({
-              habitId: habit.id,
-              isCompletedToday: logs.some(log => log.completed_date.split('T')[0] === today)
-            }))
+            .then(logs => {
+              // Guardar los logs en caché
+              queryClient.setQueryData(['habitLogs', habit.id], logs);
+              return {
+                habitId: habit.id,
+                isCompletedToday: logs.some(log => log.completed_date.split('T')[0] === today)
+              };
+            })
             .catch(() => ({ habitId: habit.id, isCompletedToday: false }))
         )
       );
@@ -194,26 +205,35 @@ export const useHabits = (category?: string) => {
 
 export const useHabitDetails = (habitId: string) => {
   const queryClient = useQueryClient();
+  const isTemporary = habitId.startsWith('temp-');
   
   // Obtener un hábito específico
   const { data: habit, isLoading: isLoadingHabit } = useQuery({
     queryKey: ['habit', habitId],
-    queryFn: () => getHabit(habitId),
+    queryFn: () => {
+      if (isTemporary) {
+        const habits = queryClient.getQueryData<Habit[]>(['habits']);
+        const tempHabit = habits?.find(h => h.id === habitId);
+        if (tempHabit) {
+          return tempHabit;
+        }
+        throw new Error('Hábito temporal no encontrado');
+      }
+      return getHabit(habitId);
+    },
     enabled: !!habitId,
   });
   
-  // Obtener los registros de un hábito
-  const { data: logs, isLoading: isLoadingLogs } = useQuery({
+  // Obtener los registros de un hábito solo si no es temporal
+  const { data: logs = [], isLoading: isLoadingLogs } = useQuery({
     queryKey: ['habitLogs', habitId],
     queryFn: () => getHabitLogs(habitId),
-    enabled: !!habitId,
+    enabled: !!habitId && !isTemporary, // Solo ejecutar si el hábito no es temporal
   });
   
-  // Calcular estadísticas si tenemos tanto el hábito como los registros
+  // Calcular estadísticas si tenemos el hábito
   const habitWithStats: HabitWithLogsAndProgress | undefined = 
-    habit && logs 
-      ? calculateHabitStatistics([habit]) 
-      : undefined;
+    habit ? calculateHabitStatistics([habit]) : undefined;
   
   // Mutación para marcar un hábito como completado
   const completeHabitMutation = useMutation({
@@ -234,7 +254,7 @@ export const useHabitDetails = (habitId: string) => {
   return {
     habit: habitWithStats,
     logs,
-    isLoading: isLoadingHabit || isLoadingLogs,
+    isLoading: isLoadingHabit || (!isTemporary && isLoadingLogs),
     completeHabit: completeHabitMutation.mutate,
     isCompleting: completeHabitMutation.isPending,
   };
@@ -242,18 +262,81 @@ export const useHabitDetails = (habitId: string) => {
 
 // Hook para obtener un hábito específico por ID
 export const useGetHabitById = (habitId: string) => {
-  return useQuery({
-    queryKey: ['habits', habitId],
-    queryFn: () => habitService.getHabitById(habitId),
+  const queryClient = useQueryClient();
+  const isTemporary = habitId.startsWith('temp-');
+  
+  // Obtener un hábito específico
+  const { data: habit, isLoading: isLoadingHabit } = useQuery({
+    queryKey: ['habit', habitId],
+    queryFn: async () => {
+      // Si el ID es temporal, buscar en el caché de hábitos
+      if (isTemporary) {
+        const habits = queryClient.getQueryData<Habit[]>(['habits']);
+        const tempHabit = habits?.find(h => h.id === habitId);
+        if (tempHabit) {
+          return tempHabit;
+        }
+        throw new Error('Hábito temporal no encontrado');
+      }
+      
+      // Intentar obtener del caché primero
+      const cachedHabit = queryClient.getQueryData<Habit>(['habit', habitId]);
+      if (cachedHabit) {
+        return cachedHabit;
+      }
+      
+      // Si no está en caché, hacer la petición
+      return getHabit(habitId);
+    },
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
     enabled: !!habitId,
+    retry: false,
   });
+  
+  // Obtener los registros de un hábito solo si no es temporal
+  const { data: logs = [], isLoading: isLoadingLogs } = useQuery({
+    queryKey: ['habitLogs', habitId],
+    queryFn: () => {
+      if (isTemporary) {
+        return Promise.resolve([]);
+      }
+      
+      // Intentar obtener del caché primero
+      const cachedLogs = queryClient.getQueryData<HabitLog[]>(['habitLogs', habitId]);
+      if (cachedLogs) {
+        return cachedLogs;
+      }
+      
+      return getHabitLogs(habitId);
+    },
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    enabled: !!habitId && !isTemporary,
+  });
+  
+  // Calcular estadísticas si tenemos el hábito
+  const habitWithStats: HabitWithLogsAndProgress | undefined = 
+    habit ? calculateHabitStatistics([habit]) : undefined;
+  
+  return {
+    habit: habitWithStats,
+    logs,
+    isLoading: isLoadingHabit || (!isTemporary && isLoadingLogs),
+    isCompleting: false,
+  };
 };
 
 // Hook para obtener los logs de un hábito
 export const useGetHabitLogs = (habitId: string) => {
+  const isTemporary = habitId.startsWith('temp-');
+  
   return useQuery({
     queryKey: ['habitLogs', habitId],
-    queryFn: () => habitService.getHabitLogs(habitId),
+    queryFn: () => {
+      if (isTemporary) {
+        return Promise.resolve([]); // Retornar array vacío para hábitos temporales
+      }
+      return habitService.getHabitLogs(habitId);
+    },
     enabled: !!habitId,
   });
 };
