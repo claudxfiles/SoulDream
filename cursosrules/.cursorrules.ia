@@ -1,6 +1,6 @@
 # Landing Page Factory - Template Estándar
 ```tsx
-// components/chat/VectalChat.tsx
+// components/chat/SoulDreamChat.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Mic, ChevronUp } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -13,7 +13,7 @@ interface Message {
   timestamp: Date;
 }
 
-export function VectalChat() {
+export function SoulDreamChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -143,7 +143,7 @@ export function VectalChat() {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message Vectal..."
+            placeholder="Message SoulDream..."
             className="w-full bg-[#2A2A2A] text-gray-200 rounded-md py-3 px-4 pr-12 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none"
             rows={1}
           />
@@ -195,7 +195,7 @@ Ahora, vamos a crear la página que contendrá este chat, con un diseño similar
 'use client';
 
 import { useState } from 'react';
-import { VectalChat } from '@/components/chat/VectalChat';
+import { SoulDreamChat } from '@/components/chat/SoulDreamChat';
 import { TaskList } from '@/components/task/TaskList';
 import { PlusIcon, MoreVertical, BellIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -224,7 +224,7 @@ export default function ChatPage() {
       <div className="flex-1 flex h-full">
         {/* Chat principal */}
         <div className="flex-1 overflow-hidden">
-          <VectalChat />
+          <SoulDreamChat />
         </div>
         
         {/* Panel de tareas (derecha) */}
@@ -232,7 +232,7 @@ export default function ChatPage() {
           <div className="w-[400px] border-l border-white/10 bg-[#1A1A1A] text-white overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <div className="flex items-center space-x-2">
-                <h2 className="text-xl font-medium">vectal.ai</h2>
+                <h2 className="text-xl font-medium">SoulDream.ai</h2>
                 <button className="text-gray-400 hover:text-white">
                   <PlusIcon size={20} />
                 </button>
@@ -288,7 +288,7 @@ export function TaskList() {
   const tasks: Task[] = [
     { id: '1', title: 'cursor', completed: false, starred: true, category: 'future' },
     { id: '2', title: 'Crear PYME: ALCAMAN PAISAJISMO', completed: false },
-    { id: '3', title: 'Remember: The more tasks you have, the better Vectal gets.', completed: false, starred: true },
+    { id: '3', title: 'Remember: The more tasks you have, the better SoulDream gets.', completed: false, starred: true },
   ];
 
   return (
@@ -412,14 +412,14 @@ export async function POST(req: Request) {
     <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
-  <span>Vectal AI Chat</span>
+  <span>SoulDream AI Chat</span>
 </Link>
 ```
 
-Este es un chat similar al de Vectal.ai como pediste, con:
+Este es un chat similar al de SoulDream.ai como pediste, con:
 
 Una interfaz oscura y minimalista
-Logo de diamante similar al de Vectal
+Logo de diamante similar al de SoulDream
 Área de mensajes con indicador de escritura
 Input para enviar mensajes con botones para micrófono y envío
 Panel lateral para tareas (como se muestra en tu imagen)

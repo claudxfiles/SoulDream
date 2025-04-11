@@ -18,7 +18,6 @@ import {
 import { Navbar } from '@/components/landing/Navbar';
 import { Hero } from '@/components/landing/hero/Hero';
 import { FeatureSection } from '@/components/landing/features/FeatureSection';
-import { TestimonialsSection } from '@/components/landing/testimonials/TestimonialsSection';
 import { PricingSection } from '@/components/landing/pricing/PricingSection';
 import { FaqSection } from '@/components/landing/faq/FaqSection';
 import { Footer } from '@/components/landing/footer/Footer';
@@ -114,7 +113,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center">
                   <CheckCircle2 className="h-4 w-4 text-indigo-500 mr-2" />
-                  <span>14 días prueba completa</span>
+                  <span>7 días prueba completa</span>
                 </div>
                 <div className="flex items-center">
                   <CheckCircle2 className="h-4 w-4 text-indigo-500 mr-2" />
@@ -279,7 +278,6 @@ export default function Home() {
       {/* Componentes de las demás secciones */}
       <main>
         <FeatureSection />
-        <TestimonialsSection />
         
         {/* Sección de beneficios adicional */}
         <FadeInWhenVisible>
