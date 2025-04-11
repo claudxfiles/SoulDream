@@ -5,81 +5,136 @@ import {
   HabitLog, 
   HabitLogCreate 
 } from '@/types/habit';
-import { apiClient } from './api-client';
+import axios from 'axios';
 import { format, isToday, startOfWeek, startOfMonth, parseISO } from 'date-fns';
 import { supabase } from '@/lib/supabase';
+
+// Configuración de axios directamente, sin dependencias del apiClient
+const secureAxios = axios.create({
+  baseURL: process.env.NODE_ENV === 'production' ? 'https://api.presentandflow.cl' : undefined,
+  headers: { 'Content-Type': 'application/json' }
+});
+
+// Log para verificación
+console.log('Configuración de secureAxios:', {
+  baseURL: secureAxios.defaults.baseURL,
+  environment: process.env.NODE_ENV
+});
+
+// Asegurar que todas las solicitudes usen HTTPS
+secureAxios.interceptors.request.use(config => {
+  // Lógica para HTTPS
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Interceptor de secureAxios activado');
+    // Forzar baseURL HTTPS
+    config.baseURL = 'https://api.presentandflow.cl';
+    
+    // Si hay una URL absoluta, convertirla a HTTPS
+    if (config.url && config.url.startsWith('http://')) {
+      config.url = config.url.replace('http://', 'https://');
+      console.log('URL convertida a HTTPS:', config.url);
+    }
+  }
+  
+  console.log('secureAxios request:', {
+    url: config.url,
+    baseURL: config.baseURL,
+    method: config.method
+  });
+  
+  return config;
+});
+
+// Obtener token de autenticación de Supabase
+async function getAuthToken() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token;
+  } catch (error) {
+    console.error('Error obteniendo token de autenticación:', error);
+    return null;
+  }
+}
 
 // Obtener todos los hábitos del usuario
 export const getHabits = async (category?: string): Promise<Habit[]> => {
   const params = category ? { category } : {};
+  const token = await getAuthToken();
   
-  if (process.env.NODE_ENV === 'production') {
-    // En producción, usamos URL absoluta con HTTPS
-    const secureUrl = 'https://api.presentandflow.cl/api/v1/habits/';
-    console.log('Usando URL HTTPS directa para getHabits:', secureUrl);
-    
-    const response = await apiClient.get<Habit[]>(secureUrl, { params });
-    return response.data;
-  } else {
-    // En desarrollo, usamos la ruta relativa
-    const response = await apiClient.get<Habit[]>('/api/v1/habits/', { params });
-    return response.data;
+  console.log('getHabits solicitando con URL absoluta HTTPS');
+  
+  try {
+    const response = await secureAxios.get('/api/v1/habits/', { 
+      params,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
+    return response.data || [];
+  } catch (error) {
+    console.error('Error en getHabits:', error);
+    return [];
   }
 };
 
 // Obtener un hábito específico
 export const getHabit = async (habitId: string): Promise<Habit> => {
-  // Log para diagnóstico
-  console.log('getHabit URL:', `/api/v1/habits/${habitId}/`);
+  console.log(`getHabit para ID ${habitId} usando URL HTTPS absoluta`);
+  const token = await getAuthToken();
   
-  if (process.env.NODE_ENV === 'production') {
-    // En producción, usamos URL absoluta con HTTPS
-    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
-    console.log('Usando URL HTTPS directa:', secureUrl);
-    
-    const response = await apiClient.get<Habit>(secureUrl);
+  try {
+    const response = await secureAxios.get(`/api/v1/habits/${habitId}/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
     return response.data;
-  } else {
-    // En desarrollo, usamos la ruta relativa
-    const response = await apiClient.get<Habit>(`/api/v1/habits/${habitId}/`);
-    return response.data;
+  } catch (error) {
+    console.error(`Error obteniendo hábito ${habitId}:`, error);
+    throw new Error('Error al obtener el hábito');
   }
 };
 
 // Crear un nuevo hábito
 export const createHabit = async (habit: HabitCreate): Promise<Habit> => {
-  if (process.env.NODE_ENV === 'production') {
-    const secureUrl = 'https://api.presentandflow.cl/api/v1/habits/';
-    console.log('Usando URL HTTPS para createHabit:', secureUrl);
-    const response = await apiClient.post<Habit>(secureUrl, habit);
+  console.log('createHabit usando URL HTTPS absoluta');
+  const token = await getAuthToken();
+  
+  try {
+    const response = await secureAxios.post('/api/v1/habits/', habit, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
     return response.data;
-  } else {
-    const response = await apiClient.post<Habit>('/api/v1/habits/', habit);
-    return response.data;
+  } catch (error) {
+    console.error('Error creando hábito:', error);
+    throw new Error('Error al crear el hábito');
   }
 };
 
 // Actualizar un hábito existente
 export const updateHabit = async (habitId: string, habit: HabitUpdate): Promise<Habit> => {
-  if (process.env.NODE_ENV === 'production') {
-    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
-    console.log('Usando URL HTTPS para updateHabit:', secureUrl);
-    const response = await apiClient.put<Habit>(secureUrl, habit);
+  console.log(`updateHabit para ID ${habitId} usando URL HTTPS absoluta`);
+  const token = await getAuthToken();
+  
+  try {
+    const response = await secureAxios.put(`/api/v1/habits/${habitId}/`, habit, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
     return response.data;
-  } else {
-    const response = await apiClient.put<Habit>(`/api/v1/habits/${habitId}/`, habit);
-    return response.data;
+  } catch (error) {
+    console.error(`Error actualizando hábito ${habitId}:`, error);
+    throw new Error('Error al actualizar el hábito');
   }
 };
 
 // Eliminar un hábito
 export const deleteHabit = async (habitId: string): Promise<void> => {
-  if (process.env.NODE_ENV === 'production') {
-    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
-    console.log('Usando URL HTTPS para deleteHabit:', secureUrl);
-    await apiClient.delete(secureUrl);
-  } else {
-    await apiClient.delete(`/api/v1/habits/${habitId}/`);
+  console.log(`deleteHabit para ID ${habitId} usando URL HTTPS absoluta`);
+  const token = await getAuthToken();
+  
+  try {
+    await secureAxios.delete(`/api/v1/habits/${habitId}/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
+  } catch (error) {
+    console.error(`Error eliminando hábito ${habitId}:`, error);
+    throw new Error('Error al eliminar el hábito');
   }
 };
 
@@ -89,24 +144,22 @@ export const getHabitLogs = async (
   startDate?: Date, 
   endDate?: Date
 ): Promise<HabitLog[]> => {
+  console.log(`getHabitLogs para ID ${habitId} usando URL HTTPS absoluta`);
+  const token = await getAuthToken();
+  
   const params: Record<string, string> = {};
+  if (startDate) params.start_date = format(startDate, 'yyyy-MM-dd');
+  if (endDate) params.end_date = format(endDate, 'yyyy-MM-dd');
   
-  if (startDate) {
-    params.start_date = format(startDate, 'yyyy-MM-dd');
-  }
-  
-  if (endDate) {
-    params.end_date = format(endDate, 'yyyy-MM-dd');
-  }
-  
-  if (process.env.NODE_ENV === 'production') {
-    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/logs/`;
-    console.log('Usando URL HTTPS para getHabitLogs:', secureUrl);
-    const response = await apiClient.get<HabitLog[]>(secureUrl, { params });
-    return response.data;
-  } else {
-    const response = await apiClient.get<HabitLog[]>(`/api/v1/habits/${habitId}/logs/`, { params });
-    return response.data;
+  try {
+    const response = await secureAxios.get(`/api/v1/habits/${habitId}/logs/`, {
+      params,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
+    return response.data || [];
+  } catch (error) {
+    console.error(`Error obteniendo logs para hábito ${habitId}:`, error);
+    return [];
   }
 };
 
@@ -115,19 +168,19 @@ export const logHabitCompletion = async (
   habitId: string, 
   logData: Omit<HabitLogCreate, 'habit_id'>
 ): Promise<HabitLog> => {
-  const data: HabitLogCreate = {
-    ...logData,
-    habit_id: habitId
-  };
+  console.log(`logHabitCompletion para ID ${habitId} usando URL HTTPS absoluta`);
+  const token = await getAuthToken();
   
-  if (process.env.NODE_ENV === 'production') {
-    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/logs/`;
-    console.log('Usando URL HTTPS para logHabitCompletion:', secureUrl);
-    const response = await apiClient.post<HabitLog>(secureUrl, data);
+  const data: HabitLogCreate = { ...logData, habit_id: habitId };
+  
+  try {
+    const response = await secureAxios.post(`/api/v1/habits/${habitId}/logs/`, data, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
     return response.data;
-  } else {
-    const response = await apiClient.post<HabitLog>(`/api/v1/habits/${habitId}/logs/`, data);
-    return response.data;
+  } catch (error) {
+    console.error(`Error registrando completitud para hábito ${habitId}:`, error);
+    throw new Error('Error al registrar la completitud del hábito');
   }
 };
 
@@ -174,6 +227,7 @@ export const calculateHabitStatistics = (habits: Habit[]): any => {
   };
 };
 
+// Servicio para compatibilidad con código existente
 export const habitService = {
   getTodayHabitLogs: async (): Promise<{ habit_id: string; completed: boolean }[]> => {
     try {

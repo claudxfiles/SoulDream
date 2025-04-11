@@ -215,7 +215,7 @@ export const useHabitDetails = (habitId: string) => {
         }
         throw new Error('Hábito temporal no encontrado');
       }
-      return getHabit(habitId);
+      return habitService.getHabitById(habitId);
     },
     enabled: !!habitId,
   });
@@ -223,7 +223,7 @@ export const useHabitDetails = (habitId: string) => {
   // Obtener los registros de un hábito solo si no es temporal
   const { data: logs = [], isLoading: isLoadingLogs } = useQuery({
     queryKey: ['habitLogs', habitId],
-    queryFn: () => getHabitLogs(habitId),
+    queryFn: () => habitService.getHabitLogs(habitId),
     enabled: !!habitId && !isTemporary, // Solo ejecutar si el hábito no es temporal
   });
   
@@ -239,7 +239,12 @@ export const useHabitDetails = (habitId: string) => {
     }: { 
       notes?: string; 
       rating?: number 
-    }) => markHabitAsCompleted(habitId),
+    }) => habitService.logHabit({
+      habit_id: habitId,
+      completed_date: new Date().toISOString(),
+      notes,
+      quality_rating: rating
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habit', habitId] });
       queryClient.invalidateQueries({ queryKey: ['habitLogs', habitId] });
@@ -282,7 +287,7 @@ export const useGetHabitById = (habitId: string) => {
       }
       
       // Si no está en caché, hacer la petición
-      return getHabit(habitId);
+      return habitService.getHabitById(habitId);
     },
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
     enabled: !!habitId,
@@ -303,7 +308,7 @@ export const useGetHabitById = (habitId: string) => {
         return cachedLogs;
       }
       
-      return getHabitLogs(habitId);
+      return habitService.getHabitLogs(habitId);
     },
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
     enabled: !!habitId && !isTemporary,
