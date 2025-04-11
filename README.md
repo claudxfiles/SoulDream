@@ -98,7 +98,7 @@ npm install
    ```
    NEXT_PUBLIC_SUPABASE_URL=tu-url-de-supabase
    NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-clave-anonima-de-supabase
-   NEXT_PUBLIC_API_URL=http://localhost:8000
+   NEXT_PUBLIC_API_URL=http://localhost:8080
    OPENROUTER_API_KEY=tu-clave-de-openrouter (opcional)
    ```
 

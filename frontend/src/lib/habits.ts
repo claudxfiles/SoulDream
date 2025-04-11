@@ -7,8 +7,6 @@ import {
 } from '@/types/habit';
 import { apiClient } from './api-client';
 import { format, isToday, startOfWeek, startOfMonth, parseISO } from 'date-fns';
-import { API_URL } from '@/config';
-import { getToken } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 // Obtener todos los hábitos del usuario

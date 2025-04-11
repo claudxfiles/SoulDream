@@ -2,8 +2,16 @@ import axios from 'axios';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@/types/supabase';
 
+// Forzar HTTPS en producción para la API URL
+const ensureHttps = (url: string): string => {
+  if (process.env.NODE_ENV === 'production' && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
 // URL base de la API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = ensureHttps(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
 
 // Habilitar logs en desarrollo o deshabilitarlos en producción
 const isDev = process.env.NODE_ENV === 'development';
@@ -20,6 +28,11 @@ export const apiClient = axios.create({
 // Interceptor para incluir el token de autenticación en cada solicitud
 apiClient.interceptors.request.use(async (config) => {
   try {
+    // Asegurarse que todas las URLs absolutas usen HTTPS en producción
+    if (process.env.NODE_ENV === 'production' && config.url && config.url.startsWith('http://')) {
+      config.url = config.url.replace('http://', 'https://');
+    }
+    
     const supabase = createClientComponentClient<Database>();
     const { data } = await supabase.auth.getSession();
     const session = data.session;
