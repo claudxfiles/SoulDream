@@ -2,12 +2,25 @@ import { apiClient } from '@/lib/api-client';
 import { Habit, HabitCreate, HabitUpdate, HabitLog, HabitLogCreate } from '@/types/habit';
 import { supabase } from '@/lib/supabase';
 
+// Función para asegurar que siempre usamos HTTPS en producción
+const secureUrl = (path: string): string => {
+  if (process.env.NODE_ENV === 'production') {
+    // Asegurarnos de que la URL sea absoluta y HTTPS
+    if (path.startsWith('/')) {
+      return `https://api.presentandflow.cl${path}`;
+    }
+    return path.replace('http://', 'https://');
+  }
+  return path;
+};
+
 // Servicio para gestionar hábitos
 export const habitService = {
   // Obtener todos los hábitos
   getHabits: async (): Promise<Habit[]> => {
     try {
-      const response = await apiClient.get('/api/v1/habits/');
+      console.log('Solicitando hábitos con URL:', secureUrl('/api/v1/habits/'));
+      const response = await apiClient.get(secureUrl('/api/v1/habits/'));
       return response.data || [];
     } catch (error: any) {
       console.error('Error al obtener hábitos:', error);
@@ -18,7 +31,9 @@ export const habitService = {
   // Obtener un hábito por ID
   getHabitById: async (habitId: string): Promise<Habit> => {
     try {
-      const response = await apiClient.get(`/api/v1/habits/${habitId}`);
+      const url = secureUrl(`/api/v1/habits/${habitId}`);
+      console.log('Solicitando hábito con URL:', url);
+      const response = await apiClient.get(url);
       return response.data;
     } catch (error: any) {
       console.error(`Error al obtener hábito ${habitId}:`, error);
@@ -39,7 +54,9 @@ export const habitService = {
         is_active: true
       };
       
-      const response = await apiClient.post('/api/v1/habits/', habitData);
+      const url = secureUrl('/api/v1/habits/');
+      console.log('Creando hábito con URL:', url);
+      const response = await apiClient.post(url, habitData);
       return response.data;
     } catch (error: any) {
       console.error('Error al crear hábito:', error);
@@ -51,7 +68,9 @@ export const habitService = {
   updateHabit: async (habit: HabitUpdate & { id: string }): Promise<Habit> => {
     try {
       const { id, ...updateData } = habit;
-      const response = await apiClient.put<Habit>(`/api/v1/habits/${id}/`, updateData);
+      const url = secureUrl(`/api/v1/habits/${id}/`);
+      console.log('Actualizando hábito con URL:', url);
+      const response = await apiClient.put<Habit>(url, updateData);
       
       if (!response.data) {
         throw new Error('No se recibieron datos del servidor');
@@ -67,7 +86,9 @@ export const habitService = {
   // Eliminar un hábito
   deleteHabit: async (habitId: string): Promise<void> => {
     try {
-      const response = await apiClient.delete(`/api/v1/habits/${habitId}/`);
+      const url = secureUrl(`/api/v1/habits/${habitId}/`);
+      console.log('Eliminando hábito con URL:', url);
+      const response = await apiClient.delete(url);
       
       // Verificar si la respuesta es exitosa (204 No Content o 200 OK)
       if (response.status !== 204 && response.status !== 200) {
@@ -87,7 +108,9 @@ export const habitService = {
   // Obtener logs de un hábito
   getHabitLogs: async (habitId: string): Promise<HabitLog[]> => {
     try {
-      const response = await apiClient.get(`/api/v1/habits/${habitId}/logs/`);
+      const url = secureUrl(`/api/v1/habits/${habitId}/logs/`);
+      console.log('Obteniendo logs de hábito con URL:', url);
+      const response = await apiClient.get(url);
       return response.data || [];
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -110,7 +133,9 @@ export const habitService = {
         value: logData.value || 1
       };
       
-      const response = await apiClient.post<HabitLog>(`/api/v1/habits/${logData.habit_id}/logs/`, logToSend);
+      const url = secureUrl(`/api/v1/habits/${logData.habit_id}/logs/`);
+      console.log('Registrando log de hábito con URL:', url);
+      const response = await apiClient.post<HabitLog>(url, logToSend);
       
       if (!response.data) {
         throw new Error('No se recibieron datos del servidor');
@@ -126,7 +151,9 @@ export const habitService = {
   // Eliminar un log de hábito
   deleteHabitLog: async (logId: string): Promise<void> => {
     try {
-      const response = await apiClient.delete(`/api/v1/habit-logs/${logId}/`);
+      const url = secureUrl(`/api/v1/habit-logs/${logId}/`);
+      console.log('Eliminando log de hábito con URL:', url);
+      const response = await apiClient.delete(url);
       if (response.status !== 204 && response.status !== 200) {
         throw new Error('Error al eliminar el log');
       }
@@ -139,7 +166,9 @@ export const habitService = {
   // Obtener estadísticas de un hábito
   getHabitStats: async (habitId: string): Promise<any> => {
     try {
-      const response = await apiClient.get(`/api/v1/habits/${habitId}/stats/`);
+      const url = secureUrl(`/api/v1/habits/${habitId}/stats/`);
+      console.log('Obteniendo estadísticas de hábito con URL:', url);
+      const response = await apiClient.get(url);
       return response.data || {};
     } catch (error) {
       console.error(`Error al obtener estadísticas del hábito ${habitId}:`, error);
@@ -150,7 +179,9 @@ export const habitService = {
   // Función de diagnóstico para depurar problemas de hábitos
   getDiagnostic: async (): Promise<any> => {
     try {
-      const response = await apiClient.get('/api/v1/habits/diagnostic');
+      const url = secureUrl('/api/v1/habits/diagnostic');
+      console.log('Obteniendo diagnóstico con URL:', url);
+      const response = await apiClient.get(url);
       return response.data;
     } catch (error) {
       console.error('Error al obtener diagnóstico:', error);

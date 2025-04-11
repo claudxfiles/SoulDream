@@ -7,7 +7,8 @@ const crypto = require('crypto');
 const nextConfig = {
   transpilePackages: ['agent-base', 'googleapis', 'google-auth-library', 'gaxios', 'google-logging-utils', 'gcp-metadata'],
   
-  // Configuración para redirigir solicitudes API al backend
+  /* 
+  // ELIMINAMOS LAS REDIRECCIONES PARA EVITAR INTERFERENCIAS CON LAS LLAMADAS API
   async rewrites() {
     return [
       {
@@ -18,6 +19,7 @@ const nextConfig = {
       },
     ];
   },
+  */
   
   // Definir variables de entorno públicas
   env: {

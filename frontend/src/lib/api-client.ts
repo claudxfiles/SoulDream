@@ -26,6 +26,43 @@ export const apiClient = axios.create({
 console.log('API Client configurado con baseURL:', API_URL);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
+// NUEVO INTERCEPTOR CON MÁXIMA PRIORIDAD para forzar HTTPS en todas las solicitudes
+apiClient.interceptors.request.use(
+  function(config) {
+    // Si estamos en producción
+    if (process.env.NODE_ENV === 'production') {
+      console.log('FORZANDO HTTPS - Interceptor prioritario');
+      
+      // Convertir URL completa si está presente y es HTTP
+      if (config.url && config.url.includes('http://')) {
+        config.url = config.url.replace(/http:\/\//g, 'https://');
+        console.log('URL convertida a HTTPS (prioritario):', config.url);
+      }
+      
+      // Convertir baseURL si es HTTP
+      if (config.baseURL && config.baseURL.includes('http://')) {
+        config.baseURL = config.baseURL.replace(/http:\/\//g, 'https://');
+        console.log('baseURL convertida a HTTPS (prioritario):', config.baseURL);
+      }
+      
+      // SI URL ES RELATIVA, FORZAR URL ABSOLUTA CON HTTPS para este problema específico
+      if (config.url && !config.url.includes('://') && config.url.includes('/api/v1/habits/')) {
+        const habitId = config.url.split('/api/v1/habits/')[1].split('/')[0];
+        config.url = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
+        console.log('URL relativa convertida a absoluta HTTPS:', config.url);
+        // Eliminar baseURL para evitar duplicación
+        config.baseURL = '';
+      }
+    }
+    
+    return config;
+  },
+  function(error) {
+    return Promise.reject(error);
+  },
+  { runWhen: () => true } // Ejecutar en todas las solicitudes
+);
+
 // Interceptor para incluir el token de autenticación en cada solicitud
 apiClient.interceptors.request.use(async (config) => {
   try {
