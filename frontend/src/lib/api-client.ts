@@ -2,28 +2,17 @@ import axios from 'axios';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@/types/supabase';
 
-// Forzar HTTPS en producción para la API URL
-const ensureHttps = (url: string): string => {
-  if (process.env.NODE_ENV === 'production') {
-    // Forzar https:// para cualquier URL que comience con http://
-    if (url.startsWith('http://')) {
-      return url.replace('http://', 'https://');
-    }
-    
-    // Si es una URL relativa o ya es https://, mantenerla igual
-    return url;
-  }
-  return url;
-};
+// Determinar la URL base para la API
+let API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-// URL base de la API
-const API_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.presentandflow.cl'
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
+// En producción, forzar URL HTTPS
+if (process.env.NODE_ENV === 'production') {
+  API_URL = 'https://api.presentandflow.cl';
+}
 
 // Habilitar logs en desarrollo o deshabilitarlos en producción
 const isDev = process.env.NODE_ENV === 'development';
-const enableDetailedLogs = false; // Cambiar a true solo para depuración
+const enableDetailedLogs = true; // Activamos logs para depuración
 
 // Crear instancia de axios
 export const apiClient = axios.create({
@@ -33,21 +22,35 @@ export const apiClient = axios.create({
   },
 });
 
+// Log inicial de la configuración
+console.log('API Client configurado con baseURL:', API_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 // Interceptor para incluir el token de autenticación en cada solicitud
 apiClient.interceptors.request.use(async (config) => {
   try {
+    // Log para depuración
+    console.log('API Request URL antes de procesamiento:', config.url);
+    console.log('API Request baseURL antes de procesamiento:', config.baseURL);
+    
     // Asegurarse que todas las URLs absolutas usen HTTPS en producción
     if (process.env.NODE_ENV === 'production') {
       // Para URLs absolutas que comienzan con http://
       if (config.url && config.url.startsWith('http://')) {
         config.url = config.url.replace('http://', 'https://');
+        console.log('URL convertida a HTTPS:', config.url);
       }
       
       // Para URLs relativas, asegurarnos que baseURL es HTTPS
       if (config.baseURL && config.baseURL.startsWith('http://')) {
         config.baseURL = config.baseURL.replace('http://', 'https://');
+        console.log('baseURL convertida a HTTPS:', config.baseURL);
       }
     }
+    
+    // Log para depuración después de procesamiento
+    console.log('API Request URL final:', config.url);
+    console.log('API Request baseURL final:', config.baseURL);
     
     const supabase = createClientComponentClient<Database>();
     const { data } = await supabase.auth.getSession();
@@ -55,11 +58,6 @@ apiClient.interceptors.request.use(async (config) => {
     
     if (session) {
       config.headers.Authorization = `Bearer ${session.access_token}`;
-      if (isDev && enableDetailedLogs) {
-        console.log(`Petición autenticada: ${config.url}`);
-      }
-    } else if (isDev && enableDetailedLogs) {
-      console.warn(`Petición sin autenticación: ${config.url}`);
     }
   } catch (error) {
     console.error('Error obteniendo la sesión:', error);

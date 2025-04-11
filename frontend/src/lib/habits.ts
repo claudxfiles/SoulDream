@@ -12,8 +12,19 @@ import { supabase } from '@/lib/supabase';
 // Obtener todos los hábitos del usuario
 export const getHabits = async (category?: string): Promise<Habit[]> => {
   const params = category ? { category } : {};
-  const response = await apiClient.get<Habit[]>('/api/v1/habits/', { params });
-  return response.data;
+  
+  if (process.env.NODE_ENV === 'production') {
+    // En producción, usamos URL absoluta con HTTPS
+    const secureUrl = 'https://api.presentandflow.cl/api/v1/habits/';
+    console.log('Usando URL HTTPS directa para getHabits:', secureUrl);
+    
+    const response = await apiClient.get<Habit[]>(secureUrl, { params });
+    return response.data;
+  } else {
+    // En desarrollo, usamos la ruta relativa
+    const response = await apiClient.get<Habit[]>('/api/v1/habits/', { params });
+    return response.data;
+  }
 };
 
 // Obtener un hábito específico
@@ -21,27 +32,55 @@ export const getHabit = async (habitId: string): Promise<Habit> => {
   // Log para diagnóstico
   console.log('getHabit URL:', `/api/v1/habits/${habitId}/`);
   
-  // Usar la URL relativa, el apiClient ya se encarga de aplicar la baseURL correcta
-  // y la conversión a HTTPS en producción
-  const response = await apiClient.get<Habit>(`/api/v1/habits/${habitId}/`);
-  return response.data;
+  if (process.env.NODE_ENV === 'production') {
+    // En producción, usamos URL absoluta con HTTPS
+    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
+    console.log('Usando URL HTTPS directa:', secureUrl);
+    
+    const response = await apiClient.get<Habit>(secureUrl);
+    return response.data;
+  } else {
+    // En desarrollo, usamos la ruta relativa
+    const response = await apiClient.get<Habit>(`/api/v1/habits/${habitId}/`);
+    return response.data;
+  }
 };
 
 // Crear un nuevo hábito
 export const createHabit = async (habit: HabitCreate): Promise<Habit> => {
-  const response = await apiClient.post<Habit>('/api/v1/habits/', habit);
-  return response.data;
+  if (process.env.NODE_ENV === 'production') {
+    const secureUrl = 'https://api.presentandflow.cl/api/v1/habits/';
+    console.log('Usando URL HTTPS para createHabit:', secureUrl);
+    const response = await apiClient.post<Habit>(secureUrl, habit);
+    return response.data;
+  } else {
+    const response = await apiClient.post<Habit>('/api/v1/habits/', habit);
+    return response.data;
+  }
 };
 
 // Actualizar un hábito existente
 export const updateHabit = async (habitId: string, habit: HabitUpdate): Promise<Habit> => {
-  const response = await apiClient.put<Habit>(`/api/v1/habits/${habitId}/`, habit);
-  return response.data;
+  if (process.env.NODE_ENV === 'production') {
+    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
+    console.log('Usando URL HTTPS para updateHabit:', secureUrl);
+    const response = await apiClient.put<Habit>(secureUrl, habit);
+    return response.data;
+  } else {
+    const response = await apiClient.put<Habit>(`/api/v1/habits/${habitId}/`, habit);
+    return response.data;
+  }
 };
 
 // Eliminar un hábito
 export const deleteHabit = async (habitId: string): Promise<void> => {
-  await apiClient.delete(`/api/v1/habits/${habitId}/`);
+  if (process.env.NODE_ENV === 'production') {
+    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
+    console.log('Usando URL HTTPS para deleteHabit:', secureUrl);
+    await apiClient.delete(secureUrl);
+  } else {
+    await apiClient.delete(`/api/v1/habits/${habitId}/`);
+  }
 };
 
 // Obtener los registros de un hábito
@@ -60,8 +99,15 @@ export const getHabitLogs = async (
     params.end_date = format(endDate, 'yyyy-MM-dd');
   }
   
-  const response = await apiClient.get<HabitLog[]>(`/api/v1/habits/${habitId}/logs/`, { params });
-  return response.data;
+  if (process.env.NODE_ENV === 'production') {
+    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/logs/`;
+    console.log('Usando URL HTTPS para getHabitLogs:', secureUrl);
+    const response = await apiClient.get<HabitLog[]>(secureUrl, { params });
+    return response.data;
+  } else {
+    const response = await apiClient.get<HabitLog[]>(`/api/v1/habits/${habitId}/logs/`, { params });
+    return response.data;
+  }
 };
 
 // Registrar completitud de un hábito
@@ -74,8 +120,15 @@ export const logHabitCompletion = async (
     habit_id: habitId
   };
   
-  const response = await apiClient.post<HabitLog>(`/api/v1/habits/${habitId}/logs/`, data);
-  return response.data;
+  if (process.env.NODE_ENV === 'production') {
+    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/logs/`;
+    console.log('Usando URL HTTPS para logHabitCompletion:', secureUrl);
+    const response = await apiClient.post<HabitLog>(secureUrl, data);
+    return response.data;
+  } else {
+    const response = await apiClient.post<HabitLog>(`/api/v1/habits/${habitId}/logs/`, data);
+    return response.data;
+  }
 };
 
 // Función para marcar un hábito como completado (versión simplificada)
