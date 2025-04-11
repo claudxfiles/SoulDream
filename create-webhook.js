@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 
 const PAYPAL_CLIENT_ID = 'AcA-7lyAMhjSYYfW9KFSKIQTGqSHYXx-0KPt5UwAHB1Q_XLWRkvS33mM6caUqkDLn10lixwu4e1fT77m';
 const PAYPAL_CLIENT_SECRET = 'EHvW0SB1dMLboUOMzY3Rsqp9aooFySyPaM2r1jMRNPiBDQyeV-vd872BXWh8u5ko8FWjnvyZBFfTFymG';
-const WEBHOOK_URL = 'https://souldream-production.up.railway.app/api/payments/webhook';
+const WEBHOOK_URL = 'https://api.presentandflow.cl/api/payments/webhook';
 const SANDBOX = true;
 
 const BASE_URL = SANDBOX 

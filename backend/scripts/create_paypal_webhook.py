@@ -10,7 +10,7 @@ def create_paypal_webhook():
     client_id = os.getenv('PAYPAL_CLIENT_ID')
     client_secret = os.getenv('PAYPAL_CLIENT_SECRET')
     mode = os.getenv('PAYPAL_MODE', 'sandbox')
-    webhook_url = "https://souldream-production.up.railway.app/api/payments/webhook"
+    webhook_url = "https://api.presentandflow.cl/api/payments/webhook"
 
     # URL base según el modo
     base_url = "https://api-m.sandbox.paypal.com" if mode == "sandbox" else "https://api-m.paypal.com"
