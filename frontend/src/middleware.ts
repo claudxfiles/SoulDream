@@ -3,6 +3,21 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
+  // 1. Forzar HTTPS en producción
+  if (process.env.NODE_ENV === 'production') {
+    // Verificar si la URL es HTTP
+    if (req.url.startsWith('http://')) {
+      // Crear una nueva URL con HTTPS
+      const url = new URL(req.url);
+      url.protocol = 'https:';
+      console.log('Redirigiendo a HTTPS:', url.toString());
+      
+      // Redirigir a HTTPS
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // 2. Manejo de autenticación
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
   
@@ -26,5 +41,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/auth/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }; 

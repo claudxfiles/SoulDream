@@ -26,6 +26,24 @@ const nextConfig = {
     NEXT_PUBLIC_BACKEND_URL: process.env.NODE_ENV === 'production' 
       ? 'https://api.presentandflow.cl' 
       : 'http://localhost:8080',
+    NEXT_PUBLIC_FORCE_HTTPS: process.env.NODE_ENV === 'production' ? 'true' : 'false',
+  },
+  
+  // FORZAR HTTPS para todas las solicitudes absolutas
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: process.env.NODE_ENV === 'production' 
+              ? "upgrade-insecure-requests; default-src https: 'unsafe-inline' 'unsafe-eval'; img-src https: data: blob:; font-src https: data:; connect-src https: wss:;"
+              : "default-src 'self' http: https: 'unsafe-inline' 'unsafe-eval'; img-src http: https: data: blob:; font-src http: https: data:; connect-src http: https: ws: wss:;"
+          }
+        ],
+      },
+    ]
   },
   
   // Optimización de chunks y carga

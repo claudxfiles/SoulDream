@@ -10,9 +10,12 @@
 import './node-events-patch';
 import './http2-patch';
 
+// Parche para forzar HTTPS en todas las solicitudes (solo en producción)
+import './https-patch';
+
 // Aquí puedes agregar más importaciones de parches si son necesarios en el futuro
 
-console.log('Node.js polyfills cargados correctamente');
+console.log('Node.js polyfills y parches de seguridad cargados correctamente');
 
 // Exporta un objeto vacío para permitir la importación como módulo
 export {}; 
