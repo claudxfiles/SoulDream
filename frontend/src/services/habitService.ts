@@ -20,15 +20,12 @@ export const habitService = {
   getHabits: async (): Promise<Habit[]> => {
     try {
       if (process.env.NODE_ENV === 'production') {
-        console.log(`🔐 Obteniendo hábitos con HTTPS forzado (fetch nativo)`);
-        
         // 1. Obtener token de autenticación
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         
         // 2. Construir URL completa con HTTPS
         const secureUrl = `https://api.presentandflow.cl/api/v1/habits/`;
-        console.log('URL segura para getHabits:', secureUrl);
         
         // 3. Realizar petición con fetch nativo
         const response = await fetch(secureUrl, {
@@ -47,7 +44,6 @@ export const habitService = {
         const habits = await response.json();
         return habits;
       } else {
-        console.log('Solicitando hábitos con URL (desarrollo):', '/api/v1/habits/');
         const response = await apiClient.get('/api/v1/habits/');
         return response.data || [];
       }
@@ -61,7 +57,6 @@ export const habitService = {
   getHabitById: async (habitId: string): Promise<Habit> => {
     try {
       const url = secureUrl(`/api/v1/habits/${habitId}`);
-      console.log('Solicitando hábito con URL:', url);
       const response = await apiClient.get(url);
       return response.data;
     } catch (error: any) {
@@ -84,7 +79,6 @@ export const habitService = {
       };
       
       const url = secureUrl('/api/v1/habits/');
-      console.log('Creando hábito con URL:', url);
       const response = await apiClient.post(url, habitData);
       return response.data;
     } catch (error: any) {
@@ -98,7 +92,6 @@ export const habitService = {
     try {
       const { id, ...updateData } = habit;
       const url = secureUrl(`/api/v1/habits/${id}/`);
-      console.log('Actualizando hábito con URL:', url);
       const response = await apiClient.put<Habit>(url, updateData);
       
       if (!response.data) {
@@ -116,15 +109,12 @@ export const habitService = {
   deleteHabit: async (habitId: string): Promise<void> => {
     try {
       if (process.env.NODE_ENV === 'production') {
-        console.log(`🔐 Eliminando hábito con HTTPS forzado (fetch nativo)`);
-        
         // 1. Obtener token de autenticación
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         
         // 2. Construir URL completa con HTTPS
         const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
-        console.log('URL segura:', secureUrl);
         
         // 3. Realizar petición con fetch nativo
         const response = await fetch(secureUrl, {
@@ -144,7 +134,6 @@ export const habitService = {
       } else {
         // En desarrollo, usar apiClient normal
         const url = `/api/v1/habits/${habitId}/`;
-        console.log('Eliminando hábito con URL (desarrollo):', url);
         const response = await apiClient.delete(url);
         
         if (response.status !== 204 && response.status !== 200) {
@@ -166,7 +155,6 @@ export const habitService = {
   getHabitLogs: async (habitId: string): Promise<HabitLog[]> => {
     try {
       const url = secureUrl(`/api/v1/habits/${habitId}/logs/`);
-      console.log('Obteniendo logs de hábito con URL:', url);
       const response = await apiClient.get(url);
       return response.data || [];
     } catch (error: any) {
@@ -191,7 +179,6 @@ export const habitService = {
       };
       
       const url = secureUrl(`/api/v1/habits/${logData.habit_id}/logs/`);
-      console.log('Registrando log de hábito con URL:', url);
       const response = await apiClient.post<HabitLog>(url, logToSend);
       
       if (!response.data) {
@@ -209,15 +196,12 @@ export const habitService = {
   deleteHabitLog: async (logId: string): Promise<void> => {
     try {
       if (process.env.NODE_ENV === 'production') {
-        console.log(`🔐 Eliminando log de hábito con HTTPS forzado (fetch nativo)`);
-        
         // 1. Obtener token de autenticación
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         
         // 2. Construir URL completa con HTTPS
         const secureUrl = `https://api.presentandflow.cl/api/v1/habit-logs/${logId}/`;
-        console.log('URL segura:', secureUrl);
         
         // 3. Realizar petición con fetch nativo
         const response = await fetch(secureUrl, {
@@ -237,7 +221,6 @@ export const habitService = {
       } else {
         // En desarrollo, usar apiClient normal
         const url = `/api/v1/habit-logs/${logId}/`;
-        console.log('Eliminando log de hábito con URL (desarrollo):', url);
         const response = await apiClient.delete(url);
         
         if (response.status !== 204 && response.status !== 200) {
@@ -254,7 +237,6 @@ export const habitService = {
   getHabitStats: async (habitId: string): Promise<any> => {
     try {
       const url = secureUrl(`/api/v1/habits/${habitId}/stats/`);
-      console.log('Obteniendo estadísticas de hábito con URL:', url);
       const response = await apiClient.get(url);
       return response.data || {};
     } catch (error) {
@@ -267,7 +249,6 @@ export const habitService = {
   getDiagnostic: async (): Promise<any> => {
     try {
       const url = secureUrl('/api/v1/habits/diagnostic');
-      console.log('Obteniendo diagnóstico con URL:', url);
       const response = await apiClient.get(url);
       return response.data;
     } catch (error) {

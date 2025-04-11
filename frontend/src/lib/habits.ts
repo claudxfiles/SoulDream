@@ -15,32 +15,18 @@ const secureAxios = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
-// Log para verificación
-console.log('Configuración de secureAxios:', {
-  baseURL: secureAxios.defaults.baseURL,
-  environment: process.env.NODE_ENV
-});
-
 // Asegurar que todas las solicitudes usen HTTPS
 secureAxios.interceptors.request.use(config => {
   // Lógica para HTTPS
   if (process.env.NODE_ENV === 'production') {
-    console.log('Interceptor de secureAxios activado');
     // Forzar baseURL HTTPS
     config.baseURL = 'https://api.presentandflow.cl';
     
     // Si hay una URL absoluta, convertirla a HTTPS
     if (config.url && config.url.startsWith('http://')) {
       config.url = config.url.replace('http://', 'https://');
-      console.log('URL convertida a HTTPS:', config.url);
     }
   }
-  
-  console.log('secureAxios request:', {
-    url: config.url,
-    baseURL: config.baseURL,
-    method: config.method
-  });
   
   return config;
 });
@@ -61,8 +47,6 @@ export const getHabits = async (category?: string): Promise<Habit[]> => {
   const params = category ? { category } : {};
   const token = await getAuthToken();
   
-  console.log('getHabits solicitando con URL absoluta HTTPS');
-  
   try {
     const response = await secureAxios.get('/api/v1/habits/', { 
       params,
@@ -77,7 +61,6 @@ export const getHabits = async (category?: string): Promise<Habit[]> => {
 
 // Obtener un hábito específico
 export const getHabit = async (habitId: string): Promise<Habit> => {
-  console.log(`getHabit para ID ${habitId} usando URL HTTPS absoluta`);
   const token = await getAuthToken();
   
   try {
@@ -93,7 +76,6 @@ export const getHabit = async (habitId: string): Promise<Habit> => {
 
 // Crear un nuevo hábito
 export const createHabit = async (habit: HabitCreate): Promise<Habit> => {
-  console.log('createHabit usando URL HTTPS absoluta');
   const token = await getAuthToken();
   
   try {
@@ -109,7 +91,6 @@ export const createHabit = async (habit: HabitCreate): Promise<Habit> => {
 
 // Actualizar un hábito existente
 export const updateHabit = async (habitId: string, habit: HabitUpdate): Promise<Habit> => {
-  console.log(`updateHabit para ID ${habitId} usando URL HTTPS absoluta`);
   const token = await getAuthToken();
   
   try {
@@ -125,7 +106,6 @@ export const updateHabit = async (habitId: string, habit: HabitUpdate): Promise<
 
 // Eliminar un hábito
 export const deleteHabit = async (habitId: string): Promise<void> => {
-  console.log(`deleteHabit para ID ${habitId} usando URL HTTPS absoluta`);
   const token = await getAuthToken();
   
   try {
@@ -144,7 +124,6 @@ export const getHabitLogs = async (
   startDate?: Date, 
   endDate?: Date
 ): Promise<HabitLog[]> => {
-  console.log(`getHabitLogs para ID ${habitId} usando URL HTTPS absoluta`);
   const token = await getAuthToken();
   
   const params: Record<string, string> = {};
@@ -168,7 +147,6 @@ export const logHabitCompletion = async (
   habitId: string, 
   logData: Omit<HabitLogCreate, 'habit_id'>
 ): Promise<HabitLog> => {
-  console.log(`logHabitCompletion para ID ${habitId} usando URL HTTPS absoluta`);
   const token = await getAuthToken();
   
   const data: HabitLogCreate = { ...logData, habit_id: habitId };

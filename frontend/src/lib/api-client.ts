@@ -12,7 +12,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // Habilitar logs en desarrollo o deshabilitarlos en producción
 const isDev = process.env.NODE_ENV === 'development';
-const enableDetailedLogs = true; // Activamos logs para depuración
+const enableDetailedLogs = isDev; // Solo activar logs detallados en desarrollo
 
 // Crear instancia de axios
 export const apiClient = axios.create({
@@ -21,10 +21,6 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
-// Log inicial de la configuración
-console.log('API Client configurado con baseURL:', API_URL);
-console.log('NODE_ENV:', process.env.NODE_ENV);
 
 // Agregamos un interceptor de depuración para registrar TODAS las peticiones HTTP
 // Solo en navegadores modernos que tengan la API de Performance
@@ -41,7 +37,6 @@ if (typeof window !== 'undefined' && window.performance && window.performance.ge
   };
   
   setInterval(checkForXHR, 1000);
-  console.log('Detector de peticiones HTTP inseguras activado');
 }
 
 // NUEVO INTERCEPTOR CON MÁXIMA PRIORIDAD para forzar HTTPS en todas las solicitudes
@@ -49,25 +44,20 @@ apiClient.interceptors.request.use(
   function(config) {
     // Si estamos en producción
     if (process.env.NODE_ENV === 'production') {
-      console.log('FORZANDO HTTPS - Interceptor prioritario');
-      
       // Convertir URL completa si está presente y es HTTP
       if (config.url && config.url.includes('http://')) {
         config.url = config.url.replace(/http:\/\//g, 'https://');
-        console.log('URL convertida a HTTPS (prioritario):', config.url);
       }
       
       // Convertir baseURL si es HTTP
       if (config.baseURL && config.baseURL.includes('http://')) {
         config.baseURL = config.baseURL.replace(/http:\/\//g, 'https://');
-        console.log('baseURL convertida a HTTPS (prioritario):', config.baseURL);
       }
       
       // SI URL ES RELATIVA, FORZAR URL ABSOLUTA CON HTTPS para este problema específico
       if (config.url && !config.url.includes('://') && config.url.includes('/api/v1/habits/')) {
         const habitId = config.url.split('/api/v1/habits/')[1].split('/')[0];
         config.url = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
-        console.log('URL relativa convertida a absoluta HTTPS:', config.url);
         // Eliminar baseURL para evitar duplicación
         config.baseURL = '';
       }
@@ -84,28 +74,18 @@ apiClient.interceptors.request.use(
 // Interceptor para incluir el token de autenticación en cada solicitud
 apiClient.interceptors.request.use(async (config) => {
   try {
-    // Log para depuración
-    console.log('API Request URL antes de procesamiento:', config.url);
-    console.log('API Request baseURL antes de procesamiento:', config.baseURL);
-    
     // Asegurarse que todas las URLs absolutas usen HTTPS en producción
     if (process.env.NODE_ENV === 'production') {
       // Para URLs absolutas que comienzan con http://
       if (config.url && config.url.startsWith('http://')) {
         config.url = config.url.replace('http://', 'https://');
-        console.log('URL convertida a HTTPS:', config.url);
       }
       
       // Para URLs relativas, asegurarnos que baseURL es HTTPS
       if (config.baseURL && config.baseURL.startsWith('http://')) {
         config.baseURL = config.baseURL.replace('http://', 'https://');
-        console.log('baseURL convertida a HTTPS:', config.baseURL);
       }
     }
-    
-    // Log para depuración después de procesamiento
-    console.log('API Request URL final:', config.url);
-    console.log('API Request baseURL final:', config.baseURL);
     
     const supabase = createClientComponentClient<Database>();
     const { data } = await supabase.auth.getSession();
