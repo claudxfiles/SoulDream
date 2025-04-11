@@ -29,8 +29,16 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(async (config) => {
   try {
     // Asegurarse que todas las URLs absolutas usen HTTPS en producción
-    if (process.env.NODE_ENV === 'production' && config.url && config.url.startsWith('http://')) {
-      config.url = config.url.replace('http://', 'https://');
+    if (process.env.NODE_ENV === 'production') {
+      // Para URLs absolutas que comienzan con http://
+      if (config.url && config.url.startsWith('http://')) {
+        config.url = config.url.replace('http://', 'https://');
+      }
+      
+      // Para URLs relativas, asegurarnos que baseURL es HTTPS
+      if (config.baseURL && config.baseURL.startsWith('http://')) {
+        config.baseURL = config.baseURL.replace('http://', 'https://');
+      }
     }
     
     const supabase = createClientComponentClient<Database>();

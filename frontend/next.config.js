@@ -19,7 +19,9 @@ const nextConfig = {
   
   // Definir variables de entorno públicas
   env: {
-    NEXT_PUBLIC_BACKEND_URL: 'http://localhost:8080',
+    NEXT_PUBLIC_BACKEND_URL: process.env.NODE_ENV === 'production' 
+      ? 'https://api.presentandflow.cl' 
+      : 'http://localhost:8080',
   },
   
   // Optimización de chunks y carga
