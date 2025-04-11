@@ -20,20 +20,11 @@ export const getHabits = async (category?: string): Promise<Habit[]> => {
 export const getHabit = async (habitId: string): Promise<Habit> => {
   // Log para diagnóstico
   console.log('getHabit URL:', `/api/v1/habits/${habitId}/`);
-  console.log('baseURL:', apiClient.defaults.baseURL);
-  console.log('NODE_ENV:', process.env.NODE_ENV);
   
-  // En producción, usar URL absoluta con HTTPS para evitar problemas
-  if (process.env.NODE_ENV === 'production') {
-    const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
-    console.log('Usando URL segura:', secureUrl);
-    const response = await apiClient.get<Habit>(secureUrl);
-    return response.data;
-  } else {
-    // En desarrollo, usar ruta relativa
-    const response = await apiClient.get<Habit>(`/api/v1/habits/${habitId}/`);
-    return response.data;
-  }
+  // Usar la URL relativa, el apiClient ya se encarga de aplicar la baseURL correcta
+  // y la conversión a HTTPS en producción
+  const response = await apiClient.get<Habit>(`/api/v1/habits/${habitId}/`);
+  return response.data;
 };
 
 // Crear un nuevo hábito

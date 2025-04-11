@@ -12,7 +12,9 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8080/api/:path*', // Backend running on port 8080
+        destination: process.env.NODE_ENV === 'production' 
+          ? 'https://api.presentandflow.cl/api/:path*'
+          : 'http://localhost:8080/api/:path*',
       },
     ];
   },

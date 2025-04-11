@@ -4,14 +4,22 @@ import type { Database } from '@/types/supabase';
 
 // Forzar HTTPS en producción para la API URL
 const ensureHttps = (url: string): string => {
-  if (process.env.NODE_ENV === 'production' && url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
+  if (process.env.NODE_ENV === 'production') {
+    // Forzar https:// para cualquier URL que comience con http://
+    if (url.startsWith('http://')) {
+      return url.replace('http://', 'https://');
+    }
+    
+    // Si es una URL relativa o ya es https://, mantenerla igual
+    return url;
   }
   return url;
 };
 
 // URL base de la API
-const API_URL = ensureHttps(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
+const API_URL = process.env.NODE_ENV === 'production'
+  ? 'https://api.presentandflow.cl'
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
 
 // Habilitar logs en desarrollo o deshabilitarlos en producción
 const isDev = process.env.NODE_ENV === 'development';
