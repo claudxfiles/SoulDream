@@ -19,12 +19,41 @@ export const habitService = {
   // Obtener todos los hábitos
   getHabits: async (): Promise<Habit[]> => {
     try {
-      console.log('Solicitando hábitos con URL:', secureUrl('/api/v1/habits/'));
-      const response = await apiClient.get(secureUrl('/api/v1/habits/'));
-      return response.data || [];
+      if (process.env.NODE_ENV === 'production') {
+        console.log(`🔐 Obteniendo hábitos con HTTPS forzado (fetch nativo)`);
+        
+        // 1. Obtener token de autenticación
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        
+        // 2. Construir URL completa con HTTPS
+        const secureUrl = `https://api.presentandflow.cl/api/v1/habits/`;
+        console.log('URL segura para getHabits:', secureUrl);
+        
+        // 3. Realizar petición con fetch nativo
+        const response = await fetch(secureUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+          },
+          cache: 'no-store', // Importante para evitar problemas de caché
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status} ${response.statusText}`);
+        }
+        
+        const habits = await response.json();
+        return habits;
+      } else {
+        console.log('Solicitando hábitos con URL (desarrollo):', '/api/v1/habits/');
+        const response = await apiClient.get('/api/v1/habits/');
+        return response.data || [];
+      }
     } catch (error: any) {
       console.error('Error al obtener hábitos:', error);
-      throw new Error(error.response?.data?.detail || 'Error al obtener los hábitos');
+      throw error;
     }
   },
   
@@ -86,38 +115,41 @@ export const habitService = {
   // Eliminar un hábito
   deleteHabit: async (habitId: string): Promise<void> => {
     try {
-      // Forzar URL absoluta con HTTPS para este endpoint específico en producción
-      let url;
       if (process.env.NODE_ENV === 'production') {
-        url = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
-        console.log('Usando URL absoluta HTTPS para eliminar hábito:', url);
+        console.log(`🔐 Eliminando hábito con HTTPS forzado (fetch nativo)`);
         
-        // Usar directamente fetch en lugar de apiClient para evitar problemas con baseURL
+        // 1. Obtener token de autenticación
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        const response = await fetch(url, {
+        
+        // 2. Construir URL completa con HTTPS
+        const secureUrl = `https://api.presentandflow.cl/api/v1/habits/${habitId}/`;
+        console.log('URL segura:', secureUrl);
+        
+        // 3. Realizar petición con fetch nativo
+        const response = await fetch(secureUrl, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': token ? `Bearer ${token}` : ''
-          }
+          },
+          cache: 'no-store', // Importante para evitar problemas de caché
         });
         
         if (!response.ok) {
-          throw new Error(`Error al eliminar hábito: ${response.status}`);
+          throw new Error(`Error: ${response.status} ${response.statusText}`);
         }
         
         return;
-      }
-      
-      // En desarrollo, usar la función normal con URL relativa
-      url = secureUrl(`/api/v1/habits/${habitId}/`);
-      console.log('Eliminando hábito con URL:', url);
-      const response = await apiClient.delete(url);
-      
-      // Verificar si la respuesta es exitosa (204 No Content o 200 OK)
-      if (response.status !== 204 && response.status !== 200) {
-        throw new Error('Error al eliminar el hábito');
+      } else {
+        // En desarrollo, usar apiClient normal
+        const url = `/api/v1/habits/${habitId}/`;
+        console.log('Eliminando hábito con URL (desarrollo):', url);
+        const response = await apiClient.delete(url);
+        
+        if (response.status !== 204 && response.status !== 200) {
+          throw new Error('Error al eliminar el hábito');
+        }
       }
     } catch (error: any) {
       // Si el error es 404, consideramos que el hábito ya fue eliminado
@@ -126,7 +158,7 @@ export const habitService = {
       }
       
       console.error(`Error al eliminar hábito ${habitId}:`, error);
-      throw new Error(error.response?.data?.detail || 'Error al eliminar el hábito');
+      throw error;
     }
   },
   
@@ -176,40 +208,45 @@ export const habitService = {
   // Eliminar un log de hábito
   deleteHabitLog: async (logId: string): Promise<void> => {
     try {
-      // Forzar URL absoluta con HTTPS para este endpoint específico en producción
-      let url;
       if (process.env.NODE_ENV === 'production') {
-        url = `https://api.presentandflow.cl/api/v1/habit-logs/${logId}/`;
-        console.log('Usando URL absoluta HTTPS para eliminar log de hábito:', url);
+        console.log(`🔐 Eliminando log de hábito con HTTPS forzado (fetch nativo)`);
         
-        // Usar directamente fetch en lugar de apiClient para evitar problemas con baseURL
+        // 1. Obtener token de autenticación
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        const response = await fetch(url, {
+        
+        // 2. Construir URL completa con HTTPS
+        const secureUrl = `https://api.presentandflow.cl/api/v1/habit-logs/${logId}/`;
+        console.log('URL segura:', secureUrl);
+        
+        // 3. Realizar petición con fetch nativo
+        const response = await fetch(secureUrl, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': token ? `Bearer ${token}` : ''
-          }
+          },
+          cache: 'no-store', // Importante para evitar problemas de caché
         });
         
         if (!response.ok) {
-          throw new Error(`Error al eliminar log de hábito: ${response.status}`);
+          throw new Error(`Error: ${response.status} ${response.statusText}`);
         }
         
         return;
-      }
-      
-      // En desarrollo, usar la función normal con URL relativa
-      url = secureUrl(`/api/v1/habit-logs/${logId}/`);
-      console.log('Eliminando log de hábito con URL:', url);
-      const response = await apiClient.delete(url);
-      if (response.status !== 204 && response.status !== 200) {
-        throw new Error('Error al eliminar el log');
+      } else {
+        // En desarrollo, usar apiClient normal
+        const url = `/api/v1/habit-logs/${logId}/`;
+        console.log('Eliminando log de hábito con URL (desarrollo):', url);
+        const response = await apiClient.delete(url);
+        
+        if (response.status !== 204 && response.status !== 200) {
+          throw new Error('Error al eliminar el log de hábito');
+        }
       }
     } catch (error: any) {
       console.error(`Error al eliminar log ${logId}:`, error);
-      throw new Error(error.response?.data?.detail || 'Error al eliminar el log');
+      throw error;
     }
   },
   

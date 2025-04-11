@@ -26,6 +26,24 @@ export const apiClient = axios.create({
 console.log('API Client configurado con baseURL:', API_URL);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
+// Agregamos un interceptor de depuración para registrar TODAS las peticiones HTTP
+// Solo en navegadores modernos que tengan la API de Performance
+if (typeof window !== 'undefined' && window.performance && window.performance.getEntriesByType && process.env.NODE_ENV === 'production') {
+  // Comprobamos cada segundo si hay nuevas peticiones de recursos
+  const checkForXHR = () => {
+    const resources = window.performance.getEntriesByType('resource');
+    resources.forEach(resource => {
+      const url = resource.name;
+      if (url.includes('api.presentandflow.cl') && url.includes('http://')) {
+        console.error('⚠️ DETECTADA PETICIÓN HTTP INSEGURA:', url);
+      }
+    });
+  };
+  
+  setInterval(checkForXHR, 1000);
+  console.log('Detector de peticiones HTTP inseguras activado');
+}
+
 // NUEVO INTERCEPTOR CON MÁXIMA PRIORIDAD para forzar HTTPS en todas las solicitudes
 apiClient.interceptors.request.use(
   function(config) {
