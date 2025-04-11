@@ -1,6 +1,15 @@
 import { SubscriptionPlan, Subscription, SubscriptionDetails } from '@/types/subscription';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+// Función para asegurar uso de HTTPS en producción
+const ensureHttps = (url: string): string => {
+  if (process.env.NODE_ENV === 'production' && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
+// Obtener la URL base con HTTPS garantizado
+const BACKEND_URL = ensureHttps(process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001');
 
 export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   const response = await fetch(`${BACKEND_URL}/api/v1/subscriptions/plans`);

@@ -109,11 +109,14 @@ export const aiService = {
       throw new Error('Necesitas iniciar sesión para usar el chat');
     }
 
-    // Obtener la URL base del backend
-    const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    // Obtener la URL base del backend con HTTPS garantizado
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const secureBaseUrl = process.env.NODE_ENV === 'production' && baseUrl.startsWith('http://')
+      ? baseUrl.replace('http://', 'https://')
+      : baseUrl;
 
     // Crear la URL con los parámetros necesarios
-    const url = new URL('/api/v1/ai/openrouter-chat-stream', baseURL);
+    const url = new URL('/api/v1/ai/openrouter-chat-stream', secureBaseUrl);
     url.searchParams.append('message', message);
     url.searchParams.append('authorization', `Bearer ${session.access_token}`);
 

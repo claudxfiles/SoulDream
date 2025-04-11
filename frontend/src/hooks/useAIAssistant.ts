@@ -16,8 +16,16 @@ interface WorkoutRecommendationParams {
   includeCardio: boolean;
 }
 
-// URL base del backend
-const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+// Función para asegurar uso de HTTPS en producción
+const ensureHttps = (url: string): string => {
+  if (process.env.NODE_ENV === 'production' && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
+// URL base del backend con HTTPS garantizado
+const BACKEND_URL = ensureHttps((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/$/, ''));
 
 export function useAIAssistant(): AIAssistantHook {
   const { user } = useAuth();

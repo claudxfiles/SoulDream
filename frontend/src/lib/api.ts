@@ -2,8 +2,19 @@ import axios from 'axios';
 import { AIInsight } from '@/types/analytics';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
+// Función para asegurar uso de HTTPS en producción
+const ensureHttps = (url: string): string => {
+  if (process.env.NODE_ENV === 'production' && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
+// Obtener la URL base con HTTPS en producción
+const baseURL = ensureHttps(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
+
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -11,6 +22,11 @@ export const api = axios.create({
 
 // Interceptor para agregar el token de autenticación
 api.interceptors.request.use(async (config) => {
+  // Asegurar HTTPS para URLs absolutas en producción
+  if (process.env.NODE_ENV === 'production' && config.url && config.url.startsWith('http://')) {
+    config.url = config.url.replace('http://', 'https://');
+  }
+  
   const supabase = createClientComponentClient();
   const { data: { session } } = await supabase.auth.getSession();
   

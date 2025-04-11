@@ -3,9 +3,20 @@ import { toast } from '@/components/ui/use-toast';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@/types/supabase';
 
+// Función para asegurar uso de HTTPS en producción
+const ensureHttps = (url: string): string => {
+  if (process.env.NODE_ENV === 'production' && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
+// Obtener la URL base con HTTPS garantizado
+const baseURL = ensureHttps(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1');
+
 // Crear una instancia de axios con la configuración base
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -308,8 +308,14 @@ export function AiChatInterface() {
     setIsLoading(true);
 
     try {
+      // Asegurar que la URL usa HTTPS en producción
+      let baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+      if (process.env.NODE_ENV === 'production' && baseUrl.startsWith('http://')) {
+        baseUrl = baseUrl.replace('http://', 'https://');
+      }
+      
       // Enviar el mensaje al backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai/openrouter-chat-stream`, {
+      const response = await fetch(`${baseUrl}/api/v1/ai/openrouter-chat-stream`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user.access_token}`,
