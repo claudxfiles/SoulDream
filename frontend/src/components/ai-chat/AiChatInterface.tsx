@@ -26,7 +26,8 @@ import {
   Heart,
   BrainCircuit,
   ArrowLeft,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { GoalChatIntegration } from './GoalChatIntegration';
@@ -38,15 +39,16 @@ import { useRouter } from 'next/navigation';
 import { toast, useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Message } from '@/types/message';
+import { Message, MessageStatus, MessageSender } from '@/types/message';
 import { aiService } from '@/services/ai';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from "@/components/ui/input";
 import { AuthUser } from '@/types/auth';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/types/task';
+import { Checkbox } from "@/components/ui/checkbox";
 
-// Tipos para los mensajes
+// Types for personalized planning
 interface PersonalizedPlan {
   title: string;
   summary: string;
@@ -85,9 +87,9 @@ interface Conversation {
   updated_at: string;
 }
 
-interface ProcessedAIContent {
+interface ProcessedContent {
   goals: Partial<Goal>[];
-  tasks: Partial<Task>[];
+  tasks: Task[];
 }
 
 // Componente para un mensaje individual
@@ -177,10 +179,9 @@ export function AiChatInterface() {
     aiPersonality: 'balanced',
     // Otros ajustes configurables
   });
-  const [processedContent, setProcessedContent] = useState<ProcessedAIContent>({
-    goals: [],
-    tasks: []
-  });
+  const [processedContent, setProcessedContent] = useState<ProcessedContent>({ goals: [], tasks: [] });
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -215,33 +216,101 @@ export function AiChatInterface() {
 
   // Cargar mensajes de una conversación específica
   const loadConversationMessages = async (conversationId: string) => {
-    if (!user) return;
-
+    setIsLoadingConversation(true);
     try {
-      const { data: messages, error } = await supabase
+      const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
-
-      const formattedMessages = (messages || []).map(msg => ({
+      if (messagesError) throw messagesError;
+      
+      setMessages(messagesData?.map(msg => ({
         id: msg.id,
         content: msg.content,
-        sender: msg.sender as 'user' | 'assistant',
-        timestamp: new Date(msg.created_at)
-      }));
-
-      setMessages(formattedMessages);
+        sender: msg.sender as MessageSender,
+        timestamp: new Date(msg.created_at),
+        status: msg.status as MessageStatus,
+        conversation_id: msg.conversation_id
+      })) || []);
+      
       setCurrentConversationId(conversationId);
+      
+      // Procesar mensajes existentes
+      const assistantMessages = messagesData?.filter(msg => msg.sender === 'assistant') || [];
+      const allProcessedContent: ProcessedContent = {
+        goals: [],
+        tasks: []
+      };
+      
+      for (const msg of assistantMessages) {
+        try {
+          const processed = processAIMessage(msg.content) as ProcessedContent;
+          if (processed.goals && Array.isArray(processed.goals)) {
+            const validGoals = processed.goals
+              .filter((item): item is Goal => {
+                if (!item || typeof item !== 'object') return false;
+                
+                return (
+                  typeof item.title === 'string' &&
+                  item.title.trim() !== '' &&
+                  typeof item.description === 'string' &&
+                  item.description.trim() !== '' &&
+                  typeof item.type === 'string' &&
+                  ['financial', 'health', 'career', 'personal', 'other'].includes(item.type) &&
+                  typeof item.priority === 'string' &&
+                  ['low', 'medium', 'high'].includes(item.priority) &&
+                  typeof item.status === 'string' &&
+                  ['pending', 'in_progress', 'completed', 'cancelled'].includes(item.status) &&
+                  typeof item.progress === 'number' &&
+                  typeof item.userId === 'string'
+                );
+              });
+            if (validGoals.length > 0) {
+              allProcessedContent.goals = [...allProcessedContent.goals, ...validGoals];
+            }
+          }
+          if (processed.tasks && Array.isArray(processed.tasks)) {
+            const validTasks = processed.tasks
+              .filter((item): item is Task => {
+                if (!item || typeof item !== 'object') return false;
+                
+                return (
+                  typeof item.id === 'string' &&
+                  item.id.trim() !== '' &&
+                  typeof item.related_goal_id === 'string' &&
+                  item.related_goal_id.trim() !== '' &&
+                  typeof item.title === 'string' &&
+                  item.title.trim() !== '' &&
+                  (item.description === undefined || 
+                   (typeof item.description === 'string' && item.description.trim() !== '')) &&
+                  typeof item.status === 'string' &&
+                  ['pending', 'in-progress', 'completed'].includes(item.status) &&
+                  typeof item.created_at === 'string'
+                );
+              });
+            if (validTasks.length > 0) {
+              allProcessedContent.tasks = [...allProcessedContent.tasks, ...validTasks];
+            }
+          }
+        } catch (error) {
+          console.error('Error al procesar mensaje histórico:', error);
+        }
+      }
+      
+      // Actualizar estado con contenido procesado
+      setProcessedContent(allProcessedContent);
+      
     } catch (error) {
-      console.error('Error al cargar mensajes:', error);
+      console.error('Error:', error);
       toast({
-        title: "Error",
-        description: "No se pudieron cargar los mensajes de la conversación",
+        title: "Error de carga",
+        description: "No se pudo cargar la conversación. Por favor, intenta de nuevo.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoadingConversation(false);
     }
   };
 
@@ -271,6 +340,11 @@ export function AiChatInterface() {
       const data = await response.json();
       setCurrentConversationId(data.conversation_id);
       setMessages([]); // Limpiar mensajes al iniciar nueva conversación
+      // Limpiar el contenido procesado al iniciar nueva conversación
+      setProcessedContent({
+        goals: [],
+        tasks: []
+      });
       loadConversations(); // Recargar lista de conversaciones
       
       toast({
@@ -662,9 +736,9 @@ He actualizado mis ajustes según tus preferencias:
   };
 
   // Función para procesar mensajes de la IA
-  const processAIMessage = (message: string): ProcessedAIContent => {
+  const processAIMessage = (message: string): ProcessedContent => {
     const lines = message.split('\n');
-    const processed: ProcessedAIContent = {
+    const processed: ProcessedContent = {
       goals: [],
       tasks: []
     };
@@ -676,13 +750,17 @@ He actualizado mis ajustes según tus preferencias:
     const goalPatterns = [
       /^(\d+[\.\)]|\*)\s*(Objetivo|Meta|Paso):\s*(.+)$/i,
       /^(Objetivo|Meta|Paso)\s*(\d+[\.\)])?\s*:\s*(.+)$/i,
-      /^#{1,3}\s*\d*\.\s*(.+)$/i
+      /^#{1,3}\s*\d*\.\s*(.+)$/i,
+      /^#{1,3}\s*\d+\.\s*\*\*(.*?)\*\*$/i,
+      /^#{1,3}\s*\d+\.\s*(.+)$/i
     ];
 
     const taskStartPatterns = [
       /^[-\*•]\s*(.+)$/,
       /^\d+\.\s*(.+)$/,
-      /^#{1,3}\s*(.+?):$/i
+      /^#{1,3}\s*(.+?):$/i,
+      /^[-\*•]\s*\*\*(.*?):\*\*\s*(.+)$/,
+      /^[-\*•]\s*\*\*(.*?)\*\*\s*(.+)$/
     ];
 
     const skipPatterns = [
@@ -691,7 +769,8 @@ He actualizado mis ajustes según tus preferencias:
       /^\s*$/,  // Empty lines
       /^#{1,3}\s*$/,  // Header markers
       /^[-\*•]\s*$/,  // List markers
-      /^(\d+\.?\s*)$/  // Numbered list markers
+      /^(\d+\.?\s*)$/,  // Numbered list markers
+      /^---$/  // Horizontal rules
     ];
 
     console.log('Procesando mensaje:', message);
@@ -739,7 +818,9 @@ He actualizado mis ajustes según tus preferencias:
         const match = cleanLine.match(pattern);
         if (match) {
           isCollectingTasks = true;
-          if (match[1]) {
+          if (match[2]) { // Si hay un grupo de captura adicional para el título después de los asteriscos
+            currentTaskGroup = [match[2]];
+          } else if (match[1]) {
             currentTaskGroup = [match[1]];
           }
           return;
@@ -786,31 +867,78 @@ He actualizado mis ajustes según tus preferencias:
       const lastMessage = assistantMessages[assistantMessages.length - 1];
       console.log('Procesando nuevo mensaje del asistente');
       
+      setIsProcessing(true);
       try {
         const processed = processAIMessage(lastMessage.content);
         
         if (processed.goals.length > 0 || processed.tasks.length > 0) {
-          setProcessedContent(prev => ({
-            goals: [...prev.goals, ...processed.goals],
-            tasks: [...prev.tasks, ...processed.tasks]
-          }));
-
-          // Notificar al usuario
-          toast({
-            title: "Contenido procesado",
-            description: `Se detectaron ${processed.goals.length} objetivos y ${processed.tasks.length} tareas.`,
+          setProcessedContent(prev => {
+            // Evitar duplicados usando un Map
+            const goalsMap = new Map(prev.goals.map(g => [g.id, g]));
+            const tasksMap = new Map(prev.tasks.map(t => [t.id, t]));
+            
+            processed.goals.forEach(g => goalsMap.set(g.id, g));
+            processed.tasks.forEach(t => tasksMap.set(t.id, t));
+            
+            return {
+              goals: Array.from(goalsMap.values()),
+              tasks: Array.from(tasksMap.values())
+            };
           });
+
+          // Notificar al usuario de manera más específica
+          if (processed.goals.length > 0 && processed.tasks.length > 0) {
+            toast({
+              title: "Contenido detectado",
+              description: `Se detectaron ${processed.goals.length} objetivos y ${processed.tasks.length} tareas relacionadas.`,
+            });
+          } else if (processed.goals.length > 0) {
+            toast({
+              title: "Objetivos detectados",
+              description: `Se detectaron ${processed.goals.length} nuevos objetivos.`,
+            });
+          } else if (processed.tasks.length > 0) {
+            toast({
+              title: "Tareas detectadas",
+              description: `Se detectaron ${processed.tasks.length} nuevas tareas.`,
+            });
+          }
         }
       } catch (error) {
         console.error('Error al procesar mensaje:', error);
         toast({
-          title: "Error",
-          description: "Hubo un error al procesar el mensaje de la IA",
+          title: "Error de procesamiento",
+          description: "Hubo un error al procesar el contenido del mensaje. Por favor, intenta de nuevo.",
           variant: "destructive"
         });
+      } finally {
+        setIsProcessing(false);
       }
     }
   }, [messages]);
+
+  // Función auxiliar para limpiar el contenido procesado
+  const clearProcessedContent = () => {
+    setProcessedContent({
+      goals: [],
+      tasks: []
+    });
+  };
+
+  // Función para manejar el cambio de conversación
+  const handleConversationChange = async (conversationId: string) => {
+    // Guardar el estado actual si es necesario
+    if (currentConversationId && processedContent.goals.length > 0) {
+      // Aquí podrías implementar la lógica para guardar el estado actual
+      console.log('Guardando estado de la conversación actual...');
+    }
+
+    // Limpiar el estado actual
+    clearProcessedContent();
+    
+    // Cargar la nueva conversación
+    await loadConversationMessages(conversationId);
+  };
 
   return (
     <div className="flex h-full">
@@ -820,8 +948,9 @@ He actualizado mis ajustes según tus preferencias:
           onClick={createNewConversation}
           variant="outline"
           className="w-full mb-4 flex items-center gap-2"
+          disabled={isLoadingConversation}
         >
-          <PlusCircle className="w-4 h-4" />
+          <Plus className="w-4 h-4" />
           Nueva Conversación
         </Button>
 
@@ -831,7 +960,8 @@ He actualizado mis ajustes según tus preferencias:
               <Button
                 variant={currentConversationId === conv.id ? "default" : "ghost"}
                 className="flex-1 justify-start text-left"
-                onClick={() => loadConversationMessages(conv.id)}
+                onClick={() => handleConversationChange(conv.id)}
+                disabled={isLoadingConversation}
               >
                 <MessageSquare className="w-4 h-4 mr-2" />
                 <div className="truncate">
@@ -840,6 +970,9 @@ He actualizado mis ajustes según tus preferencias:
                     {format(new Date(conv.updated_at), 'dd MMM yyyy', { locale: es })}
                   </div>
                 </div>
+                {isLoadingConversation && currentConversationId === conv.id && (
+                  <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                )}
               </Button>
               <Button
                 variant="ghost"
