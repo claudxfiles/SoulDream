@@ -44,6 +44,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Input } from "@/components/ui/input";
 import { AuthUser } from '@/types/auth';
 import { supabase } from '@/lib/supabase';
+import { Task } from '@/types/task';
 
 // Tipos para los mensajes
 interface PersonalizedPlan {
@@ -82,6 +83,11 @@ interface Conversation {
   title: string;
   created_at: string;
   updated_at: string;
+}
+
+interface ProcessedAIContent {
+  goals: Partial<Goal>[];
+  tasks: Partial<Task>[];
 }
 
 // Componente para un mensaje individual
@@ -170,6 +176,10 @@ export function AiChatInterface() {
     detailLevel: 1,
     aiPersonality: 'balanced',
     // Otros ajustes configurables
+  });
+  const [processedContent, setProcessedContent] = useState<ProcessedAIContent>({
+    goals: [],
+    tasks: []
   });
 
   const scrollToBottom = () => {
@@ -402,7 +412,15 @@ export function AiChatInterface() {
     // Añadir la meta a la lista de metas creadas
     const newGoal = {
       ...goalData,
-      id: `goal-${Date.now()}` // Generar un ID temporal
+      id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'personal' as const,
+      status: 'pending' as const,
+      priority: 'medium' as const,
+      progress: 0,
+      steps: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      userId: 'pending-user-id' // Se actualizará cuando se guarde
     };
     
     setCreatedGoals(prev => [...prev, newGoal]);
@@ -643,6 +661,157 @@ He actualizado mis ajustes según tus preferencias:
     }
   };
 
+  // Función para procesar mensajes de la IA
+  const processAIMessage = (message: string): ProcessedAIContent => {
+    const lines = message.split('\n');
+    const processed: ProcessedAIContent = {
+      goals: [],
+      tasks: []
+    };
+
+    let currentGoal: Partial<Goal> | null = null;
+    let isCollectingTasks = false;
+    let currentTaskGroup: string[] = [];
+
+    const goalPatterns = [
+      /^(\d+[\.\)]|\*)\s*(Objetivo|Meta|Paso):\s*(.+)$/i,
+      /^(Objetivo|Meta|Paso)\s*(\d+[\.\)])?\s*:\s*(.+)$/i,
+      /^#{1,3}\s*\d*\.\s*(.+)$/i
+    ];
+
+    const taskStartPatterns = [
+      /^[-\*•]\s*(.+)$/,
+      /^\d+\.\s*(.+)$/,
+      /^#{1,3}\s*(.+?):$/i
+    ];
+
+    const skipPatterns = [
+      /^(\s*--+\s*)$/,  // Separator lines
+      /^(\s*\*\*\s*)$/,  // Bold markers
+      /^\s*$/,  // Empty lines
+      /^#{1,3}\s*$/,  // Header markers
+      /^[-\*•]\s*$/,  // List markers
+      /^(\d+\.?\s*)$/  // Numbered list markers
+    ];
+
+    console.log('Procesando mensaje:', message);
+
+    lines.forEach((line, index) => {
+      // Skip formatting lines
+      if (skipPatterns.some(pattern => pattern.test(line))) {
+        return;
+      }
+
+      // Clean up the line
+      const cleanLine = line.trim();
+      if (!cleanLine) return;
+
+      // Detect goals
+      for (const pattern of goalPatterns) {
+        const match = cleanLine.match(pattern);
+        if (match) {
+          const title = match[match.length - 1]?.trim();
+          if (title) {
+            console.log('Objetivo detectado:', title);
+            const newGoal: Partial<Goal> = {
+              id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              title,
+              description: '',
+              type: 'personal' as const,
+              status: 'pending' as const,
+              priority: 'medium' as const,
+              progress: 0,
+              userId: 'pending-user-id',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              steps: []
+            };
+            processed.goals.push(newGoal);
+            currentGoal = newGoal;
+            isCollectingTasks = false;
+          }
+          return;
+        }
+      }
+
+      // Detect task sections
+      for (const pattern of taskStartPatterns) {
+        const match = cleanLine.match(pattern);
+        if (match) {
+          isCollectingTasks = true;
+          if (match[1]) {
+            currentTaskGroup = [match[1]];
+          }
+          return;
+        }
+      }
+
+      // Collect task content
+      if (isCollectingTasks && cleanLine.length > 5) {
+        currentTaskGroup.push(cleanLine);
+        
+        // If next line is empty or we're at the end, process the task
+        if (!lines[index + 1]?.trim() || index === lines.length - 1) {
+          const taskTitle = currentTaskGroup.join(' ').trim();
+          if (taskTitle && !taskTitle.startsWith('**') && !taskTitle.endsWith('**')) {
+            console.log('Tarea detectada:', taskTitle);
+            const task: Task = {
+              id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              title: taskTitle,
+              description: '',
+              status: 'pending',
+              priority: 'medium',
+              tags: [],
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+
+            if (currentGoal?.id) {
+              task.related_goal_id = currentGoal.id;
+            }
+            processed.tasks.push(task);
+          }
+          currentTaskGroup = [];
+        }
+      }
+    });
+
+    return processed;
+  };
+
+  // Efecto para procesar mensajes de la IA
+  useEffect(() => {
+    const assistantMessages = messages.filter(msg => msg.sender === 'assistant');
+    if (assistantMessages.length > 0) {
+      const lastMessage = assistantMessages[assistantMessages.length - 1];
+      console.log('Procesando nuevo mensaje del asistente');
+      
+      try {
+        const processed = processAIMessage(lastMessage.content);
+        
+        if (processed.goals.length > 0 || processed.tasks.length > 0) {
+          setProcessedContent(prev => ({
+            goals: [...prev.goals, ...processed.goals],
+            tasks: [...prev.tasks, ...processed.tasks]
+          }));
+
+          // Notificar al usuario
+          toast({
+            title: "Contenido procesado",
+            description: `Se detectaron ${processed.goals.length} objetivos y ${processed.tasks.length} tareas.`,
+          });
+        }
+      } catch (error) {
+        console.error('Error al procesar mensaje:', error);
+        toast({
+          title: "Error",
+          description: "Hubo un error al procesar el mensaje de la IA",
+          variant: "destructive"
+        });
+      }
+    }
+  }, [messages]);
+
   return (
     <div className="flex h-full">
       {/* Lista de conversaciones */}
@@ -713,6 +882,127 @@ He actualizado mis ajustes según tus preferencias:
                 <Send className="w-4 h-4" />
               )}
             </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Panel lateral derecho para objetivos y tareas detectados */}
+      <div className="w-80 border-l p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+        <div className="space-y-6">
+          {/* Sección de Objetivos */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+              <Target className="h-5 w-5 text-indigo-600" />
+              Objetivos Detectados
+            </h3>
+            {processedContent.goals.length > 0 ? (
+              <div className="space-y-3">
+                {processedContent.goals.map((goal, index) => (
+                  <Card key={goal.id || index} className="p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium">{goal.title}</h4>
+                        {goal.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                            {goal.description}
+                          </p>
+                        )}
+                        <div className="flex gap-2 mt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => handleCreateGoal(goal)}
+                          >
+                            Crear Meta
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => {
+                              setProcessedContent(prev => ({
+                                ...prev,
+                                goals: prev.goals.filter((g, i) => i !== index)
+                              }));
+                            }}
+                          >
+                            Descartar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No hay objetivos detectados</p>
+                <p className="text-sm mt-1">Los objetivos detectados aparecerán aquí</p>
+              </div>
+            )}
+          </div>
+
+          {/* Sección de Tareas */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-green-600" />
+              Tareas Detectadas
+            </h3>
+            {processedContent.tasks.length > 0 ? (
+              <div className="space-y-2">
+                {processedContent.tasks.map((task, index) => (
+                  <Card key={task.id || index} className="p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium">{task.title}</h4>
+                        {task.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                            {task.description}
+                          </p>
+                        )}
+                        <div className="flex gap-2 mt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => handleCreateTask(task.title, task.related_goal_id !== undefined ? task.related_goal_id : '')}
+                          >
+                            Crear Tarea
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => {
+                              setProcessedContent(prev => ({
+                                ...prev,
+                                tasks: prev.tasks.filter((t, i) => i !== index)
+                              }));
+                            }}
+                          >
+                            Descartar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <CheckSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No hay tareas detectadas</p>
+                <p className="text-sm mt-1">Las tareas detectadas aparecerán aquí</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
