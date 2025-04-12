@@ -737,6 +737,45 @@ He actualizado mis ajustes según tus preferencias:
 
   // Función para procesar mensajes de la IA
   const processAIMessage = (message: string): ProcessedContent => {
+    const goalPatterns = [
+      /^#{1,3}\s*\d+\.\s*\*\*(.*?)\*\*$/im,  // ### 1. **Goal Title**
+      /^#{1,3}\s*\d+\.\s*([^*\n]+)$/im,      // ### 1. Goal Title
+      /^#{1,3}\s*[A-Za-z][\)\.]\s*\*\*(.*?)\*\*$/im,  // ### A) **Goal Title**
+      /^#{1,3}\s*Objetivo\s*\d*:?\s*\*?(.*?)\*?$/im,  // ### Objetivo 1: Title
+      /^#{1,3}\s*Meta\s*\d*:?\s*\*?(.*?)\*?$/im,      // ### Meta 1: Title
+      /^\d+\.\s*Objetivo:?\s*\*?(.*?)\*?$/im          // 1. Objetivo: Title
+    ];
+
+    const taskPatterns = [
+      /^[-\*•]\s*([^:*\n]+?):\s*(.+)$/m,     // - Task Title: Description
+      /^[-\*•]\s*\*\*(.*?):\*\*\s*(.+)$/m,   // - **Task Title:** Description
+      /^[-\*•]\s*Tarea:?\s*\*?(.*?)\*?$/m,   // - Tarea: Title
+      /^[-\*•]\s*Paso:?\s*\*?(.*?)\*?$/m,    // - Paso: Title
+      /^\d+\.\s*Tarea:?\s*\*?(.*?)\*?$/m,    // 1. Tarea: Title
+      /^\d+\.\s*Paso:?\s*\*?(.*?)\*?$/m      // 1. Paso: Title
+    ];
+
+    const skipPatterns = [
+      /^(\s*--+\s*)$/,                    // Separator lines
+      /^(\s*\*\*\s*)$/,                   // Bold markers
+      /^\s*$/,                            // Empty lines
+      /^#{1,3}\s*$/,                      // Header markers
+      /^[-\*•]\s*$/,                      // List markers
+      /^(\d+\.?\s*)$/,                    // Numbered list markers
+      /^---$/,                            // Horizontal rules
+      /^\*\*[^:]*\*\*$/,                  // Bold text without content
+      /^[-\*•]\s*\[.*?\].*?$/,           // Links
+      /^[-\*•]\s*\*.*?\*.*?$/,           // Italic text
+      /^[-\*•]\s*_.*?_.*?$/,             // Underlined text
+      /^#*\s*Herramientas.*?$/i,         // Tool sections
+      /^#*\s*Nota:.*?$/i,                // Note sections
+      /^.*?\?$/,                         // Questions
+      /^.*?gracias.*?$/i,                // Thank you messages
+      /^.*?perfecto.*?$/i,               // Confirmation messages
+      /^.*?excelente.*?$/i,              // Praise messages
+      /^.*?genial.*?$/i                  // Praise messages
+    ];
+
     const lines = message.split('\n');
     const processed: ProcessedContent = {
       goals: [],
@@ -746,34 +785,7 @@ He actualizado mis ajustes según tus preferencias:
     let currentGoal: Partial<Goal> | null = null;
     let isCollectingTasks = false;
     let currentTaskGroup: string[] = [];
-
-    const goalPatterns = [
-      /^(\d+[\.\)]|\*)\s*(Objetivo|Meta|Paso):\s*(.+)$/i,
-      /^(Objetivo|Meta|Paso)\s*(\d+[\.\)])?\s*:\s*(.+)$/i,
-      /^#{1,3}\s*\d*\.\s*(.+)$/i,
-      /^#{1,3}\s*\d+\.\s*\*\*(.*?)\*\*$/i,
-      /^#{1,3}\s*\d+\.\s*(.+)$/i
-    ];
-
-    const taskStartPatterns = [
-      /^[-\*•]\s*(.+)$/,
-      /^\d+\.\s*(.+)$/,
-      /^#{1,3}\s*(.+?):$/i,
-      /^[-\*•]\s*\*\*(.*?):\*\*\s*(.+)$/,
-      /^[-\*•]\s*\*\*(.*?)\*\*\s*(.+)$/
-    ];
-
-    const skipPatterns = [
-      /^(\s*--+\s*)$/,  // Separator lines
-      /^(\s*\*\*\s*)$/,  // Bold markers
-      /^\s*$/,  // Empty lines
-      /^#{1,3}\s*$/,  // Header markers
-      /^[-\*•]\s*$/,  // List markers
-      /^(\d+\.?\s*)$/,  // Numbered list markers
-      /^---$/  // Horizontal rules
-    ];
-
-    console.log('Procesando mensaje:', message);
+    const uniqueTitles = new Set<string>();
 
     lines.forEach((line, index) => {
       // Skip formatting lines
@@ -786,16 +798,30 @@ He actualizado mis ajustes según tus preferencias:
       if (!cleanLine) return;
 
       // Detect goals
+      let goalDetected = false;
       for (const pattern of goalPatterns) {
         const match = cleanLine.match(pattern);
         if (match) {
-          const title = match[match.length - 1]?.trim();
-          if (title) {
+          const title = match[1]?.trim();
+          if (title && !uniqueTitles.has(title) && title.length >= 5) {
+            uniqueTitles.add(title);
             console.log('Objetivo detectado:', title);
+            
+            // Extraer descripción de las siguientes líneas si existe
+            let description = '';
+            let nextIndex = index + 1;
+            while (nextIndex < lines.length && 
+                   !goalPatterns.some(p => p.test(lines[nextIndex])) && 
+                   !taskPatterns.some(p => p.test(lines[nextIndex])) &&
+                   !skipPatterns.some(p => p.test(lines[nextIndex]))) {
+              description += lines[nextIndex].trim() + ' ';
+              nextIndex++;
+            }
+
             const newGoal: Partial<Goal> = {
               id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               title,
-              description: '',
+              description: description.trim(),
               type: 'personal' as const,
               status: 'pending' as const,
               priority: 'medium' as const,
@@ -808,38 +834,38 @@ He actualizado mis ajustes según tus preferencias:
             processed.goals.push(newGoal);
             currentGoal = newGoal;
             isCollectingTasks = false;
+            goalDetected = true;
           }
-          return;
+          break;
         }
       }
 
-      // Detect task sections
-      for (const pattern of taskStartPatterns) {
+      if (goalDetected) return;
+
+      // Detect tasks
+      for (const pattern of taskPatterns) {
         const match = cleanLine.match(pattern);
         if (match) {
-          isCollectingTasks = true;
-          if (match[2]) { // Si hay un grupo de captura adicional para el título después de los asteriscos
-            currentTaskGroup = [match[2]];
-          } else if (match[1]) {
-            currentTaskGroup = [match[1]];
-          }
-          return;
-        }
-      }
+          const title = (match[2] || match[1])?.trim();
+          if (title && !uniqueTitles.has(title) && title.length >= 5) {
+            uniqueTitles.add(title);
+            console.log('Tarea detectada:', title);
+            
+            // Extraer descripción de las siguientes líneas si existe
+            let description = '';
+            let nextIndex = index + 1;
+            while (nextIndex < lines.length && 
+                   !goalPatterns.some(p => p.test(lines[nextIndex])) && 
+                   !taskPatterns.some(p => p.test(lines[nextIndex])) &&
+                   !skipPatterns.some(p => p.test(lines[nextIndex]))) {
+              description += lines[nextIndex].trim() + ' ';
+              nextIndex++;
+            }
 
-      // Collect task content
-      if (isCollectingTasks && cleanLine.length > 5) {
-        currentTaskGroup.push(cleanLine);
-        
-        // If next line is empty or we're at the end, process the task
-        if (!lines[index + 1]?.trim() || index === lines.length - 1) {
-          const taskTitle = currentTaskGroup.join(' ').trim();
-          if (taskTitle && !taskTitle.startsWith('**') && !taskTitle.endsWith('**')) {
-            console.log('Tarea detectada:', taskTitle);
             const task: Task = {
               id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title: taskTitle,
-              description: '',
+              title,
+              description: description.trim(),
               status: 'pending',
               priority: 'medium',
               tags: [],
@@ -852,7 +878,7 @@ He actualizado mis ajustes según tus preferencias:
             }
             processed.tasks.push(task);
           }
-          currentTaskGroup = [];
+          return;
         }
       }
     });
@@ -865,57 +891,61 @@ He actualizado mis ajustes según tus preferencias:
     const assistantMessages = messages.filter(msg => msg.sender === 'assistant');
     if (assistantMessages.length > 0) {
       const lastMessage = assistantMessages[assistantMessages.length - 1];
-      console.log('Procesando nuevo mensaje del asistente');
       
-      setIsProcessing(true);
-      try {
-        const processed = processAIMessage(lastMessage.content);
+      // Solo procesar cuando el mensaje está completo y no está cargando
+      if (!isLoading && lastMessage.content.length > 0) {
+        console.log('Procesando mensaje completo del asistente');
         
-        if (processed.goals.length > 0 || processed.tasks.length > 0) {
-          setProcessedContent(prev => {
-            // Evitar duplicados usando un Map
-            const goalsMap = new Map(prev.goals.map(g => [g.id, g]));
-            const tasksMap = new Map(prev.tasks.map(t => [t.id, t]));
-            
-            processed.goals.forEach(g => goalsMap.set(g.id, g));
-            processed.tasks.forEach(t => tasksMap.set(t.id, t));
-            
-            return {
-              goals: Array.from(goalsMap.values()),
-              tasks: Array.from(tasksMap.values())
-            };
+        setIsProcessing(true);
+        try {
+          // Limpiar el contenido procesado antes de procesar el nuevo mensaje
+          setProcessedContent({
+            goals: [],
+            tasks: []
           });
+          
+          const processed = processAIMessage(lastMessage.content);
+          
+          // Verificar si se encontró contenido válido
+          const hasValidContent = 
+            (processed.goals && processed.goals.length > 0) || 
+            (processed.tasks && processed.tasks.length > 0);
 
-          // Notificar al usuario de manera más específica
-          if (processed.goals.length > 0 && processed.tasks.length > 0) {
-            toast({
-              title: "Contenido detectado",
-              description: `Se detectaron ${processed.goals.length} objetivos y ${processed.tasks.length} tareas relacionadas.`,
-            });
-          } else if (processed.goals.length > 0) {
-            toast({
-              title: "Objetivos detectados",
-              description: `Se detectaron ${processed.goals.length} nuevos objetivos.`,
-            });
-          } else if (processed.tasks.length > 0) {
-            toast({
-              title: "Tareas detectadas",
-              description: `Se detectaron ${processed.tasks.length} nuevas tareas.`,
-            });
+          if (hasValidContent) {
+            console.log('Contenido detectado:', processed);
+            setProcessedContent(processed);
+
+            // Notificar al usuario solo si se encontró contenido
+            if (processed.goals.length > 0 || processed.tasks.length > 0) {
+              const notifications = [];
+              
+              if (processed.goals.length > 0) {
+                notifications.push(`${processed.goals.length} objetivo${processed.goals.length > 1 ? 's' : ''}`);
+              }
+              
+              if (processed.tasks.length > 0) {
+                notifications.push(`${processed.tasks.length} tarea${processed.tasks.length > 1 ? 's' : ''}`);
+              }
+
+              toast({
+                title: "Contenido detectado",
+                description: `Se ${notifications.length > 1 ? 'detectaron' : 'detectó'} ${notifications.join(' y ')}.`,
+              });
+            }
           }
+        } catch (error) {
+          console.error('Error al procesar mensaje:', error);
+          toast({
+            title: "Error de procesamiento",
+            description: "Hubo un error al procesar el contenido del mensaje.",
+            variant: "destructive"
+          });
+        } finally {
+          setIsProcessing(false);
         }
-      } catch (error) {
-        console.error('Error al procesar mensaje:', error);
-        toast({
-          title: "Error de procesamiento",
-          description: "Hubo un error al procesar el contenido del mensaje. Por favor, intenta de nuevo.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsProcessing(false);
       }
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   // Función auxiliar para limpiar el contenido procesado
   const clearProcessedContent = () => {
