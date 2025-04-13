@@ -92,7 +92,6 @@ interface ProcessedContent {
   tasks: Task[];
 }
 
-
 // Función auxiliar para generar IDs únicos
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -129,7 +128,6 @@ interface AITask {
   order: number;
   tags: string[];  // Nunca undefined
 }
-
 
 // Componente para un mensaje individual
 const ChatMessage = ({ message }: { message: Message }) => {
@@ -207,13 +205,13 @@ const DetectedGoal = ({ goal, onCreateGoal, onDiscard }: {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-sm">
-            Educación
+            {goal.type}
           </div>
           <div className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm">
-            Alta
+            {goal.priority}
           </div>
           <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
-            active
+            {goal.status}
           </div>
         </div>
         <Button variant="ghost" size="icon" onClick={onDiscard}>
@@ -227,7 +225,7 @@ const DetectedGoal = ({ goal, onCreateGoal, onDiscard }: {
       <div className="mb-4">
         <div className="flex justify-between text-sm mb-1">
           <span>Progreso</span>
-          <span>0 de {goal.steps?.length || 0} pasos completados</span>
+          <span>0 de {goal.stepDetails?.length || 0} pasos completados</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div className="bg-indigo-600 h-2 rounded-full" style={{ width: '0%' }}></div>
@@ -239,7 +237,7 @@ const DetectedGoal = ({ goal, onCreateGoal, onDiscard }: {
           <CheckSquare className="h-4 w-4" />
           Pasos a seguir
         </h4>
-        {goal.steps?.map((step, index) => (
+        {goal.stepDetails?.map((step, index) => (
           <div key={step.id} className="flex items-start gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded">
             <Checkbox checked={false} />
             <div>
@@ -393,7 +391,7 @@ export function AiChatInterface() {
                   (item.description === undefined || 
                    (typeof item.description === 'string' && item.description.trim() !== '')) &&
                   typeof item.status === 'string' &&
-                  ['pending', 'in-progress', 'completed'].includes(item.status) &&
+                  ['pending', 'in_progress', 'completed'].includes(item.status) &&
                   typeof item.created_at === 'string'
                 );
               });
@@ -609,7 +607,7 @@ export function AiChatInterface() {
     // Generar respuesta de la IA confirmando la creación de la meta
     const aiResponse = `¡Excelente! He creado una meta para "${goalData.title}". 
     
-He generado un plan personalizado con ${goalData.steps?.length || 0} pasos a seguir para alcanzar esta meta. Puedes verlo en la sección de Metas o gestionar los pasos directamente desde el chat.
+He generado un plan personalizado con ${goalData.stepDetails?.length || 0} pasos a seguir para alcanzar esta meta. Puedes verlo en la sección de Metas o gestionar los pasos directamente desde el chat.
 
 ¿Te gustaría que te ayude a establecer recordatorios para los pasos más importantes?`;
     
@@ -662,6 +660,62 @@ Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que estable
     // Navegar a la página de tareas
     router.push('/dashboard/tasks');
   };
+  
+  // Mock de datos de usuario para los componentes
+  const mockUserData = {
+    tasks: [
+      { id: 1, title: "Completar informe trimestral", status: "completed", due_date: "2023-06-10", priority: "high", completed_on: "2023-06-09" },
+      { id: 2, title: "Reunión con el equipo de marketing", status: "completed", due_date: "2023-06-12", priority: "medium", completed_on: "2023-06-12" },
+      { id: 3, title: "Revisar propuesta de proyecto", status: "pending", due_date: "2023-06-15", priority: "high" },
+      { id: 4, title: "Actualizar documentación técnica", status: "pending", due_date: "2023-06-17", priority: "medium" },
+      { id: 5, title: "Preparar presentación para cliente", status: "completed", due_date: "2023-06-08", priority: "high", completed_on: "2023-06-07" }
+    ],
+    habits: [
+      { id: 1, title: "Ejercicio matutino", frequency: "daily", streak: 15, last_checked: "2023-06-14" },
+      { id: 2, title: "Lectura", frequency: "daily", streak: 8, last_checked: "2023-06-14" },
+      { id: 3, title: "Meditación", frequency: "daily", streak: 5, last_checked: "2023-06-14" },
+      { id: 4, title: "Aprender algo nuevo", frequency: "weekly", streak: 3, last_checked: "2023-06-11" }
+    ],
+    goals: [
+      { id: 1, title: "Completar curso de desarrollo web", progress: 75, target_date: "2023-07-30", category: "learning" },
+      { id: 2, title: "Ahorrar para vacaciones", progress: 50, target_date: "2023-12-15", category: "finance" },
+      { id: 3, title: "Correr un medio maratón", progress: 60, target_date: "2023-09-10", category: "fitness" }
+    ],
+    completionStats: {
+      tasks: { completed: 25, total: 35 },
+      habits: { consistency: 0.85 },
+      goals: { achieved: 4, inProgress: 3, total: 8 }
+    },
+    preferences: {
+      workHours: { start: "08:00", end: "17:00" },
+      focusTime: { morning: true, afternoon: false, evening: true },
+      preferredCategories: ["productivity", "learning", "fitness"]
+    }
+  };
+  
+  // Mock para el historial de interacciones
+  const mockInteractionHistory = [
+    { 
+      timestamp: "2023-06-10T09:15:00", 
+      type: "goal_creation", 
+      details: { goal: "Completar curso de desarrollo web" } 
+    },
+    { 
+      timestamp: "2023-06-11T14:30:00", 
+      type: "task_completion", 
+      details: { task: "Revisar módulo 3 del curso" } 
+    },
+    { 
+      timestamp: "2023-06-12T08:45:00", 
+      type: "chat_interaction", 
+      details: { query: "¿Cómo puedo mejorar mi productividad?", satisfaction: 0.9 } 
+    },
+    { 
+      timestamp: "2023-06-13T16:20:00", 
+      type: "habit_streak", 
+      details: { habit: "Ejercicio matutino", streak: 10 } 
+    }
+  ];
   
   // Manejador para la creación de un plan personalizado
   const handlePlanCreated = (plan: PersonalizedPlan) => {
@@ -786,70 +840,379 @@ He actualizado mis ajustes según tus preferencias:
     }
   };
 
-
-// Función para procesar mensajes de la IA
-const processAIMessage = (message: string): ProcessedContent => {
-  // Patrones ampliados para detectar diversos tipos de metas
-  const goalPatterns = [
-    // Patrones educativos originales
-    /^¡Claro!\s+.*?\s+para\s+(aprender|dominar|estudiar)\s+\*\*(.*?)\*\*/i,
-    /^Aquí\s+tienes\s+.*?\s+para\s+(aprender|dominar|estudiar)\s+\*\*(.*?)\*\*/i,
-    /^#{1,3}\s*Objetivo\s*\d*:?\s*\*?(.*?)\*?$/im,
-    /^#{1,3}\s*Meta\s*\d*:?\s*\*?(.*?)\*?$/im,
-    
-    // Patrones para cualquier tipo de meta
-    /^(?:Te\s+ayudo\s+a|Aquí\s+tienes\s+un\s+plan\s+para|Plan\s+para|Objetivo:\s+|Meta:\s+)(.*?)(?:\.|$)/i,
-    /^(?:Para|Vamos\s+a|Podemos|Quieres)\s+(.*?)(?:\.|$)/i,
-    /^(?:Tu\s+objetivo\s+de|Tu\s+meta\s+de|Para\s+lograr)\s+(.*?)(?:\.|$)/i,
-    
-    // Patrones para metas de salud y fitness
-    /^(?:quiero|necesito|me gustaría)?\s*(?:bajar|perder|reducir)\s+(?:de\s+)?peso/i,
-    /^(?:plan|rutina|programa)\s+(?:de|para)\s+(?:adelgazar|bajar de peso|ejercicios|entrenamiento|fitness)/i,
-    /^(?:ayuda|ayúdame)\s+(?:a|para)\s+(?:bajar|perder|reducir)\s+(?:de\s+)?peso/i,
-    
-    // Patrones para metas de aprendizaje musical y otras habilidades
-    /^(?:quiero|me gustaría)?\s*aprender\s+(?:a\s+)?tocar\s+(?:la\s+)?(?:batería|guitarra|piano|bajo|violín)/i,
-    /^(?:busco|necesito)\s+(?:clases|lecciones|curso)\s+de\s+(?:batería|guitarra|piano|bajo|violín)/i,
-    /^(?:ayuda|ayúdame)\s+(?:a|para)\s+aprender\s+(?:a\s+)?tocar\s+(?:la\s+)?(?:batería|guitarra|piano|bajo|violín)/i,
-    
-    // Patrones para metas financieras
-    /^(?:plan|estrategia)\s+(?:de|para)\s+(?:ahorro|inversión|finanzas|presupuesto)/i,
-    /^(?:quiero|necesito|busco)\s+(?:mejorar|administrar)\s+(?:mis\s+)?(?:finanzas|ahorros|dinero|gastos)/i,
-    
-    // Patrones para metas profesionales
-    /^(?:quiero|necesito|busco)\s+(?:mejorar|cambiar|encontrar)\s+(?:mi\s+)?(?:trabajo|carrera|empleo|profesión)/i,
-    
-    // Detectar verbos de acción comunes (genérico)
-    /(?:quieres|necesitas|buscas|deseas)\s+(.*?)(?:\.|$)/i
-  ];
-
-  // Definición de patrones para tipos de metas específicas
-  const goalTypePatterns = {
-    health: /(?:salud|peso|ejercicio|dieta|nutrición|entrenamiento|fitness|adelgazar|perder peso)/i,
-    financial: /(?:dinero|ahorro|inversión|finanzas|presupuesto|gastos|economía)/i,
-    learning: /(?:aprender|estudiar|practicar|dominar|curso|clases|lecciones)/i,
-    career: /(?:trabajo|profesional|carrera|empleo|negocio|profesión|laboral)/i,
-    personal: /(?:hobby|pasatiempo|personal|vida|relación|hábito|rutina)/i
+  interface ProcessedContent {
+    goals: {
+      id: string;          // Identificador único para la meta
+      title: string;
+      description?: string;
+      area?: string;
+      subarea?: string;
+      status?: string;     // Estado de la meta (ej: "active", "completed")
+    }[];
+    tasks: {
+      id: string;          // Identificador único para la tarea
+      goalId: string;      // Referencia a la meta asociada
+      title: string;
+      description?: string;
+      section?: string;
+      area?: string;
+      subarea?: string;
+      completed?: boolean; // Estado de completado
+      priority?: number;   // Prioridad (opcional)
+    }[];
+    sections: {
+      id: string;          // Identificador único para la sección
+      goalId: string;      // Meta asociada
+      title: string;
+      area?: string;
+      subarea?: string;
+    }[];
+  }
+  
+  // Función para generar un ID único
+  const generateId = (): string => {
+    return Math.random().toString(36).substring(2, 15);
   };
-
-  const sectionPatterns = [
-    /^#{1,3}\s*\d+\.\s*\*\*(.*?)\*\*$/m,  // ### 1. **Section Title**
-    /^#{1,3}\s*\d+\.\s*([^*\n]+)$/m,      // ### 1. Section Title
-    /^\d+\.\s*\*\*(.*?)\*\*$/m,           // 1. **Section Title** (sin #)
-    /^\d+\.\s*([^*\n]+)$/m                // 1. Section Title (sin #)
-  ];
-
+  
+  // Función para procesar mensajes de la IA
+  const processAIMessage = (message: string): ProcessedContent => {
+    // Definir las áreas y subáreas de interés con palabras clave relacionadas
+    const areas = {
+      "Desarrollo Personal": {
+        "Crecimiento Personal": [
+          "crecimiento personal", "autoconocimiento", "autoestima", "confianza", 
+          "autoreflexión", "superación personal", "desarrollo interior"
+        ],
+        "Productividad": [
+          "productividad", "gestión del tiempo", "organización personal", "eficiencia",
+          "hábitos productivos", "pomodoro", "planificación", "tareas", "priorización"
+        ],
+        "Hábitos": [
+          "hábitos", "rutinas", "disciplina", "autodisciplina", "constancia",
+          "desarrollo de hábitos", "buenos hábitos", "eliminación de hábitos"
+        ],
+        "Motivación": [
+          "motivación", "inspiración", "propósito", "metas personales", "objetivos",
+          "autodeterminación", "impulso", "pasión", "voluntad"
+        ],
+        "Inteligencia Emocional": [
+          "inteligencia emocional", "gestión emocional", "emociones", "autoregulación",
+          "empatía", "habilidades interpersonales", "autocontrol emocional"
+        ],
+        "Mindfulness": [
+          "mindfulness", "atención plena", "meditación", "presencia", "consciencia",
+          "respiración consciente", "relajación", "atención", "zen"
+        ],
+        "Liderazgo": [
+          "liderazgo", "influencia", "carisma", "gestión de equipos", "dirigir",
+          "inspirar", "motivar equipos", "habilidades directivas"
+        ]
+      },
+      "Salud y Bienestar": {
+        "Ejercicio y Fitness": [
+          "ejercicio", "entrenamiento", "fitness", "deporte", "actividad física",
+          "gimnasio", "fuerza", "resistencia", "cardio", "entrenamiento funcional"
+        ],
+        "Nutrición": [
+          "nutrición", "alimentación", "dieta", "hábitos alimenticios", "nutrientes",
+          "vitaminas", "minerales", "macronutrientes", "proteínas", "carbohidratos"
+        ],
+        "Salud Mental": [
+          "salud mental", "bienestar psicológico", "terapia", "psicología", "ansiedad",
+          "estrés", "depresión", "autoayuda", "equilibrio mental"
+        ],
+        "Descanso": [
+          "descanso", "sueño", "dormir", "calidad del sueño", "siesta", "higiene del sueño",
+          "relajación", "recuperación", "insomnio", "desconexión"
+        ],
+        "Medicina Preventiva": [
+          "medicina preventiva", "chequeos", "prevención", "salud integral", "sistema inmune",
+          "vacunas", "revisiones médicas", "cuidado médico"
+        ],
+        "Terapias Alternativas": [
+          "terapias alternativas", "acupuntura", "homeopatía", "naturopatía", "medicina tradicional",
+          "medicina china", "ayurveda", "reiki", "terapias holísticas"
+        ],
+        "Bienestar Emocional": [
+          "bienestar emocional", "equilibrio", "armonía", "felicidad", "alegría",
+          "satisfacción", "plenitud", "bienestar general"
+        ]
+      },
+      "Educación": {
+        "Aprendizaje": [
+          "aprendizaje", "educación", "estudio", "formación", "aprender", "estudiar",
+          "conocimiento", "instrucción", "pedagogía", "didáctica"
+        ],
+        "Idiomas": [
+          "idiomas", "aprendizaje de idiomas", "lenguas", "bilingüe", "multilingüe",
+          "inglés", "español", "francés", "alemán", "chino", "japonés"
+        ],
+        "Habilidades Académicas": [
+          "habilidades académicas", "técnicas de estudio", "memoria", "concentración",
+          "toma de notas", "comprensión lectora", "exámenes", "tests"
+        ],
+        "Tecnología": [
+          "tecnología", "informática", "computación", "programación", "desarrollo web",
+          "inteligencia artificial", "ciencia de datos", "ciberseguridad", "revit",
+          "autocad", "autodesk", "diseño asistido", "modelado 3d", "bim", "cad",
+          "software técnico", "diseño técnico", "renderizado"
+        ],
+        "Ciencias": [
+          "ciencias", "física", "química", "biología", "matemáticas", "estadística",
+          "geometría", "álgebra", "cálculo", "astronomía", "geología"
+        ],
+        "Humanidades": [
+          "humanidades", "historia", "filosofía", "literatura", "arte", "música",
+          "antropología", "sociología", "psicología", "lingüística"
+        ],
+        "Profesional": [
+          "educación profesional", "certificaciones", "diplomas", "máster", "doctorado",
+          "MBA", "desarrollo profesional", "carrera", "universidad", "postgrado"
+        ]
+      },
+      "Finanzas": {
+        "Ahorro": [
+          "ahorro", "ahorrar", "guardar dinero", "fondo de emergencia", "cuenta de ahorro",
+          "acumular capital", "reservas financieras"
+        ],
+        "Inversión": [
+          "inversión", "invertir", "bolsa", "acciones", "bonos", "fondos", "renta fija",
+          "renta variable", "dividendos", "rendimiento", "diversificación"
+        ],
+        "Presupuesto": [
+          "presupuesto", "control de gastos", "gestión financiera", "finanzas personales",
+          "plan financiero", "balance", "ingresos y gastos"
+        ],
+        "Deudas": [
+          "deudas", "crédito", "préstamos", "hipotecas", "financiación", "intereses",
+          "reducción de deuda", "refinanciación", "pagar deudas"
+        ],
+        "Impuestos": [
+          "impuestos", "declaración de la renta", "fiscalidad", "deducciones", "IRPF",
+          "IVA", "obligaciones fiscales", "hacienda", "impositivo"
+        ],
+        "Emprendimiento": [
+          "emprendimiento", "negocio propio", "startup", "autónomo", "empresa",
+          "modelo de negocio", "plan de negocio", "emprender"
+        ],
+        "Jubilación": [
+          "jubilación", "retiro", "pensión", "plan de pensiones", "ahorro para la jubilación",
+          "independencia financiera", "FIRE"
+        ]
+      },
+      "Hobbies": {
+        "Arte y Manualidades": [
+          "arte", "manualidades", "pintura", "dibujo", "escultura", "cerámica",
+          "artesanía", "scrapbooking", "crochet", "tejido", "costura"
+        ],
+        "Música": [
+          "música", "tocar instrumento", "canto", "composición", "piano", "guitarra",
+          "batería", "violín", "instrumento musical", "teoría musical"
+        ],
+        "Cocina y Gastronomía": [
+          "cocina", "gastronomía", "recetas", "repostería", "panadería", "chef",
+          "comida", "culinario", "pastelería", "cocinar"
+        ],
+        "Jardinería": [
+          "jardinería", "plantas", "huerto", "cultivo", "flores", "árboles",
+          "horticultura", "paisajismo", "botánica", "agricultura urbana"
+        ],
+        "Fotografía": [
+          "fotografía", "foto", "cámara", "fotógrafo", "composición", "retoque",
+          "revelado", "digital", "analógica", "edición fotográfica"
+        ],
+        "Viajes": [
+          "viajes", "viajar", "turismo", "mochilero", "excursiones", "aventura",
+          "destinos", "itinerarios", "vuelos", "hoteles", "airbnb"
+        ],
+        "Lectura": [
+          "lectura", "libros", "leer", "novelas", "literatura", "relatos", "poesía",
+          "ensayos", "autor", "biblioteca", "kindle", "audiolibros"
+        ],
+        "Juegos y Videojuegos": [
+          "juegos", "videojuegos", "gaming", "juegos de mesa", "rol", "puzzles",
+          "ajedrez", "cartas", "consola", "pc gaming", "juegos online"
+        ],
+        "Coleccionismo": [
+          "coleccionismo", "coleccionar", "colección", "monedas", "sellos", "figuras",
+          "antigüedades", "cómics", "vinilos", "memorabilia"
+        ],
+        "Deportes": [
+          "deportes", "fútbol", "baloncesto", "tenis", "natación", "ciclismo",
+          "running", "yoga", "artes marciales", "escalada", "senderismo"
+        ]
+      },
+      "Relaciones": {
+        "Familia": [
+          "familia", "padres", "hijos", "hermanos", "crianza", "relaciones familiares",
+          "paternidad", "maternidad", "vínculos familiares"
+        ],
+        "Pareja": [
+          "pareja", "relación de pareja", "matrimonio", "noviazgo", "romance",
+          "intimidad", "sexualidad", "compromiso", "comunicación en pareja"
+        ],
+        "Amistad": [
+          "amistad", "amigos", "círculo social", "relaciones sociales", "hacer amigos",
+          "mantener amistades", "conexiones", "relaciones personales"
+        ],
+        "Comunicación": [
+          "comunicación interpersonal", "asertividad", "escucha activa", "expresión",
+          "diálogo", "resolución de conflictos", "habilidades sociales"
+        ],
+        "Redes Sociales": [
+          "redes sociales", "conexiones digitales", "social media", "comunidad online",
+          "networking", "contactos profesionales"
+        ]
+      },
+      "Tecnología": {
+        "Programación": [
+          "programación", "código", "desarrollo de software", "aplicaciones", "apps",
+          "web development", "backend", "frontend", "frameworks", "lenguajes de programación"
+        ],
+        "Hardware": [
+          "hardware", "ordenadores", "computadoras", "PCs", "portátiles", "componentes",
+          "reparación", "montaje", "configuración", "dispositivos"
+        ],
+        "Software": [
+          "software", "programas", "apps", "aplicaciones", "sistemas operativos",
+          "windows", "mac", "linux", "android", "ios", "herramientas digitales", "revit",
+          "autocad", "autodesk", "diseño asistido", "modelado 3d", "bim", "cad"
+        ],
+        "Inteligencia Artificial": [
+          "inteligencia artificial", "IA", "machine learning", "deep learning", "NLP",
+          "redes neuronales", "algoritmos", "modelos predictivos", "data science"
+        ],
+        "Redes e Internet": [
+          "redes", "internet", "wifi", "ethernet", "protocoles", "conexión", "servidores",
+          "hosting", "dominios", "routers", "seguridad en redes"
+        ],
+        "Ciberseguridad": [
+          "ciberseguridad", "seguridad informática", "protección de datos", "hacking ético",
+          "privacidad", "antivirus", "encriptación", "firewalls"
+        ]
+      },
+      "Medioambiente": {
+        "Sostenibilidad": [
+          "sostenibilidad", "desarrollo sostenible", "ecológico", "eco-friendly",
+          "impacto ambiental", "huella de carbono", "economía circular"
+        ],
+        "Reciclaje": [
+          "reciclaje", "reciclar", "reutilización", "residuos", "basura", "compostaje",
+          "zero waste", "reducción de plásticos", "separación de residuos"
+        ],
+        "Conservación": [
+          "conservación", "biodiversidad", "fauna", "flora", "espacios naturales",
+          "áreas protegidas", "parques nacionales", "ecosistemas"
+        ],
+        "Energías Renovables": [
+          "energías renovables", "solar", "eólica", "hidráulica", "geotérmica",
+          "biomasa", "eficiencia energética", "energía limpia"
+        ],
+        "Cambio Climático": [
+          "cambio climático", "calentamiento global", "emisiones", "gases de efecto invernadero",
+          "crisis climática", "adaptación", "mitigación"
+        ]
+      },
+      "Trabajo": {
+        "Carrera Profesional": [
+          "carrera profesional", "desarrollo profesional", "promoción", "ascenso",
+          "crecimiento laboral", "plan de carrera", "objetivos profesionales"
+        ],
+        "Búsqueda de Empleo": [
+          "búsqueda de empleo", "trabajo", "CV", "currículum", "entrevista", "selección",
+          "aplicación", "ofertas", "portal de empleo", "linkedin"
+        ],
+        "Habilidades Profesionales": [
+          "habilidades profesionales", "competencias", "soft skills", "hard skills",
+          "formación continua", "actualización profesional", "capacitación"
+        ],
+        "Emprendimiento": [
+          "emprendimiento laboral", "autónomo", "freelance", "negocio propio",
+          "startup", "empresa", "emprender", "autoempleo"
+        ],
+        "Liderazgo y Gestión": [
+          "liderazgo laboral", "gestión de equipos", "management", "recursos humanos",
+          "dirección", "supervisión", "coordinación", "delegación"
+        ],
+        "Teletrabajo": [
+          "teletrabajo", "trabajo remoto", "home office", "trabajo a distancia",
+          "trabajo híbrido", "conciliación", "nómada digital"
+        ]
+      },
+      "Vivienda": {
+        "Compra": [
+          "compra de vivienda", "hipoteca", "inmobiliaria", "propiedades", "real estate",
+          "adquisición", "inversión inmobiliaria", "piso", "casa"
+        ],
+        "Alquiler": [
+          "alquiler", "arrendamiento", "contrato de alquiler", "fianza", "inquilino",
+          "arrendatario", "arrendador", "casero", "renta"
+        ],
+        "Decoración": [
+          "decoración", "interiorismo", "diseño de interiores", "muebles", "estilo",
+          "renovación", "ambientación", "decorar"
+        ],
+        "Mantenimiento": [
+          "mantenimiento", "reparación", "bricolaje", "DIY", "reformas", "fontanería",
+          "electricidad", "carpintería", "jardinería doméstica"
+        ],
+        "Mudanza": [
+          "mudanza", "traslado", "embalaje", "cajas", "transporte", "organización",
+          "reubicación", "cambio de residencia"
+        ]
+      }
+    };
+  
+    // Patrones mejorados para detectar metas/objetivos
+    const goalPatterns = [
+      // Patrones explícitos con o sin negritas
+      /^¡Claro!\s+.*?\s+para\s+(aprender|dominar|estudiar|mejorar|desarrollar)\s+\*\*(.*?)\*\*/i,
+      /^¡Claro!\s+.*?\s+para\s+(aprender|dominar|estudiar|mejorar|desarrollar)\s+(.*?)(?=\.|\n|$)/i,
+      /^Aquí\s+tienes\s+.*?\s+para\s+(aprender|dominar|estudiar|mejorar|desarrollar)\s+\*\*(.*?)\*\*/i,
+      /^Aquí\s+tienes\s+.*?\s+para\s+(aprender|dominar|estudiar|mejorar|desarrollar)\s+(.*?)(?=\.|\n|$)/i,
+      /^#{1,3}\s*Objetivo\s*\d*:?\s*\*?(.*?)\*?$/im,
+      /^#{1,3}\s*Meta\s*\d*:?\s*\*?(.*?)\*?$/im,
+      /^Plan\s+para\s+(aprender|dominar|estudiar|mejorar|desarrollar)\s+\*\*(.*?)\*\*/i,
+      /^Plan\s+para\s+(aprender|dominar|estudiar|mejorar|desarrollar)\s+(.*?)(?=\.|\n|$)/i,
+      // Patrones directos de título (buscamos en las primeras líneas)
+      /^\s*\*\*(.*?)\*\*\s*$/m,
+      /^\s*#\s+(.*?)\s*$/m,
+      /^\s*##\s+(.*?)\s*$/m
+    ];
+  
+    // Patrones mejorados para detectar secciones
+    const sectionPatterns = [
+      /^#{1,3}\s*\d+\.\s*\*\*(.*?)\*\*$/m,  // ### 1. **Section Title**
+      /^#{1,3}\s*\d+\.\s*([^*\n]+)$/m,      // ### 1. Section Title
+      /^#{1,3}\s*(.*?)$/m,                  // ### Section Title
+      /^\d+\.\s*\*\*(.*?)\*\*$/m,           // 1. **Section Title**
+      /^\d+\.\s*([^*\n]+)$/m,               // 1. Section Title
+      /^PASO\s+\d+:?\s*(.*?)$/im,           // PASO 1: Section Title
+      /^ETAPA\s+\d+:?\s*(.*?)$/im,          // ETAPA 1: Section Title
+      /^MÓDULO\s+\d+:?\s*(.*?)$/im,         // MÓDULO 1: Section Title
+      /^FASE\s+\d+:?\s*(.*?)$/im            // FASE 1: Section Title
+    ];
+  
+    // Patrones mejorados para detectar tareas
     const taskPatterns = [
+      // Tareas con viñetas
       /^[-\*•]\s*\*\*(.*?)\*\*:?\s*(.+)$/m,  // - **Task Title**: Description
       /^[-\*•]\s*([^:\n]+?):\s*(.+)$/m,      // - Task Title: Description
       /^[-\*•]\s*([^:\n]+?)\s*$/m,           // - Task Title
+      /^[-\*•]\s*(.*?)$/m,                   // - Task con o sin formato específico
+      
+      // Tareas numeradas
+      /^\d+\.\s*\*\*(.*?)\*\*:?\s*(.+)$/m,   // 1. **Task Title**: Description
       /^\d+\.\s*([^:\n]+?):\s*(.+)$/m,       // 1. Task Title: Description
       /^\d+\.\s*([^:\n]+?)\s*$/m,            // 1. Task Title
-      /^#{1,3}\s*([^*\n]+)$/m,              // ### Section Title (sin número)
-      /^[-\*•]\s*(?:Día|Semana|Mes)\s+\d+:\s*(.*?)(?::|$)/m,  // - Día 1: Tarea
-      /^[-\*•]\s*\((\d+\s*(?:min|minutos|hrs|horas))\)\s*(.*?)(?::|$)/m  // - (30 min) Tarea
+      /^\d+\.\s*(.*?)$/m,                    // 1. Task con o sin formato específico
+      
+      // Tareas con palabras clave comunes
+      /^(Instala|Descarga|Aprende|Practica|Estudia|Configura|Crea|Desarrolla|Implementa|Analiza|Diseña|Construye|Realiza|Explora|Utiliza|Investiga)\s+(.*?)$/im,
+      /^(Instalar|Descargar|Aprender|Practicar|Estudiar|Configurar|Crear|Desarrollar|Implementar|Analizar|Diseñar|Construir|Realizar|Explorar|Utilizar|Investigar)\s+(.*?)$/im
     ];
-
+  
+    // Patrones a ignorar
     const skipPatterns = [
       /^(\s*--+\s*)$/,                    // Separator lines
       /^\s*$/,                            // Empty lines
@@ -860,171 +1223,299 @@ const processAIMessage = (message: string): ProcessedContent => {
       /^.*?\?$/,                          // Questions
       /^.*?gracias.*?$/i,                 // Thank you messages
       /^.*?perfecto.*?$/i,                // Confirmation messages
-      /^.*?excelente.*?$/i,              // Praise messages
+      /^.*?excelente.*?$/i,               // Praise messages
       /^.*?genial.*?$/i                   // Praise messages
     ];
-
+  
     const lines = message.split('\n');
     const processed: ProcessedContent = {
       goals: [],
-      tasks: []
+      tasks: [],
+      sections: []
     };
-
-    // Detectar la meta principal
-    let mainGoalTitle = '';
-    let mainGoalDescription = '';
-
-      // Función para determinar el tipo de meta
-  function determineGoalType(title: string, description: string): 'health' | 'financial' | 'learning' | 'career' | 'personal' {
-    const text = `${title} ${description}`.toLowerCase();
-    
-    if (goalTypePatterns.health.test(text)) return 'health';
-    if (goalTypePatterns.financial.test(text)) return 'financial';
-    if (goalTypePatterns.learning.test(text)) return 'learning';
-    if (goalTypePatterns.career.test(text)) return 'career';
-    return 'personal';
-  }
-
-
-  // Buscar una meta principal al inicio del mensaje (ampliado a más líneas)
-  const firstParagraphs = lines.slice(0, 5).join(' ');
-  for (const pattern of goalPatterns) {
-    const match = firstParagraphs.match(pattern);
-    if (match) {
-      mainGoalTitle = match[1]?.trim() || '';
+  
+    // Función mejorada para detectar el área y subárea de un texto
+    const detectArea = (text: string): {area?: string, subarea?: string} => {
+      if (!text) return { area: undefined, subarea: undefined };
       
-      // Si el título está vacío pero hay un segundo grupo
-      if (!mainGoalTitle && match[2]) {
-        mainGoalTitle = match[2].trim();
+      text = text.toLowerCase();
+      
+      // Casos especiales
+      if (text.includes("revit") || text.includes("autodesk") || text.includes("autocad") || 
+          text.includes("bim") || text.includes("modelado 3d") || text.includes("diseño asistido")) {
+        return { area: "Educación", subarea: "Tecnología" };
       }
       
-      break;
+      for (const [area, subareas] of Object.entries(areas)) {
+        for (const [subarea, keywords] of Object.entries(subareas)) {
+          for (const keyword of keywords as string[]) {
+            if (text.includes(keyword.toLowerCase())) {
+              return { area, subarea };
+            }
+          }
+        }
+      }
+      return { area: undefined, subarea: undefined };
+    };
+  
+    // Buscar título principal
+    let mainTitle = '';
+    let mainDescription = '';
+    
+    // Intentamos buscar primero en el título explícito del mensaje
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const line = lines[i];
+      
+      // Buscar en los primeros párrafos algo que parezca un título
+      if (line.includes("**") && !mainTitle) {
+        const boldMatch = line.match(/\*\*(.*?)\*\*/);
+        if (boldMatch) {
+          mainTitle = boldMatch[1].trim();
+          continue;
+        }
+      }
+      
+      // Si hay un encabezado (#) en las primeras líneas, puede ser el título
+      if (line.startsWith("#") && !mainTitle) {
+        const headingMatch = line.match(/#+\s+(.*?)$/);
+        if (headingMatch) {
+          mainTitle = headingMatch[1].trim();
+          continue;
+        }
+      }
+      
+      // Si encontramos un patrón de meta explícito
+      for (const pattern of goalPatterns) {
+        const match = line.match(pattern);
+        if (match) {
+          mainTitle = match[2]?.trim() || match[1]?.trim();
+          break;
+        }
+      }
+      
+      if (mainTitle) break;
     }
-  }
-
-  // Si no encontramos una meta explícita en los patrones, buscar en el contenido
-  if (!mainGoalTitle) {
-    for (const line of lines) {
-      // Generalizado para detectar cualquier verbo de acción, no solo los educativos
-      const actionVerbs = /(mejorar|lograr|conseguir|alcanzar|desarrollar|crear|establecer|mantener|aprender|estudiar|dominar|bajar|perder|ganar|incrementar|organizar)/i;
-      if (actionVerbs.test(line)) {
-        const cleanLine = line.replace(/[¡!¿?]/g, '').trim();
-        const verbMatch = cleanLine.match(actionVerbs);
-        if (verbMatch) {
-          const verbIndex = cleanLine.indexOf(verbMatch[0]);
-          if (verbIndex > -1 && verbIndex + verbMatch[0].length < cleanLine.length) {
-            mainGoalTitle = cleanLine.substring(verbIndex + verbMatch[0].length).trim();
-            // Limpiar conectores al inicio
-            mainGoalTitle = mainGoalTitle.replace(/^(a|de|el|la|los|las|en|con|para|por)\s+/i, '').trim();
+    
+    // Si no encontramos un título, buscamos en el texto completo
+    if (!mainTitle) {
+      const fullText = lines.slice(0, 10).join(" ");
+      
+      // Buscar frases como "aprender X" o "Curso de X"
+      const learningMatch = fullText.match(/(aprender|estudiar|dominar|curso de|guía para|tutorial de)\s+(.*?)(?=\s+para|\.|\,|\:|\n|$)/i);
+      if (learningMatch) {
+        mainTitle = learningMatch[2].trim();
+      }
+      
+      // Si todavía no hay título, buscar palabras clave específicas
+      if (!mainTitle) {
+        const softwareMatch = fullText.match(/(Revit|AutoCAD|Autodesk|BIM|modelado 3D|diseño asistido|CAD)/i);
+        if (softwareMatch) {
+          mainTitle = softwareMatch[1].trim();
+        }
+      }
+    }
+    
+    // Si tenemos un título principal, creamos la meta
+    if (mainTitle) {
+      const { area, subarea } = detectArea(mainTitle);
+      const goalId = generateId();
+      
+      processed.goals.push({
+        id: goalId,
+        title: mainTitle,
+        description: mainDescription,
+        area: area || "Educación", // Por defecto asignamos Educación si no se detecta
+        subarea: subarea,
+        status: "active"
+      });
+      
+      // Procesar línea por línea para encontrar secciones y tareas
+      let currentSection = '';
+      let currentSectionId = '';
+      let currentGoalId = goalId;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (!line) continue;
+        
+        // Comprobar si la línea debe ser ignorada
+        let shouldSkip = false;
+        for (const pattern of skipPatterns) {
+          if (pattern.test(line)) {
+            shouldSkip = true;
             break;
           }
         }
-      }
-    }
-  }
-
-  // Crear la meta principal
-  if (mainGoalTitle) {
-    // Buscar una posible descripción en las siguientes líneas
-    for (let i = 0; i < 10 && i < lines.length; i++) {
-      if (lines[i].trim() && !lines[i].match(/#/) && !lines[i].match(/^[-\*•]/) && 
-          !goalPatterns.some(pattern => pattern.test(lines[i]))) {
-        if (!mainGoalDescription) {
-          mainGoalDescription = lines[i].trim();
-        }
-      }
-    }
-
-    const goalType = determineGoalType(mainGoalTitle, mainGoalDescription);
-    
-    // Determinar descripción predeterminada basada en el tipo
-    let defaultDescription = "Objetivo personal";
-    if (goalType === 'health') defaultDescription = "Meta de salud y bienestar";
-    if (goalType === 'financial') defaultDescription = "Objetivo financiero";
-    if (goalType === 'learning') defaultDescription = "Meta de aprendizaje y desarrollo de habilidades";
-    if (goalType === 'career') defaultDescription = "Objetivo profesional";
-
-    const goal: AIGoal = {
-      id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title: mainGoalTitle,
-      description: mainGoalDescription || defaultDescription,
-      type: goalType,
-      status: 'pending',
-      priority: 'high',
-      progress: 0,
-      userId: 'pending-user-id',
-      steps: []
-    };
-
-    // Procesar secciones como pasos de la meta
-    let currentSection = '';
-    let currentDescription = '';
-    let stepOrder = 1;
-
-    lines.forEach((line, index) => {
-      // Saltar líneas que no aportan
-      if (skipPatterns.some(pattern => pattern.test(line))) {
-        return;
-      }
-
-      // Detectar secciones principales como pasos
-      for (const pattern of sectionPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          const stepTitle = match[1]?.trim();
-          if (stepTitle) {
-            const step: AIStep = {
-              id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title: stepTitle,
-              order: stepOrder++,
-              status: 'pending',
-              description: '',
-              goalId: goal.id
-            };
-            goal.steps = goal.steps || [];
-            goal.steps.push(step);
+        if (shouldSkip) continue;
+        
+        // Detectar secciones
+        let isSectionFound = false;
+        for (const pattern of sectionPatterns) {
+          const match = line.match(pattern);
+          if (match) {
+            currentSection = match[1].trim();
+            currentSectionId = generateId();
+            const { area, subarea } = detectArea(currentSection);
+            
+            processed.sections.push({
+              id: currentSectionId,
+              goalId: currentGoalId,
+              title: currentSection,
+              area: area || processed.goals[0].area,
+              subarea: subarea || processed.goals[0].subarea
+            });
+            
+            isSectionFound = true;
+            break;
           }
-          currentSection = stepTitle || '';
-          currentDescription = '';
-          return;
         }
-      }
-
-      // Detectar tareas como subtareas del paso actual
-      for (const pattern of taskPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          const title = match[1]?.trim();
-          const description = match[2]?.trim() || '';
-
-          if (title && title.length > 3) {
-            const task: AITask = {
-              id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title,
-              description: description || currentDescription,
-              status: 'pending',
-              stepId: goal.steps?.[goal.steps.length - 1]?.id,
-              goalId: goal.id,
-              order: stepOrder++
-            };
-            processed.tasks.push(task);
+        if (isSectionFound) continue;
+        
+        // Detectar tareas
+        let isTaskFound = false;
+        for (const pattern of taskPatterns) {
+          const match = line.match(pattern);
+          if (match) {
+            // El título de la tarea puede estar en diferentes grupos según el patrón
+            const taskTitle = (match[2] && match[1].includes("Task")) ? match[2].trim() : match[1].trim();
+            const taskDescription = (match[2] && !match[1].includes("Task")) ? match[2].trim() : '';
+            
+            const fullTaskText = taskTitle + ' ' + taskDescription;
+            const { area, subarea } = detectArea(fullTaskText);
+            
+            processed.tasks.push({
+              id: generateId(),
+              goalId: currentGoalId,
+              title: taskTitle,
+              description: taskDescription,
+              section: currentSection,
+              area: area || (currentSection ? processed.sections.find(s => s.id === currentSectionId)?.area : processed.goals[0].area),
+              subarea: subarea || (currentSection ? processed.sections.find(s => s.id === currentSectionId)?.subarea : processed.goals[0].subarea),
+              completed: false,
+              priority: 1
+            });
+            
+            isTaskFound = true;
+            break;
           }
-          return;
         }
-      }
-
-      // Acumular descripción si no es una tarea
+      // Acumular descripción si no es una tarea ni sección
       if (line.trim() && !line.startsWith('#')) {
         currentDescription = (currentDescription + ' ' + line.trim()).trim();
+        
         // Actualizar la descripción del paso actual si existe
-        if (goal.steps?.length && currentDescription) {
-          goal.steps[goal.steps.length - 1].description = currentDescription;
+        if (mainGoal.steps.length > 0) {
+          const lastStepId = mainGoal.steps[mainGoal.steps.length - 1];
+          const lastStep = stepsMap.get(lastStepId);
+          
+          if (lastStep) {
+            lastStep.description = currentDescription;
+            stepsMap.set(lastStepId, lastStep);
+          }
         }
       }
     });
 
-    processed.goals.push(goal);
+    // Añadir los detalles de los pasos al objetivo principal
+    mainGoal.stepDetails = Array.from(stepsMap.values());
+    processed.goals.push(mainGoal);
   }
+
+  // Detectar secciones como subobjetivos
+  const sections = message.split(/(?:#{3}|#{2}|#{1})\s*\d+\.\s*/);
+  sections.forEach((section, index) => {
+    if (!section.trim() || index === 0) return;
+
+    const sectionLines = section.split('\n');
+    const sectionTitle = sectionLines[0].replace(/[#*]/g, '').trim();
+    
+    if (sectionTitle && sectionTitle.length > 3 && mainGoal) {
+      // Buscar si esta sección ya fue procesada como paso
+      let alreadyProcessed = false;
+      for (const stepId of mainGoal.steps) {
+        const step = mainGoal.stepDetails?.find(s => s.id === stepId);
+        if (step && step.title === sectionTitle) {
+          alreadyProcessed = true;
+          break;
+        }
+      }
+
+      // Si no fue procesada, crear un subobjetivo
+      if (!alreadyProcessed) {
+        const subGoalId = generateId();
+        const description = sectionLines.slice(1).find(line => line.trim() && !line.match(/^[-•*\d.]|^\s*$/))?.trim() || '';
+        const goalType = determineGoalType(sectionTitle, section);
+
+        const subGoal: AIGoal = {
+          id: subGoalId,
+          title: sectionTitle,
+          description: description || "Subobjetivo detectado",
+          type: goalType,
+          priority: 'medium',
+          status: 'pending',
+          progress: 0,
+          steps: [],
+          userId: 'pending-user-id',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 3 meses por defecto
+        };
+
+        // Procesar tareas dentro de esta sección
+        let stepOrder = 1;
+        const stepsMap = new Map<string, AIStep>();
+        const sectionTaskPatterns = [...taskPatterns];
+        
+        for (const line of sectionLines) {
+          for (const pattern of sectionTaskPatterns) {
+            const match = line.match(pattern);
+            if (match) {
+              const title = match[1]?.trim();
+              const description = match[2]?.trim() || '';
+
+              if (title && title.length > 2) {
+                const stepId = generateId();
+                const step: AIStep = {
+                  id: stepId,
+                  title: title,
+                  order: stepOrder++,
+                  status: 'pending',
+                  description: description,
+                  goalId: subGoalId
+                };
+                
+                stepsMap.set(stepId, step);
+                subGoal.steps.push(stepId);
+                
+                // Crear tarea asociada
+                const task: AITask = {
+                  id: generateId(),
+                  title,
+                  description,
+                  status: 'pending',
+                  priority: 'medium',
+                  goalId: subGoalId,
+                  stepId: stepId,
+                  order: stepOrder - 1
+                };
+                processed.tasks.push(task);
+              }
+              break;
+            }
+          }
+        }
+
+        // Añadir detalles de pasos al subobjetivo
+        subGoal.stepDetails = Array.from(stepsMap.values());
+        
+        // Solo agregar el subobjetivo si tiene pasos o tareas
+        if (subGoal.steps.length > 0) {
+          processed.goals.push(subGoal);
+        }
+      }
+    }
+  });
 
   return processed;
 };
