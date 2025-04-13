@@ -289,12 +289,12 @@ const DetectedGoal: React.FC<{ goal: Goal }> = ({ goal }) => {
               {goal.status.replace('_', ' ')}
             </span>
           </div>
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {goal.title}
             </ReactMarkdown>
           </div>
-          <div className="prose prose-sm max-w-none mt-2 text-gray-600">
+          <div className="prose prose-sm max-w-none mt-2 text-gray-600 dark:text-gray-300">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {goal.description}
             </ReactMarkdown>
@@ -332,18 +332,24 @@ const DetectedGoal: React.FC<{ goal: Goal }> = ({ goal }) => {
                 <div className="flex-1">
                   <label
                     htmlFor={step.id}
-                    className="text-sm font-medium cursor-pointer"
+                    className="text-sm font-medium cursor-pointer prose prose-sm max-w-none dark:prose-invert"
                   >
-                    {step.title}
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {step.title}
+                    </ReactMarkdown>
                   </label>
-                  {step.description && (
-                    <p className="text-sm text-gray-600 mt-1">{step.description}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+              {step.description && (
+                    <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 prose prose-sm max-w-none dark:prose-invert">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {step.description}
+                      </ReactMarkdown>
+                    </div>
+              )}
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
+      </div>
       )}
     </Card>
   );
@@ -872,149 +878,86 @@ He actualizado mis ajustes según tus preferencias:
   };
 
 
-// Función para procesar mensajes de la IA incluso en textos complejos
+// Función para procesar mensajes de la IA
 const processAIMessage = (message: string): ProcessedContent => {
+  // Patrones ampliados para detectar diversos tipos de metas
+  const goalPatterns = [
+    // Patrones educativos originales
+    /^¡Claro!\s+.*?\s+para\s+(aprender|dominar|estudiar)\s+\*\*(.*?)\*\*/i,
+    /^Aquí\s+tienes\s+.*?\s+para\s+(aprender|dominar|estudiar)\s+\*\*(.*?)\*\*/i,
+    /^#{1,3}\s*Objetivo\s*\d*:?\s*\*?(.*?)\*?$/im,
+    /^#{1,3}\s*Meta\s*\d*:?\s*\*?(.*?)\*?$/im,
+    
+    // Patrones para cualquier tipo de meta
+    /^(?:Te\s+ayudo\s+a|Aquí\s+tienes\s+un\s+plan\s+para|Plan\s+para|Objetivo:\s+|Meta:\s+)(.*?)(?:\.|$)/i,
+    /^(?:Para|Vamos\s+a|Podemos|Quieres)\s+(.*?)(?:\.|$)/i,
+    /^(?:Tu\s+objetivo\s+de|Tu\s+meta\s+de|Para\s+lograr)\s+(.*?)(?:\.|$)/i,
+    
+    // Verbos de acción comunes (genérico)
+    /(?:quieres|necesitas|buscas|deseas)\s+(.*?)(?:\.|$)/i
+  ];
+
+  const sectionPatterns = [
+    /^#{1,3}\s*\d+\.\s*\*\*(.*?)\*\*$/m,  // ### 1. **Section Title**
+    /^#{1,3}\s*\d+\.\s*([^*\n]+)$/m,      // ### 1. Section Title
+    /^#{1,3}\s*([^*\n]+)$/m,              // ### Section Title (sin número)
+    /^\d+\.\s*\*\*(.*?)\*\*$/m,           // 1. **Section Title** (sin #)
+    /^\d+\.\s*([^*\n]+)$/m                // 1. Section Title (sin #)
+  ];
+
+  const taskPatterns = [
+    /^[-\*•]\s*\*\*(.*?)\*\*:?\s*(.+)$/m,  // - **Task Title**: Description
+    /^[-\*•]\s*([^:\n]+?):\s*(.+)$/m,      // - Task Title: Description
+    /^[-\*•]\s*([^:\n]+?)\s*$/m,           // - Task Title
+    /^\d+\.\s*([^:\n]+?):\s*(.+)$/m,       // 1. Task Title: Description
+    /^\d+\.\s*([^:\n]+?)\s*$/m,            // 1. Task Title
+    /^[-\*•]\s*(?:Día|Semana|Mes)\s+\d+:\s*(.*?)(?::|$)/m,  // - Día 1: Tarea
+    /^[-\*•]\s*\((\d+\s*(?:min|minutos|hrs|horas))\)\s*(.*?)(?::|$)/m  // - (30 min) Tarea
+  ];
+
+  const skipPatterns = [
+    /^(\s*--+\s*)$/,                    // Separator lines
+    /^\s*$/,                            // Empty lines
+    /^#{1,3}\s*$/,                      // Header markers
+    /^[-\*•]\s*$/,                      // List markers
+    /^(\d+\.?\s*)$/,                    // Numbered list markers
+    /^---$/,                            // Horizontal rules
+    /^.*?\?$/,                          // Questions
+    /^.*?gracias.*?$/i,                 // Thank you messages
+    /^.*?perfecto.*?$/i,                // Confirmation messages
+    /^.*?excelente.*?$/i,               // Praise messages
+    /^.*?genial.*?$/i                   // Praise messages
+  ];
+
+  const lines = message.split('\n');
   const processed: ProcessedContent = {
     goals: [],
     tasks: []
   };
 
-  // Si el mensaje está vacío, devolver el objeto procesado vacío
-  if (!message || message.trim() === '') {
-    return processed;
-  }
-
-  // 1. ANÁLISIS PRELIMINAR: Determinar si el texto es informativo o una meta
-  const lines = message.split('\n');
-  const firstLines = lines.slice(0, 5).join(' ');
-  
-  // Patrones para identificar textos informativos vs. metas
-  const informativePatterns = [
-    /^(sí|claro|por supuesto|efectivamente|ciertamente)/i,
-    /^(aquí|estas son|te presento|existen)\s+(algunas|varias|las|opciones|herramientas|recursos)/i,
-    /^(las|los)\s+(mejores|principales)\s+(herramientas|opciones|alternativas|recursos)/i
-  ];
-  
-  const isInformativeText = informativePatterns.some(pattern => pattern.test(firstLines));
-  
-  // 2. DETECCIÓN DE HERRAMIENTAS O RECURSOS EN TEXTOS INFORMATIVOS
-  if (isInformativeText) {
-    // Buscar aplicaciones, herramientas o recursos en el texto
-    const toolsPattern = /#{1,3}\s*\d+\.\s*\*\*([^*]+)\*\*/g;
-    const toolNamesPattern = /\*\*([^*]+)\*\*/g;
-    
-    let toolMatches = [];
-    let match;
-    
-    // Buscar herramientas con formato específico (### 1. **Nombre**)
-    while ((match = toolsPattern.exec(message)) !== null) {
-      if (match[1]) toolMatches.push(match[1].trim());
-    }
-    
-    // Si no hay coincidencias, buscar cualquier texto entre **
-    if (toolMatches.length === 0) {
-      while ((match = toolNamesPattern.exec(message)) !== null) {
-        if (match[1]) toolMatches.push(match[1].trim());
-      }
-    }
-    
-    // Si encontramos herramientas, crear una meta de productividad
-    if (toolMatches.length > 0) {
-      // Determinar el tipo de meta basado en el contenido
-      const combinedText = message.toLowerCase();
-      let goalType: 'health' | 'financial' | 'learning' | 'career' | 'personal' = 'personal';
-      
-      if (/presentaciones|powerpoint|slides|canva|diapositivas/i.test(combinedText)) {
-        goalType = 'career'; // Presentaciones suelen ser profesionales
-      } else if (/finanzas|dinero|ahorro|inversión/i.test(combinedText)) {
-        goalType = 'financial';
-      } else if (/aprender|estudiar|curso|tutorial/i.test(combinedText)) {
-        goalType = 'learning';
-      } else if (/fitness|salud|ejercicio|dieta/i.test(combinedText)) {
-        goalType = 'health';
-      }
-      
-      // Crear título relevante basado en el contexto
-      let contextTitle = "Utilizar herramientas de productividad";
-      if (/presentaciones|powerpoint|slides/i.test(combinedText)) {
-        contextTitle = "Mejorar presentaciones con IA";
-      } else if (/finanzas|dinero/i.test(combinedText)) {
-        contextTitle = "Gestionar finanzas con herramientas";
-      } else if (/aprender|estudiar/i.test(combinedText)) {
-        contextTitle = "Aprender con herramientas tecnológicas";
-      }
-      
-      const goal: AIGoal = {
-        id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        title: contextTitle,
-        description: `Usar herramientas como ${toolMatches.slice(0, 3).join(', ')} para mejorar productividad`,
-        type: goalType,
-        status: 'pending',
-        priority: 'high',
-        progress: 0,
-        userId: 'pending-user-id',
-        steps: []
-      };
-      
-      // Crear pasos basados en las herramientas encontradas
-      let stepOrder = 1;
-      toolMatches.slice(0, 5).forEach(toolName => {
-        // Buscar descripción de la herramienta
-        const toolRegex = new RegExp(`${toolName}[^\\n]*\\n([^\\n#]+)`, 'i');
-        const descMatch = message.match(toolRegex);
-        let description = "Explorar funcionalidades y beneficios de esta herramienta";
-        
-        if (descMatch && descMatch[1]) {
-          description = descMatch[1].trim();
-        }
-        
-        const step: AIStep = {
-          id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          title: `Probar ${toolName}`,
-          order: stepOrder++,
-          status: 'pending',
-          description: description,
-          goalId: goal.id
-        };
-        
-        goal.steps = goal.steps || [];
-        goal.steps.push(step);
-      });
-      
-      processed.goals.push(goal);
-      return processed;
-    }
-  }
-  
-  // 3. DETECCIÓN DE METAS EXPLÍCITAS (código original mejorado)
-  // Patrones para detectar metas explícitas
-  const goalPatterns = [
-    /^¡Claro!\s+.*?\s+para\s+(aprender|dominar|estudiar|mejorar|lograr)\s+\*\*(.*?)\*\*/i,
-    /^Aquí\s+tienes\s+.*?\s+para\s+(aprender|dominar|estudiar|mejorar|lograr)\s+\*\*(.*?)\*\*/i,
-    /^#{1,3}\s*Objetivo\s*\d*:?\s*\*?(.*?)\*?$/im,
-    /^#{1,3}\s*Meta\s*\d*:?\s*\*?(.*?)\*?$/im,
-    /^(?:Te\s+ayudo\s+a|Aquí\s+tienes\s+un\s+plan\s+para|Plan\s+para|Objetivo:\s+|Meta:\s+)(.*?)(?:\.|$)/i,
-    /^(?:Para|Vamos\s+a|Podemos|Quieres)\s+(.*?)(?:\.|$)/i
-  ];
-
   // Detectar la meta principal
   let mainGoalTitle = '';
   let mainGoalDescription = '';
 
-  // Buscar una meta explícita
+  // Buscar una meta principal al inicio del mensaje (ampliado a más líneas)
+  const firstParagraphs = lines.slice(0, 5).join(' ');
   for (const pattern of goalPatterns) {
-    const match = firstLines.match(pattern);
+    const match = firstParagraphs.match(pattern);
     if (match) {
-      mainGoalTitle = match[1]?.trim() || match[2]?.trim() || '';
+      mainGoalTitle = match[1]?.trim() || '';
+      
+      // Si el título está vacío pero hay un segundo grupo
+      if (!mainGoalTitle && match[2]) {
+        mainGoalTitle = match[2].trim();
+      }
+      
       break;
     }
   }
 
-  // 4. DETECCIÓN DE METAS IMPLÍCITAS en textos
+  // Si no encontramos una meta explícita en los patrones, buscar en el contenido
   if (!mainGoalTitle) {
-    // Análisis semántico básico para detectar intención
     const actionVerbs = /(mejorar|lograr|conseguir|alcanzar|desarrollar|crear|establecer|mantener|aprender|estudiar|dominar|bajar|perder|ganar|incrementar|organizar)/i;
-    
     for (const line of lines) {
       if (actionVerbs.test(line)) {
         const cleanLine = line.replace(/[¡!¿?]/g, '').trim();
@@ -1022,13 +965,9 @@ const processAIMessage = (message: string): ProcessedContent => {
         if (verbMatch) {
           const verbIndex = cleanLine.indexOf(verbMatch[0]);
           if (verbIndex > -1 && verbIndex + verbMatch[0].length < cleanLine.length) {
-            mainGoalTitle = cleanLine.substring(verbIndex).trim();
-            // Limpiar conectores y limitarlo a longitud razonable
+            mainGoalTitle = cleanLine.substring(verbIndex + verbMatch[0].length).trim();
+            // Limpiar conectores al inicio
             mainGoalTitle = mainGoalTitle.replace(/^(a|de|el|la|los|las|en|con|para|por)\s+/i, '').trim();
-            // Limitar a 60 caracteres para títulos muy largos y añadir puntos suspensivos
-            if (mainGoalTitle.length > 60) {
-              mainGoalTitle = mainGoalTitle.substring(0, 57) + '...';
-            }
             break;
           }
         }
@@ -1036,151 +975,59 @@ const processAIMessage = (message: string): ProcessedContent => {
     }
   }
 
-  // 5. DETECCIÓN POR TEMAS PRINCIPALES si aún no se detectó meta
-  if (!mainGoalTitle) {
-    // Analizar palabras clave principales en el texto
-    const keywords = message.toLowerCase()
-      .replace(/[.,;:!?()\[\]{}]/g, '')
-      .split(/\s+/)
-      .filter(word => word.length > 3)
-      .reduce((counts, word) => {
-        counts[word] = (counts[word] || 0) + 1;
-        return counts;
-      }, {});
-    
-    // Ordenar palabras clave por frecuencia
-    const topKeywords = Object.entries(keywords)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(entry => entry[0]);
-    
-    if (topKeywords.length > 0) {
-      // Categorizar el texto por temas
-      const themeKeywords = {
-        health: ['salud', 'ejercicio', 'dieta', 'fitness', 'entrenar', 'peso', 'nutrición'],
-        financial: ['dinero', 'finanzas', 'ahorro', 'inversión', 'presupuesto', 'económico'],
-        learning: ['aprender', 'estudiar', 'curso', 'educación', 'conocimiento', 'habilidad'],
-        career: ['trabajo', 'profesional', 'carrera', 'empresa', 'negocio', 'presentaciones']
-      };
-      
-      // Detectar tema predominante
-      let mainTheme = 'personal';
-      let themeScore = {
-        health: 0,
-        financial: 0,
-        learning: 0,
-        career: 0,
-        personal: 0
-      };
-      
-      for (const keyword of topKeywords) {
-        for (const [theme, words] of Object.entries(themeKeywords)) {
-          if (words.some(word => keyword.includes(word) || word.includes(keyword))) {
-            themeScore[theme] += 1;
-          }
-        }
-      }
-      
-      // Determinar tema principal
-      for (const theme of Object.keys(themeScore)) {
-        if (themeScore[theme] > themeScore[mainTheme]) {
-          mainTheme = theme;
-        }
-      }
-      
-      // Crear título basado en tema
-      const themeTitle = {
-        health: "Mejorar salud y bienestar",
-        financial: "Optimizar finanzas personales",
-        learning: "Aprender nuevas habilidades",
-        career: "Desarrollar carrera profesional",
-        personal: "Mejorar productividad personal"
-      };
-      
-      // Para presentaciones específicamente
-      if (message.toLowerCase().includes('presentaciones') || 
-          message.toLowerCase().includes('powerpoint') || 
-          message.toLowerCase().includes('slides')) {
-        mainGoalTitle = "Mejorar presentaciones con IA";
-        mainTheme = 'career';
-      } else {
-        mainGoalTitle = themeTitle[mainTheme];
-      }
-      
-      // Si hay subtemas específicos, personalizar más el título
-      if (message.toLowerCase().includes('idioma') || message.toLowerCase().includes('inglés')) {
-        mainGoalTitle = "Aprender nuevo idioma";
-        mainTheme = 'learning';
-      }
-    }
-  }
-
-  // 6. CREAR LA META si se detectó un título
+  // Crear la meta principal
   if (mainGoalTitle) {
-    // Buscar una posible descripción
+    // Buscar una posible descripción en las siguientes líneas
     for (let i = 0; i < 10 && i < lines.length; i++) {
       if (lines[i].trim() && !lines[i].match(/#/) && !lines[i].match(/^[-\*•]/) && 
           !goalPatterns.some(pattern => pattern.test(lines[i]))) {
         if (!mainGoalDescription) {
           mainGoalDescription = lines[i].trim();
-          // Limitar longitud de descripción
-          if (mainGoalDescription.length > 120) {
-            mainGoalDescription = mainGoalDescription.substring(0, 117) + '...';
-          }
         }
       }
     }
 
-    // Determinar el tipo de meta basado en el contenido
+    // PASO CLAVE: Determinar el tipo de meta basado en el contenido
     let goalType: 'health' | 'financial' | 'learning' | 'career' | 'personal' = 'personal';
-    const combinedText = (mainGoalTitle + ' ' + mainGoalDescription + ' ' + message.substring(0, 300)).toLowerCase();
+    const combinedText = (mainGoalTitle + ' ' + mainGoalDescription).toLowerCase();
     
-    console.log("Analizando texto combinado:", combinedText.substring(0, 100) + "...");
-    
-    // Patrones para cada tipo de meta
-    if (/salud|peso|ejercicio|dieta|nutrici[óo]n|entrenamiento|fitness|adelgazar|perder\s+peso|gym|gimnasio|saludable/i.test(combinedText)) {
-      console.log("Detectada meta de SALUD");
+    // Verificar explícitamente para cada tipo de meta con palabras clave específicas
+    // Esta es la parte crucial que debe estar funcionando correctamente
+    if (/salud|peso|ejercicio|dieta|nutrici[óo]n|entrenamiento|fitness|adelgazar|perder\s+peso|gym|gimnasio|saludable|ejercitarme/i.test(combinedText)) {
+      console.log("Detectada meta de SALUD:", combinedText);
       goalType = 'health';
     } 
-    else if (/dinero|ahorro|inversi[óo]n|finanzas|presupuesto|gastos|econom[íi]a|ahorrar|financiero|deudas/i.test(combinedText)) {
-      console.log("Detectada meta FINANCIERA");
+    else if (/dinero|ahorro|inversi[óo]n|finanzas|presupuesto|gastos|econom[íi]a|ahorrar|financiero|deudas|pr[ée]stamo/i.test(combinedText)) {
+      console.log("Detectada meta FINANCIERA:", combinedText);
       goalType = 'financial';
     } 
-    else if (/aprender|estudiar|practicar|dominar|curso|clases|lecciones|conocimiento|tocar|guitarra|idioma|programaci[óo]n/i.test(combinedText)) {
-      console.log("Detectada meta de APRENDIZAJE");
+    else if (/aprender|estudiar|practicar|dominar|curso|clases|lecciones|conocimiento|tocar|guitarra|bater[íi]a|piano|idioma|programaci[óo]n|lenguaje/i.test(combinedText)) {
+      console.log("Detectada meta de APRENDIZAJE:", combinedText);
       goalType = 'learning';
     } 
-    else if (/trabajo|profesional|carrera|empleo|negocio|profesi[óo]n|laboral|empresa|cv|presentaciones|powerpoint|slides/i.test(combinedText)) {
-      console.log("Detectada meta PROFESIONAL");
+    else if (/trabajo|profesional|carrera|empleo|negocio|profesi[óo]n|laboral|empresa|cv|curriculum|entrevista/i.test(combinedText)) {
+      console.log("Detectada meta PROFESIONAL:", combinedText);
       goalType = 'career';
     }
     else {
-      console.log("Detectada meta PERSONAL por defecto");
+      console.log("Detectada meta PERSONAL por defecto:", combinedText);
     }
     
-    // Para el caso específico de presentaciones
-    if (/presentaciones|powerpoint|slides|diapositivas/i.test(combinedText)) {
-      console.log("Refinando a meta PROFESIONAL por temática de presentaciones");
-      goalType = 'career';
-    }
-    
-    // Asignar una descripción predeterminada si es necesario
+    // Asignar una descripción predeterminada basada en el tipo
     let defaultDescription = "Objetivo personal";
     if (goalType === 'health') defaultDescription = "Meta de salud y bienestar";
     if (goalType === 'financial') defaultDescription = "Objetivo financiero";
     if (goalType === 'learning') defaultDescription = "Meta de aprendizaje y desarrollo de habilidades";
     if (goalType === 'career') defaultDescription = "Objetivo profesional";
 
-    console.log("Tipo final de meta detectado:", goalType);
-    console.log("Título de meta:", mainGoalTitle);
+    console.log("Tipo de meta detectado:", goalType);
     console.log("Descripción asignada:", mainGoalDescription || defaultDescription);
 
-    // Crear objeto de meta
     const goal: AIGoal = {
       id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: mainGoalTitle,
       description: mainGoalDescription || defaultDescription,
-      type: goalType,
+      type: goalType, // Aquí se asigna el tipo detectado
       status: 'pending',
       priority: 'high',
       progress: 0,
@@ -1188,178 +1035,72 @@ const processAIMessage = (message: string): ProcessedContent => {
       steps: []
     };
 
-    // 7. EXTRAER PASOS Y TAREAS del contenido
-    const sectionPatterns = [
-      /^#{1,3}\s*\d+\.\s*\*\*(.*?)\*\*$/m,
-      /^#{1,3}\s*\d+\.\s*([^*\n]+)$/m,
-      /^\d+\.\s*\*\*(.*?)\*\*$/m,
-      /^\d+\.\s*([^*\n]+)$/m
-    ];
+    // Procesar secciones como pasos de la meta
+    let currentSection = '';
+    let currentDescription = '';
+    let stepOrder = 1;
 
-    const taskPatterns = [
-      /^[-\*•]\s*\*\*(.*?)\*\*:?\s*(.+)$/m,
-      /^[-\*•]\s*([^:\n]+?):\s*(.+)$/m,
-      /^[-\*•]\s*([^:\n]+?)\s*$/m,
-      /^#{1,3}\s*([^*\n]+)$/m,
-      /^\d+\.\s*([^:\n]+?):\s*(.+)$/m,
-      /^\d+\.\s*([^:\n]+?)\s*$/m
-    ];
-
-    // Si estamos en un texto informativo (como el de presentaciones)
-    if (isInformativeText) {
-      // Buscar herramientas o secciones numeradas como pasos
-      const stepRegex = /#{1,3}\s*\d+\.\s*\*\*([^*]+)\*\*/g;
-      let stepOrder = 1;
-      let stepMatch;
-      
-      while ((stepMatch = stepRegex.exec(message)) !== null) {
-        if (stepMatch[1]) {
-          const stepTitle = stepMatch[1].trim();
-          
-          // Buscar descripción que sigue al título
-          const afterTitleIndex = message.indexOf(stepMatch[0]) + stepMatch[0].length;
-          const nextHeadingIndex = message.indexOf('###', afterTitleIndex);
-          let description = '';
-          
-          if (nextHeadingIndex > -1) {
-            description = message.substring(afterTitleIndex, nextHeadingIndex).trim();
-          } else {
-            description = message.substring(afterTitleIndex, afterTitleIndex + 200).trim();
-          }
-          
-          // Limpiar la descripción
-          description = description.replace(/^[-\s]*/, '').trim();
-          
-          const step: AIStep = {
-            id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title: `Explorar ${stepTitle}`,
-            order: stepOrder++,
-            status: 'pending',
-            description: description.substring(0, 150), // Limitar longitud
-            goalId: goal.id
-          };
-          
-          goal.steps = goal.steps || [];
-          goal.steps.push(step);
-        }
+    lines.forEach((line, index) => {
+      // Saltar líneas que no aportan
+      if (skipPatterns.some(pattern => pattern.test(line))) {
+        return;
       }
-      
-      // Si no encontramos pasos numerados, intentar con puntos o features
-      if (goal.steps.length === 0) {
-        const featureRegex = /[-\*•]\s+([^:\n]+?)(?::|$)/gm;
-        let featureMatch;
-        
-        while ((featureMatch = featureRegex.exec(message)) !== null) {
-          if (featureMatch[1] && featureMatch[1].trim().length > 5) {
+
+      // Detectar secciones principales como pasos
+      for (const pattern of sectionPatterns) {
+        const match = line.match(pattern);
+        if (match) {
+          const stepTitle = match[1]?.trim();
+          if (stepTitle) {
             const step: AIStep = {
               id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title: featureMatch[1].trim(),
+              title: stepTitle,
               order: stepOrder++,
               status: 'pending',
-              description: "Explorar esta funcionalidad o característica",
+              description: '',
               goalId: goal.id
             };
-            
             goal.steps = goal.steps || [];
             goal.steps.push(step);
-            
-            // Limitar a 5 pasos
-            if (goal.steps.length >= 5) break;
           }
+          currentSection = stepTitle || '';
+          currentDescription = '';
+          return;
         }
       }
-    } 
-    // Para textos con formato de objetivos/pasos estándar
-    else {
-      let currentSection = '';
-      let currentDescription = '';
-      let stepOrder = 1;
 
-      lines.forEach((line, index) => {
-        // Detectar secciones principales como pasos
-        for (const pattern of sectionPatterns) {
-          const match = line.match(pattern);
-          if (match) {
-            const stepTitle = match[1]?.trim();
-            if (stepTitle) {
-              const step: AIStep = {
-                id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                title: stepTitle,
-                order: stepOrder++,
-                status: 'pending',
-                description: '',
-                goalId: goal.id
-              };
-              goal.steps = goal.steps || [];
-              goal.steps.push(step);
-            }
-            currentSection = stepTitle || '';
-            currentDescription = '';
-            return;
+      // Detectar tareas como subtareas del paso actual
+      for (const pattern of taskPatterns) {
+        const match = line.match(pattern);
+        if (match) {
+          const title = match[1]?.trim();
+          const description = match[2]?.trim() || '';
+
+          if (title && title.length > 3) {
+            const task: AITask = {
+              id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              title,
+              description: description || currentDescription,
+              status: 'pending',
+              stepId: goal.steps?.[goal.steps.length - 1]?.id,
+              goalId: goal.id,
+              order: stepOrder++
+            };
+            processed.tasks.push(task);
           }
+          return;
         }
+      }
 
-        // Detectar tareas
-        for (const pattern of taskPatterns) {
-          const match = line.match(pattern);
-          if (match) {
-            const title = match[1]?.trim();
-            const description = match[2]?.trim() || '';
-
-            if (title && title.length > 3) {
-              const task: AITask = {
-                id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                title,
-                description: description || currentDescription,
-                status: 'pending',
-                stepId: goal.steps?.[goal.steps.length - 1]?.id,
-                goalId: goal.id,
-                order: stepOrder++
-              };
-              processed.tasks.push(task);
-            }
-            return;
-          }
+      // Acumular descripción si no es una tarea
+      if (line.trim() && !line.startsWith('#')) {
+        currentDescription = (currentDescription + ' ' + line.trim()).trim();
+        // Actualizar la descripción del paso actual si existe
+        if (goal.steps?.length && currentDescription) {
+          goal.steps[goal.steps.length - 1].description = currentDescription;
         }
-
-        // Acumular descripción
-        if (line.trim() && !line.startsWith('#')) {
-          currentDescription = (currentDescription + ' ' + line.trim()).trim();
-          if (goal.steps?.length && currentDescription) {
-            goal.steps[goal.steps.length - 1].description = currentDescription;
-          }
-        }
-      });
-    }
-
-    // Si no se encontraron pasos automáticamente en un texto informativo
-    if (isInformativeText && (!goal.steps || goal.steps.length === 0)) {
-      // Crear pasos genéricos basados en el tema
-      const genericSteps = {
-        health: ["Evaluar estado actual", "Establecer objetivos específicos", "Crear plan de acción", "Seguimiento de progreso"],
-        financial: ["Analizar situación financiera", "Definir metas de ahorro", "Crear presupuesto", "Revisar inversiones"],
-        learning: ["Identificar recursos de aprendizaje", "Establecer horario de estudio", "Practicar regularmente", "Evaluar progreso"],
-        career: ["Actualizar habilidades profesionales", "Expandir red de contactos", "Mejorar presentaciones", "Optimizar perfil profesional"],
-        personal: ["Definir objetivos claros", "Priorizar tareas", "Establecer rutina", "Evaluar resultados"]
-      };
-      
-      const steps = genericSteps[goalType as keyof typeof genericSteps] || genericSteps.personal;
-      let stepOrder = 1;
-      
-      steps.forEach(stepTitle => {
-        const step: AIStep = {
-          id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          title: stepTitle,
-          order: stepOrder++,
-          status: 'pending',
-          description: "Paso importante para lograr el objetivo",
-          goalId: goal.id
-        };
-        
-        goal.steps = goal.steps || [];
-        goal.steps.push(step);
-      });
-    }
+      }
+    });
 
     processed.goals.push(goal);
   }
@@ -1572,11 +1313,17 @@ const processAIMessage = (message: string): ProcessedContent => {
                         {index + 1}
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-medium">{task.title}</h4>
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {task.title}
+                          </ReactMarkdown>
+                        </div>
                         {task.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                          <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 prose prose-sm max-w-none dark:prose-invert">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {task.description}
-                          </p>
+                            </ReactMarkdown>
+                          </div>
                         )}
                         <div className="flex gap-2 mt-2">
                           <Button 
