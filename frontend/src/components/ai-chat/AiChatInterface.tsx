@@ -114,9 +114,8 @@ interface AIGoal {
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
   progress: number;
-  steps: string[];  // Almacena solo los IDs de los pasos
+  steps: AIStep[];  // Cambiado de string[] a AIStep[]
   userId?: string;
-  stepDetails?: AIStep[];  // Campo adicional para mantener los detalles de los pasos
 }
 
 interface AITask {
@@ -202,12 +201,17 @@ const DetectedGoal = ({ goal, onCreateGoal, onDiscard }: {
   onCreateGoal: (goal: Partial<Goal>) => void,
   onDiscard: () => void 
 }) => {
+  const steps = goal.steps as AIStep[] || [];
+  
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-sm">
-            Educación
+            {goal.type === 'financial' ? 'Finanzas' : 
+             goal.type === 'health' ? 'Salud' :
+             goal.type === 'career' ? 'Carrera' :
+             goal.type === 'other' ? 'Personal' : 'Educación'}
           </div>
           <div className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm">
             Alta
@@ -227,7 +231,7 @@ const DetectedGoal = ({ goal, onCreateGoal, onDiscard }: {
       <div className="mb-4">
         <div className="flex justify-between text-sm mb-1">
           <span>Progreso</span>
-          <span>0 de {goal.steps?.length || 0} pasos completados</span>
+          <span>0 de {steps.length} pasos completados</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div className="bg-indigo-600 h-2 rounded-full" style={{ width: '0%' }}></div>
@@ -239,7 +243,7 @@ const DetectedGoal = ({ goal, onCreateGoal, onDiscard }: {
           <CheckSquare className="h-4 w-4" />
           Pasos a seguir
         </h4>
-        {goal.steps?.map((step, index) => (
+        {steps.map((step, index) => (
           <div key={step.id} className="flex items-start gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded">
             <Checkbox checked={false} />
             <div>
@@ -393,7 +397,7 @@ export function AiChatInterface() {
                   (item.description === undefined || 
                    (typeof item.description === 'string' && item.description.trim() !== '')) &&
                   typeof item.status === 'string' &&
-                  ['pending', 'in-progress', 'completed'].includes(item.status) &&
+                  ['pending', 'in_progress', 'completed'].includes(item.status) &&
                   typeof item.created_at === 'string'
                 );
               });
@@ -827,9 +831,9 @@ const processAIMessage = (message: string): ProcessedContent => {
   const goalTypePatterns = {
     health: /(?:salud|peso|ejercicio|dieta|nutrición|entrenamiento|fitness|adelgazar|perder peso)/i,
     financial: /(?:dinero|ahorro|inversión|finanzas|presupuesto|gastos|economía)/i,
-    learning: /(?:aprender|estudiar|practicar|dominar|curso|clases|lecciones)/i,
+    education: /(?:aprender|estudiar|practicar|dominar|curso|clases|lecciones)/i,
     career: /(?:trabajo|profesional|carrera|empleo|negocio|profesión|laboral)/i,
-    personal: /(?:hobby|pasatiempo|personal|vida|relación|hábito|rutina)/i
+    hobbies: /(?:hobby|pasatiempo|personal|vida|relación|hábito|rutina)/i
   };
 
   const sectionPatterns = [
@@ -875,13 +879,22 @@ const processAIMessage = (message: string): ProcessedContent => {
     let mainGoalDescription = '';
 
       // Función para determinar el tipo de meta
-  function determineGoalType(title: string, description: string): 'health' | 'financial' | 'learning' | 'career' | 'personal' {
+  function determineGoalType(title: string, description: string): 'personal' | 'financial' | 'health' | 'career' | 'other' {
     const text = `${title} ${description}`.toLowerCase();
     
-    if (goalTypePatterns.health.test(text)) return 'health';
-    if (goalTypePatterns.financial.test(text)) return 'financial';
-    if (goalTypePatterns.learning.test(text)) return 'learning';
-    if (goalTypePatterns.career.test(text)) return 'career';
+    // Patrones específicos para metas financieras
+    const financialPatterns = /casa|hipoteca|préstamo|dinero|ahorro|inversión|finanzas|presupuesto|gastos|economía|comprar|propiedad|vivienda|inmueble|departamento/i;
+    
+    // Patrones para otros tipos de metas
+    const healthPatterns = /salud|peso|ejercicio|dieta|nutrición|entrenamiento|fitness|adelgazar|perder peso/i;
+    const careerPatterns = /trabajo|profesional|carrera|empleo|negocio|profesión|laboral/i;
+    const educationPatterns = /aprender|estudiar|practicar|dominar|curso|clases|lecciones/i;
+    
+    if (financialPatterns.test(text)) return 'financial';
+    if (healthPatterns.test(text)) return 'health';
+    if (careerPatterns.test(text)) return 'career';
+    if (educationPatterns.test(text)) return 'other';
+    
     return 'personal';
   }
 
@@ -923,38 +936,33 @@ const processAIMessage = (message: string): ProcessedContent => {
     }
   }
 
-  // Crear la meta principal
-  if (mainGoalTitle) {
-    // Buscar una posible descripción en las siguientes líneas
-    for (let i = 0; i < 10 && i < lines.length; i++) {
-      if (lines[i].trim() && !lines[i].match(/#/) && !lines[i].match(/^[-\*•]/) && 
-          !goalPatterns.some(pattern => pattern.test(lines[i]))) {
-        if (!mainGoalDescription) {
-          mainGoalDescription = lines[i].trim();
-        }
+// Crear la meta principal
+if (mainGoalTitle) {
+  // Buscar una posible descripción en las siguientes líneas
+  for (let i = 0; i < 10 && i < lines.length; i++) {
+    if (lines[i].trim() && !lines[i].match(/#/) && !lines[i].match(/^[-\*•]/) && 
+        !goalPatterns.some(pattern => pattern.test(lines[i]))) {
+      if (!mainGoalDescription) {
+        mainGoalDescription = lines[i].trim();
       }
     }
+  }
 
-    const goalType = determineGoalType(mainGoalTitle, mainGoalDescription);
-    
-    // Determinar descripción predeterminada basada en el tipo
-    let defaultDescription = "Objetivo personal";
-    if (goalType === 'health') defaultDescription = "Meta de salud y bienestar";
-    if (goalType === 'financial') defaultDescription = "Objetivo financiero";
-    if (goalType === 'learning') defaultDescription = "Meta de aprendizaje y desarrollo de habilidades";
-    if (goalType === 'career') defaultDescription = "Objetivo profesional";
+  // Determinar el tipo de meta basado en el contenido
+  let goalType = determineGoalType(mainGoalTitle, mainGoalDescription);
+  
+  const goal: AIGoal = {
+    id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    title: mainGoalTitle,
+    description: mainGoalDescription || "Objetivo personal",
+    type: goalType,
+    status: 'pending',
+    priority: 'high',
+    progress: 0,
+    userId: 'pending-user-id',
+    steps: [] as AIStep[]
+  };
 
-    const goal: AIGoal = {
-      id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title: mainGoalTitle,
-      description: mainGoalDescription || defaultDescription,
-      type: goalType,
-      status: 'pending',
-      priority: 'high',
-      progress: 0,
-      userId: 'pending-user-id',
-      steps: []
-    };
 
     // Procesar secciones como pasos de la meta
     let currentSection = '';
@@ -976,12 +984,11 @@ const processAIMessage = (message: string): ProcessedContent => {
             const step: AIStep = {
               id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               title: stepTitle,
+              description: '',
               order: stepOrder++,
               status: 'pending',
-              description: '',
               goalId: goal.id
             };
-            goal.steps = goal.steps || [];
             goal.steps.push(step);
           }
           currentSection = stepTitle || '';
