@@ -50,9 +50,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { GoalsService } from '@/services/goals';
+import { GoalsService } from '@/lib/services/goalsService';
 import { taskService } from '@/services/tasks';
 import { 
+  Goal as DBGoal,
   GoalArea, 
   GoalType, 
   GoalPriority, 
@@ -185,7 +186,7 @@ const ChatMessage = ({ message }: { message: Message }) => {
                 const match = /language-(\w+)/.exec(className || '');
                 return !inline && match ? (
                   <SyntaxHighlighter
-                    style={vscDarkPlus}
+                    style={vscDarkPlus as { [key: string]: React.CSSProperties }}
                     language={match[1]}
                     PreTag="div"
                     className="rounded-md my-2"
@@ -708,19 +709,55 @@ export function AiChatInterface() {
     }
   
     try {
+      // Mapear el tipo de meta al formato esperado por el servicio
+      const mapGoalType = (type: string | undefined): GoalType => {
+        switch(type) {
+          case 'Desarrollo_Personal':
+            return 'Proyecto';
+          case 'Salud_Bienestar':
+            return 'Hábito';
+          case 'Educacion':
+            return 'Aprendizaje';
+          case 'Finanzas':
+            return 'Financiero';
+          case 'Hobbies':
+          default:
+            return 'Otro';
+        }
+      };
+
+      // Mapear el área de la meta
+      const mapGoalArea = (type: string | undefined): GoalArea => {
+        switch(type) {
+          case 'Desarrollo_Personal':
+            return 'Desarrollo Personal';
+          case 'Salud_Bienestar':
+            return 'Salud y Bienestar';
+          case 'Educacion':
+            return 'Educación';
+          case 'Finanzas':
+            return 'Finanzas';
+          case 'Hobbies':
+          default:
+            return 'Hobbies';
+        }
+      };
+
       // Preparar los datos de la meta según el esquema de la base de datos
-      const newGoal = {
+      const newGoal: Omit<DBGoal, 'id' | 'created_at' | 'updated_at'> = {
         title: goalData.title || '',
         description: goalData.description || '',
-        area: goalData.type as GoalArea,
-        type: 'Proyecto' as GoalType,
-        priority: 'Media' as GoalPriority,
-        status: 'active' as GoalStatus,
-        progress_type: 'percentage' as GoalProgressType,
+        area: mapGoalArea(goalData.type),
+        type: mapGoalType(goalData.type),
+        priority: 'Media',
+        status: 'active',
+        progress_type: 'percentage',
         user_id: user.id,
         target_value: 100,
         current_value: 0,
-        start_date: new Date().toISOString()
+        start_date: new Date().toISOString(),
+        target_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+        image_url: null
       };
   
       // Crear la meta usando el servicio
