@@ -112,9 +112,7 @@ interface Goal {
   id: string;
   title: string;
   description: string;
-  type: 'personal' | 'health' | 'financial' | 'career' | 'learning';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high';
+  type: 'Desarrollo_Personal' | 'Salud_Bienestar' | 'Educacion' | 'Finanzas' | 'Hobbies';
   progress: number;
   steps: AIStep[];
   userId?: string;
@@ -124,8 +122,6 @@ interface AITask {
   id: string;
   title: string;
   description: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
   goalId: string;
   order: number;
   tags: string[];  // Nunca undefined
@@ -218,23 +214,23 @@ const ChatSuggestions = ({ onSelectSuggestion }: { onSelectSuggestion: (suggesti
   const suggestions = [
     {
       icon: <Target className="h-4 w-4" />,
-      text: "Ayúdame a establecer una meta financiera"
+      text: "Ayúdame a establecer una meta de desarrollo personal"
     },
     {
-      icon: <Clock className="h-4 w-4" />,
-      text: "¿Cómo puedo organizar mejor mi tiempo?"
+      icon: <Heart className="h-4 w-4" />,
+      text: "Quiero mejorar mi salud y bienestar"
     },
     {
-      icon: <Calendar className="h-4 w-4" />,
-      text: "Necesito planificar mi semana"
+      icon: <BrainCircuit className="h-4 w-4" />,
+      text: "Necesito un plan de educación"
     },
     {
-      icon: <DollarSign className="h-4 w-4" />,
-      text: "Quiero ahorrar para comprar una moto"
+      icon: <CircleDollarSign className="h-4 w-4" />,
+      text: "Ayúdame con mis Finanzas personales"
     },
     {
-      icon: <Dumbbell className="h-4 w-4" />,
-      text: "Ayúdame con una rutina de ejercicios"
+      icon: <Activity className="h-4 w-4" />,
+      text: "Quiero desarrollar un nuevo hobby"
     }
   ];
   
@@ -255,26 +251,20 @@ const ChatSuggestions = ({ onSelectSuggestion }: { onSelectSuggestion: (suggesti
 };
 
 // Componente para mostrar una meta detectada con soporte Markdown
-const DetectedGoal: React.FC<{ goal: Goal }> = ({ goal }) => {
-  const getTypeColor = (type: Goal['type']) => {
+const DetectedGoal: React.FC<{ 
+  goal: Partial<Goal>; 
+  onCreateGoal: (goal: Partial<Goal>) => void 
+}> = ({ goal, onCreateGoal }) => {
+  const getTypeColor = (type?: Goal['type']) => {
+    if (!type) return 'bg-gray-100 text-gray-800';
     const colors = {
-      personal: 'bg-purple-100 text-purple-800',
-      health: 'bg-green-100 text-green-800',
-      financial: 'bg-blue-100 text-blue-800',
-      career: 'bg-orange-100 text-orange-800',
-      learning: 'bg-pink-100 text-pink-800',
+      Desarrollo_Personal: 'bg-purple-100 text-purple-800',
+      Salud_Bienestar: 'bg-green-100 text-green-800',
+      Finanzas: 'bg-blue-100 text-blue-800',
+      Educacion: 'bg-orange-100 text-orange-800',
+      Hobbies: 'bg-pink-100 text-pink-800',
     };
     return colors[type];
-  };
-
-  const getStatusColor = (status: Goal['status']) => {
-    const colors = {
-      pending: 'bg-gray-100 text-gray-800',
-      in_progress: 'bg-yellow-100 text-yellow-800',
-      completed: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800',
-    };
-    return colors[status];
   };
 
   return (
@@ -283,44 +273,51 @@ const DetectedGoal: React.FC<{ goal: Goal }> = ({ goal }) => {
         <div className="flex-1">
           <div className="flex gap-2 items-center mb-2">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(goal.type)}`}>
-              {goal.type}
-            </span>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(goal.status)}`}>
-              {goal.status.replace('_', ' ')}
+              {goal.type?.replace('_', ' ') || 'Sin tipo'}
             </span>
           </div>
           <div className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {goal.title}
+              {goal.title || ''}
             </ReactMarkdown>
           </div>
           <div className="prose prose-sm max-w-none mt-2 text-gray-600 dark:text-gray-300">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {goal.description}
+              {goal.description || ''}
             </ReactMarkdown>
           </div>
         </div>
-        <Button variant="ghost" size="icon">
-          <MoreVertical className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => onCreateGoal(goal)}
+            className="text-xs"
+          >
+            Crear Meta
+          </Button>
+          <Button variant="ghost" size="icon">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="mt-4">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium">Progress</span>
-          <span className="text-sm text-gray-600">{goal.progress}%</span>
+          <span className="text-sm font-medium">Progreso</span>
+          <span className="text-sm text-gray-600">{goal.progress || 0}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
             className="bg-blue-600 h-2 rounded-full transition-all"
-            style={{ width: `${goal.progress}%` }}
+            style={{ width: `${goal.progress || 0}%` }}
           />
         </div>
       </div>
 
-      {goal.steps.length > 0 && (
+      {goal.steps && goal.steps.length > 0 && (
         <div className="mt-4">
-          <h4 className="text-sm font-medium mb-2">Steps</h4>
+          <h4 className="text-sm font-medium mb-2">Pasos</h4>
           <div className="space-y-2">
             {goal.steps.map((step) => (
               <div key={step.id} className="flex items-start gap-2">
@@ -338,18 +335,18 @@ const DetectedGoal: React.FC<{ goal: Goal }> = ({ goal }) => {
                       {step.title}
                     </ReactMarkdown>
                   </label>
-              {step.description && (
+                  {step.description && (
                     <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 prose prose-sm max-w-none dark:prose-invert">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {step.description}
                       </ReactMarkdown>
                     </div>
-              )}
-            </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      </div>
+        </div>
       )}
     </Card>
   );
@@ -457,10 +454,6 @@ export function AiChatInterface() {
                   item.description.trim() !== '' &&
                   typeof item.type === 'string' &&
                   ['financial', 'health', 'career', 'personal', 'other'].includes(item.type) &&
-                  typeof item.priority === 'string' &&
-                  ['low', 'medium', 'high'].includes(item.priority) &&
-                  typeof item.status === 'string' &&
-                  ['pending', 'in_progress', 'completed', 'cancelled'].includes(item.status) &&
                   typeof item.progress === 'number' &&
                   typeof item.userId === 'string'
                 );
@@ -483,8 +476,6 @@ export function AiChatInterface() {
                   item.title.trim() !== '' &&
                   (item.description === undefined || 
                    (typeof item.description === 'string' && item.description.trim() !== '')) &&
-                  typeof item.status === 'string' &&
-                  ['pending', 'in_progress', 'completed'].includes(item.status) &&
                   typeof item.created_at === 'string'
                 );
               });
@@ -681,30 +672,25 @@ export function AiChatInterface() {
   };
 
   const handleCreateGoal = (goalData: Partial<Goal>) => {
-    // Añadir la meta a la lista de metas creadas
     const newGoal = {
       ...goalData,
       id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: 'personal' as const,
-      status: 'pending' as const,
-      priority: 'medium' as const,
+      type: 'Desarrollo_Personal' as const,
       progress: 0,
       steps: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      userId: 'pending-user-id' // Se actualizará cuando se guarde
+      userId: 'pending-user-id'
     };
     
     setCreatedGoals(prev => [...prev, newGoal]);
     
-    // Generar respuesta de la IA confirmando la creación de la meta
     const aiResponse = `¡Excelente! He creado una meta para "${goalData.title}". 
     
 He generado un plan personalizado con ${goalData.steps?.length || 0} pasos a seguir para alcanzar esta meta. Puedes verlo en la sección de Metas o gestionar los pasos directamente desde el chat.
 
 ¿Te gustaría que te ayude a establecer recordatorios para los pasos más importantes?`;
     
-    // Añadir respuesta de la IA
     const aiMessage: Message = {
       id: `msg-${Date.now()}`,
       content: aiResponse,
@@ -713,9 +699,6 @@ He generado un plan personalizado con ${goalData.steps?.length || 0} pasos a seg
     };
     
     setMessages(prevMessages => [...prevMessages, aiMessage]);
-    
-    // En una implementación real, aquí se enviaría la meta al backend
-    // para guardarla en la base de datos
   };
   
   const handleCreateTask = (taskTitle: string, goalId: string) => {
@@ -880,21 +863,18 @@ He actualizado mis ajustes según tus preferencias:
 
 // Función para procesar mensajes de la IA
 const processAIMessage = (message: string): ProcessedContent => {
-  // Patrones ampliados para detectar diversos tipos de metas
+  // Patrones para detectar tipos de metas en español
   const goalPatterns = [
-    // Patrones educativos originales
-    /^¡Claro!\s+.*?\s+para\s+(aprender|dominar|estudiar)\s+\*\*(.*?)\*\*/i,
-    /^Aquí\s+tienes\s+.*?\s+para\s+(aprender|dominar|estudiar)\s+\*\*(.*?)\*\*/i,
-    /^#{1,3}\s*Objetivo\s*\d*:?\s*\*?(.*?)\*?$/im,
-    /^#{1,3}\s*Meta\s*\d*:?\s*\*?(.*?)\*?$/im,
-    
-    // Patrones para cualquier tipo de meta
-    /^(?:Te\s+ayudo\s+a|Aquí\s+tienes\s+un\s+plan\s+para|Plan\s+para|Objetivo:\s+|Meta:\s+)(.*?)(?:\.|$)/i,
-    /^(?:Para|Vamos\s+a|Podemos|Quieres)\s+(.*?)(?:\.|$)/i,
-    /^(?:Tu\s+objetivo\s+de|Tu\s+meta\s+de|Para\s+lograr)\s+(.*?)(?:\.|$)/i,
-    
-    // Verbos de acción comunes (genérico)
-    /(?:quieres|necesitas|buscas|deseas)\s+(.*?)(?:\.|$)/i
+    // Desarrollo Personal
+    /desarrollo\s+(?:personal|profesional)|emprendimiento|negocio|empresa|servicio\s+técnico/i,
+    // Salud y Bienestar
+    /salud|bienestar|ejercicio|nutrición|deporte|yoga|meditación/i,
+    // Educación
+    /educación|aprender|estudiar|curso|carrera|universidad|formación|capacitación/i,
+    // Finanzas
+    /finanzas|ahorro|inversión|presupuesto|dinero|gastos|ingresos/i,
+    // Hobbies
+    /hobby|pasatiempo|música|arte|pintura|fotografía|jardinería/i
   ];
 
   const sectionPatterns = [
@@ -938,11 +918,55 @@ const processAIMessage = (message: string): ProcessedContent => {
   // Detectar la meta principal
   let mainGoalTitle = '';
   let mainGoalDescription = '';
+  let goalType: Goal['type'] = 'Desarrollo_Personal';
+
+  // Buscar una meta principal al inicio del mensaje
+  const firstParagraphs = lines.slice(0, 5).join(' ');
+  
+
+// Determinar el tipo de meta basado en el contenido
+const combinedText = lines.slice(0, 10).join(' ').toLowerCase();
+
+// Desarrollo Personal
+if (combinedText.includes('desarrollo personal') || combinedText.includes('organización') || 
+    combinedText.includes('disciplina') || combinedText.includes('motivación') ||
+    combinedText.includes('servicio técnico') || combinedText.includes('negocio') || 
+    combinedText.includes('empresa')) {
+  goalType = 'Desarrollo_Personal';
+} 
+// Salud y Bienestar
+else if (combinedText.includes('salud') || combinedText.includes('ejercicio') || 
+         combinedText.includes('dieta') || combinedText.includes('fitness') || 
+         combinedText.includes('nutrición') || combinedText.includes('entrenamiento') ||
+         combinedText.includes('bienestar') || combinedText.includes('meditación')) {
+  goalType = 'Salud_Bienestar';
+} 
+// Educación
+else if (combinedText.includes('educación') || combinedText.includes('aprendizaje') || 
+         combinedText.includes('estudio') || combinedText.includes('curso') || 
+         combinedText.includes('formación') || combinedText.includes('capacitación') ||
+         combinedText.includes('idioma') || combinedText.includes('certificación')) {
+  goalType = 'Educacion';
+} 
+// Finanzas
+else if (combinedText.includes('finanzas') || combinedText.includes('dinero') || 
+         combinedText.includes('ahorro') || combinedText.includes('inversión') || 
+         combinedText.includes('presupuesto') || combinedText.includes('deuda') ||
+         combinedText.includes('economía') || combinedText.includes('gastos')) {
+  goalType = 'Finanzas';
+} 
+// Hobbies
+else if (combinedText.includes('hobby') || combinedText.includes('pasatiempo') || 
+         combinedText.includes('arte') || combinedText.includes('música') || 
+         combinedText.includes('pintura') || combinedText.includes('viaje') ||
+         combinedText.includes('juego') || combinedText.includes('colección')) {
+  goalType = 'Hobbies';
+}
 
   // Buscar una meta principal al inicio del mensaje (ampliado a más líneas)
-  const firstParagraphs = lines.slice(0, 5).join(' ');
+  const firstParagraphsExpanded = lines.slice(0, 10).join(' ');
   for (const pattern of goalPatterns) {
-    const match = firstParagraphs.match(pattern);
+    const match = firstParagraphsExpanded.match(pattern);
     if (match) {
       mainGoalTitle = match[1]?.trim() || '';
       
@@ -988,121 +1012,123 @@ const processAIMessage = (message: string): ProcessedContent => {
     }
 
     // PASO CLAVE: Determinar el tipo de meta basado en el contenido
-    let goalType: 'health' | 'financial' | 'learning' | 'career' | 'personal' = 'personal';
-    const combinedText = (mainGoalTitle + ' ' + mainGoalDescription).toLowerCase();
-    
-    // Verificar explícitamente para cada tipo de meta con palabras clave específicas
-    // Esta es la parte crucial que debe estar funcionando correctamente
-    if (/salud|peso|ejercicio|dieta|nutrici[óo]n|entrenamiento|fitness|adelgazar|perder\s+peso|gym|gimnasio|saludable|ejercitarme/i.test(combinedText)) {
-      console.log("Detectada meta de SALUD:", combinedText);
-      goalType = 'health';
-    } 
-    else if (/dinero|ahorro|inversi[óo]n|finanzas|presupuesto|gastos|econom[íi]a|ahorrar|financiero|deudas|pr[ée]stamo/i.test(combinedText)) {
-      console.log("Detectada meta FINANCIERA:", combinedText);
-      goalType = 'financial';
-    } 
-    else if (/aprender|estudiar|practicar|dominar|curso|clases|lecciones|conocimiento|tocar|guitarra|bater[íi]a|piano|idioma|programaci[óo]n|lenguaje/i.test(combinedText)) {
-      console.log("Detectada meta de APRENDIZAJE:", combinedText);
-      goalType = 'learning';
-    } 
-    else if (/trabajo|profesional|carrera|empleo|negocio|profesi[óo]n|laboral|empresa|cv|curriculum|entrevista/i.test(combinedText)) {
-      console.log("Detectada meta PROFESIONAL:", combinedText);
-      goalType = 'career';
-    }
-    else {
-      console.log("Detectada meta PERSONAL por defecto:", combinedText);
-    }
-    
-    // Asignar una descripción predeterminada basada en el tipo
-    let defaultDescription = "Objetivo personal";
-    if (goalType === 'health') defaultDescription = "Meta de salud y bienestar";
-    if (goalType === 'financial') defaultDescription = "Objetivo financiero";
-    if (goalType === 'learning') defaultDescription = "Meta de aprendizaje y desarrollo de habilidades";
-    if (goalType === 'career') defaultDescription = "Objetivo profesional";
-
     console.log("Tipo de meta detectado:", goalType);
-    console.log("Descripción asignada:", mainGoalDescription || defaultDescription);
+    console.log("Descripción asignada:", mainGoalDescription || "Objetivo personal");
 
-    const goal: AIGoal = {
+    const goal: Goal = {
       id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: mainGoalTitle,
-      description: mainGoalDescription || defaultDescription,
+      description: mainGoalDescription || "Objetivo personal",
       type: goalType, // Aquí se asigna el tipo detectado
-      status: 'pending',
-      priority: 'high',
       progress: 0,
-      userId: 'pending-user-id',
       steps: []
     };
 
-    // Procesar secciones como pasos de la meta
-    let currentSection = '';
-    let currentDescription = '';
-    let stepOrder = 1;
+// Procesar secciones como pasos de la meta
+let currentSection = '';
+let currentDescription = '';
+let stepOrder = 1;
 
-    lines.forEach((line, index) => {
-      // Saltar líneas que no aportan
-      if (skipPatterns.some(pattern => pattern.test(line))) {
-        return;
+lines.forEach((line, index) => {
+  // Saltar líneas que no aportan
+  if (skipPatterns.some(pattern => pattern.test(line))) {
+    return;
+  }
+
+  // Detectar secciones principales como pasos
+  for (const pattern of sectionPatterns) {
+    const match = line.match(pattern);
+    if (match) {
+      const stepTitle = match[1]?.trim();
+      if (stepTitle) {
+        const step: AIStep = {
+          id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          title: stepTitle,
+          order: stepOrder++,
+          description: '',
+          goalId: goal.id
+        };
+        goal.steps = goal.steps || [];
+        goal.steps.push(step);
       }
+      currentSection = stepTitle || '';
+      currentDescription = '';
+      return;
+    }
+  }
 
-      // Detectar secciones principales como pasos
-      for (const pattern of sectionPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          const stepTitle = match[1]?.trim();
-          if (stepTitle) {
-            const step: AIStep = {
-              id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title: stepTitle,
-              order: stepOrder++,
-              status: 'pending',
-              description: '',
-              goalId: goal.id
-            };
-            goal.steps = goal.steps || [];
-            goal.steps.push(step);
-          }
-          currentSection = stepTitle || '';
-          currentDescription = '';
-          return;
-        }
+  // Detectar pasos numerados (como en el primer ejemplo)
+  const stepMatch = line.match(/^\d+\.\s+(.*?)(?:\s+\(|$)/);
+  if (stepMatch) {
+    const stepTitle = stepMatch[1].trim();
+    if (stepTitle) {
+      const step: AIStep = {
+        id: `step-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title: stepTitle,
+        order: stepOrder++,
+        description: '',
+        goalId: goal.id
+      };
+      goal.steps = goal.steps || [];
+      goal.steps.push(step);
+    }
+    currentSection = stepTitle || '';
+    currentDescription = '';
+    return;
+  }
+
+  // Detectar tareas como subtareas del paso actual
+  for (const pattern of taskPatterns) {
+    const match = line.match(pattern);
+    if (match) {
+      const title = match[1]?.trim();
+      const description = match[2]?.trim() || '';
+
+      if (title && title.length > 3) {
+        const task: AITask = {
+          id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          title,
+          description: description || currentDescription,
+          stepId: goal.steps?.[goal.steps.length - 1]?.id,
+          goalId: goal.id,
+          order: stepOrder++
+        };
+        processed.tasks.push(task);
       }
+      return;
+    }
+  }
 
-      // Detectar tareas como subtareas del paso actual
-      for (const pattern of taskPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          const title = match[1]?.trim();
-          const description = match[2]?.trim() || '';
+  // Detectar tareas específicas según palabras clave (del primer código)
+  if (line.includes('checklist') || line.includes('sistema') || line.includes('calendario')) {
+    const taskTitle = line.trim();
+    // Verificar si la tarea ya existe para evitar duplicados
+    const taskExists = processed.tasks.some(task => task.title === taskTitle);
+    if (!taskExists) {
+      const task: AITask = {
+        id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title: taskTitle,
+        description: currentDescription,
+        stepId: goal.steps?.[goal.steps.length - 1]?.id,
+        goalId: goal.id,
+        order: stepOrder++
+      };
+      processed.tasks.push(task);
+    }
+    return;
+  }
 
-          if (title && title.length > 3) {
-            const task: AITask = {
-              id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title,
-              description: description || currentDescription,
-              status: 'pending',
-              stepId: goal.steps?.[goal.steps.length - 1]?.id,
-              goalId: goal.id,
-              order: stepOrder++
-            };
-            processed.tasks.push(task);
-          }
-          return;
-        }
-      }
+  // Acumular descripción si no es una tarea
+  if (line.trim() && !line.startsWith('#')) {
+    currentDescription = (currentDescription + ' ' + line.trim()).trim();
+    // Actualizar la descripción del paso actual si existe
+    if (goal.steps?.length && currentDescription) {
+      goal.steps[goal.steps.length - 1].description = currentDescription;
+    }
+  }
+});
 
-      // Acumular descripción si no es una tarea
-      if (line.trim() && !line.startsWith('#')) {
-        currentDescription = (currentDescription + ' ' + line.trim()).trim();
-        // Actualizar la descripción del paso actual si existe
-        if (goal.steps?.length && currentDescription) {
-          goal.steps[goal.steps.length - 1].description = currentDescription;
-        }
-      }
-    });
-
-    processed.goals.push(goal);
+processed.goals.push(goal);
   }
 
   return processed;
@@ -1285,7 +1311,8 @@ const processAIMessage = (message: string): ProcessedContent => {
                 {processedContent.goals.map((goal, index) => (
                   <DetectedGoal
                     key={goal.id || index}
-                    goal={goal}
+                    goal={goal as Partial<Goal>}
+                    onCreateGoal={handleCreateGoal}
                   />
                 ))}
               </div>
