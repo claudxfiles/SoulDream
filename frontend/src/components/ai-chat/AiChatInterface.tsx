@@ -44,14 +44,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { Input } from "@/components/ui/input";
 import { AuthUser } from '@/types/auth';
 import { supabase } from '@/lib/supabase';
-import { Task } from '@/types/task';
+import { Task, TaskCreateDTO } from '@/types/task';
 import { Checkbox } from "@/components/ui/checkbox";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { GoalsService } from '@/lib/services/goalsService';
-import { taskService } from '@/services/tasks';
+import { taskService, TaskService } from '@/services/tasks';
 import { 
   Goal as DBGoal,
   GoalArea, 
@@ -843,36 +843,43 @@ ${stepsDescription}
   
     try {
       // Preparar los datos de la tarea
-      const newTask = {
+      const taskData = {
         title: taskTitle,
-        description: '',
+        description: taskTitle.includes('(') ? 
+          taskTitle.split('(')[1].split(')')[0] : // Si hay texto entre paréntesis, usarlo como descripción
+          'Tarea generada por el asistente AI',
         status: 'pending' as const,
         priority: 'medium' as const,
-        related_goal_id: goalId,
-        tags: [],
+        tags: ['AI_Assistant'],
+        category: 'feature',
+        due_date: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0],
+        duration_minutes: 30,
         user_id: user.id
       };
-  
-      // Crear la tarea usando el servicio
-      const createdTask = await taskService.createTask(newTask);
+
+      // Crear la tarea usando Supabase directamente
+      const { data: createdTask, error } = await supabase
+        .from('tasks')
+        .insert([taskData])
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
       
       if (createdTask) {
         toast({
           title: "Tarea creada",
-          description: "La tarea se ha creado exitosamente"
+          description: "La tarea se ha creado exitosamente en tu tablero de tareas"
         });
         
         // Actualizar el estado local
         setCreatedTasks(prev => [...prev, createdTask.title]);
         
-        // Encontrar la meta relacionada
-        const relatedGoal = createdGoals.find(goal => goal.id === goalId);
+        const aiResponse = `He creado la tarea "${taskTitle}" en tu tablero de tareas. 
         
-        const aiResponse = `He creado una tarea para "${taskTitle}"${
-          relatedGoal ? ` relacionada con tu meta "${relatedGoal.title}"` : ''
-        }.
-        
-  Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que establezca una fecha límite para esta tarea?`;
+¿Te gustaría que establezca una fecha límite o agregue más detalles a esta tarea?`;
         
         const aiMessage: Message = {
           id: `msg-${Date.now()}`,
