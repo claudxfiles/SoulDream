@@ -1,38 +1,21 @@
+export type GoalType = 'Desarrollo_Personal' | 'Salud_Bienestar' | 'Educacion' | 'Finanzas' | 'Hobbies';
+
 export interface Goal {
-  id?: string;
+  id: string;
   title: string;
   description: string;
-  type: 'financial' | 'health' | 'career' | 'personal' | 'other';
-  deadline?: Date;
-  priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  type: GoalType;
   progress: number;
-  userId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  steps?: string[];
-  tasks?: {
+  priority: 'low' | 'medium' | 'high';
+  status: 'pending' | 'in_progress' | 'completed';
+  user_id: string;
+  created_at?: string;
+  updated_at?: string;
+  steps?: {
     id: string;
     title: string;
-    description: string;
-    dueDate?: Date;
-    priority: 'low' | 'medium' | 'high';
-    status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  }[];
-  milestones?: {
-    id: string;
-    title: string;
-    description: string;
-    targetDate: Date;
-    achieved: boolean;
-  }[];
-  metrics?: {
-    id: string;
-    name: string;
-    value: number;
-    unit: string;
-    targetValue: number;
-    currentValue: number;
+    description?: string;
+    completed: boolean;
   }[];
 }
 

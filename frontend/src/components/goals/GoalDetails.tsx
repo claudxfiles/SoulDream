@@ -9,6 +9,8 @@ import { Separator } from '@/components/ui/separator';
 import { Goal, GoalStep } from '@/types/goals';
 import { cn } from '@/lib/utils';
 import { Pencil, Plus, Trash } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface GoalDetailsProps {
   goal: Goal;
@@ -64,7 +66,9 @@ export function GoalDetails({
     <Card className="h-full">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>{goal.title}</CardTitle>
+          <CardTitle className="prose dark:prose-invert">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{goal.title}</ReactMarkdown>
+          </CardTitle>
           <div className="flex gap-2">
             <Button variant="ghost" size="icon" onClick={onEdit}>
               <Pencil className="h-4 w-4" />
@@ -77,7 +81,9 @@ export function GoalDetails({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">{goal.description}</p>
+          <div className="prose prose-sm dark:prose-invert text-muted-foreground">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{goal.description}</ReactMarkdown>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{goal.area}</Badge>
             <Badge variant="secondary">{goal.type}</Badge>
@@ -125,12 +131,14 @@ export function GoalDetails({
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <h4 className="font-medium">{step.title}</h4>
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <h4 className="font-medium prose prose-sm dark:prose-invert">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.title}</ReactMarkdown>
+                      </h4>
                       {expandedSteps.includes(step.id) && (
-                        <p className="text-sm text-muted-foreground">
-                          {step.description}
-                        </p>
+                        <div className="prose prose-sm dark:prose-invert text-muted-foreground">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.description || ''}</ReactMarkdown>
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2">

@@ -8,15 +8,12 @@ export interface Task {
   description: string;
   status: 'pending' | 'in_progress' | 'completed';
   priority: 'low' | 'medium' | 'high';
-  due_date?: string;
-  due_time?: string;
-  timezone?: string;
-  duration_minutes?: number;
-  tags: string[];
+  related_goal_id?: string;
+  user_id: string;
   created_at?: string;
   updated_at?: string;
-  user_id?: string;
-  related_goal_id?: string;
+  due_date?: string;
+  tags: string[];
 }
 
 export interface TaskCreateDTO {

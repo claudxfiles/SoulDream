@@ -34,7 +34,6 @@ import { GoalChatIntegration } from './GoalChatIntegration';
 import { PersonalizedPlanGenerator } from './PersonalizedPlanGenerator';
 import { PatternAnalyzer } from './PatternAnalyzer';
 import { LearningAdaptation } from './LearningAdaptation';
-import { Goal } from '@/types/goal';
 import { useRouter } from 'next/navigation';
 import { toast, useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
@@ -51,6 +50,16 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { GoalsService } from '@/services/goals';
+import { taskService } from '@/services/tasks';
+import { 
+  GoalArea, 
+  GoalType, 
+  GoalPriority, 
+  GoalStatus, 
+  GoalProgressType, 
+  GoalStepStatus 
+} from '@/types/goals';
 
 // Types for personalized planning
 interface PersonalizedPlan {
@@ -106,6 +115,8 @@ interface AIStep {
   title: string;
   description?: string;
   completed: boolean;
+  order?: number;
+  goalId?: string;
 }
 
 interface Goal {
@@ -122,9 +133,12 @@ interface AITask {
   id: string;
   title: string;
   description: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  priority: 'low' | 'medium' | 'high';
   goalId: string;
   order: number;
-  tags: string[];  // Nunca undefined
+  tags: string[];
+  stepId?: string;
 }
 
 
@@ -317,31 +331,33 @@ const DetectedGoal: React.FC<{
 
       {goal.steps && goal.steps.length > 0 && (
         <div className="mt-4">
-          <h4 className="text-sm font-medium mb-2">Pasos</h4>
-          <div className="space-y-2">
-            {goal.steps.map((step) => (
-              <div key={step.id} className="flex items-start gap-2">
-                <Checkbox
-                  id={step.id}
-                  checked={step.completed}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <label
-                    htmlFor={step.id}
-                    className="text-sm font-medium cursor-pointer prose prose-sm max-w-none dark:prose-invert"
-                  >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {step.title}
-                    </ReactMarkdown>
-                  </label>
-                  {step.description && (
-                    <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 prose prose-sm max-w-none dark:prose-invert">
+          <h4 className="text-sm font-medium mb-2">Pasos a seguir</h4>
+          <div className="space-y-3">
+            {goal.steps.map((step, index) => (
+              <div key={step.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-[24px] h-6 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 text-xs font-medium">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="prose prose-sm max-w-none dark:prose-invert">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {step.description}
+                        {`**${step.title}**`}
                       </ReactMarkdown>
                     </div>
-                  )}
+                    {step.description && (
+                      <div className="prose prose-sm max-w-none mt-1 text-gray-600 dark:text-gray-400">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {step.description}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                  <Checkbox
+                    id={step.id}
+                    checked={step.completed}
+                    className="mt-1"
+                  />
                 </div>
               </div>
             ))}
@@ -671,62 +687,6 @@ export function AiChatInterface() {
     setInputValue(suggestion);
   };
 
-  const handleCreateGoal = (goalData: Partial<Goal>) => {
-    const newGoal = {
-      ...goalData,
-      id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: 'Desarrollo_Personal' as const,
-      progress: 0,
-      steps: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      userId: 'pending-user-id'
-    };
-    
-    setCreatedGoals(prev => [...prev, newGoal]);
-    
-    const aiResponse = `¡Excelente! He creado una meta para "${goalData.title}". 
-    
-He generado un plan personalizado con ${goalData.steps?.length || 0} pasos a seguir para alcanzar esta meta. Puedes verlo en la sección de Metas o gestionar los pasos directamente desde el chat.
-
-¿Te gustaría que te ayude a establecer recordatorios para los pasos más importantes?`;
-    
-    const aiMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content: aiResponse,
-      sender: 'assistant',
-      timestamp: new Date()
-    };
-    
-    setMessages(prevMessages => [...prevMessages, aiMessage]);
-  };
-  
-  const handleCreateTask = (taskTitle: string, goalId: string) => {
-    // Añadir la tarea a la lista de tareas creadas
-    setCreatedTasks(prev => [...prev, taskTitle]);
-    
-    // Encontrar la meta relacionada
-    const relatedGoal = createdGoals.find(goal => goal.id === goalId);
-    
-    // Generar respuesta de la IA confirmando la creación de la tarea
-    const aiResponse = `He creado una tarea para "${taskTitle}"${relatedGoal ? ` relacionada con tu meta "${relatedGoal.title}"` : ''}.
-    
-Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que establezca una fecha límite para esta tarea?`;
-    
-    // Añadir respuesta de la IA
-    const aiMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content: aiResponse,
-      sender: 'assistant',
-      timestamp: new Date()
-    };
-    
-    setMessages(prevMessages => [...prevMessages, aiMessage]);
-    
-    // En una implementación real, aquí se enviaría la tarea al backend
-    // para guardarla en la base de datos
-  };
-
   const handleViewGoals = () => {
     // Navegar a la página de metas
     router.push('/dashboard/goals');
@@ -736,81 +696,164 @@ Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que estable
     // Navegar a la página de tareas
     router.push('/dashboard/tasks');
   };
+
+  const handleCreateGoal = async (goalData: Partial<Goal>) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Debes iniciar sesión para crear una meta",
+        variant: "destructive"
+      });
+      return;
+    }
   
-  // Manejador para la creación de un plan personalizado
-  const handlePlanCreated = (plan: PersonalizedPlan) => {
-    const planSummary = `
-He generado un plan personalizado para ti:
+    try {
+      // Preparar los datos de la meta según el esquema de la base de datos
+      const newGoal = {
+        title: goalData.title || '',
+        description: goalData.description || '',
+        area: goalData.type as GoalArea,
+        type: 'Proyecto' as GoalType,
+        priority: 'Media' as GoalPriority,
+        status: 'active' as GoalStatus,
+        progress_type: 'percentage' as GoalProgressType,
+        user_id: user.id,
+        target_value: 100,
+        current_value: 0,
+        start_date: new Date().toISOString()
+      };
+  
+      // Crear la meta usando el servicio
+      const createdGoal = await GoalsService.createGoal(newGoal);
+  
+      if (createdGoal) {
+        // Si hay pasos definidos, crearlos también
+        if (goalData.steps && goalData.steps.length > 0) {
+          const steps = goalData.steps.map((step, index) => ({
+            title: step.title,
+            description: step.description || '',
+            status: 'pending' as GoalStepStatus,
+            goal_id: createdGoal.id,
+            ai_generated: true,
+            orderindex: index + 1
+          }));
+  
+          // Crear los pasos en la base de datos
+          const { data: createdSteps, error: stepsError } = await supabase
+            .from('goal_steps')
+            .insert(steps)
+            .select();
+  
+          if (stepsError) {
+            console.error('Error al crear los pasos:', stepsError);
+            throw stepsError;
+          }
 
-**${plan.title}**
+          // Actualizar el estado local con los pasos creados
+          const updatedGoal = {
+            ...createdGoal,
+            steps: createdSteps?.map(step => ({ ...step, id: step.id.toString() })) || []
+          };
+          setCreatedGoals(prev => [...prev, updatedGoal]);
+        }
+  
+        toast({
+          title: "Meta creada",
+          description: "La meta se ha creado exitosamente"
+        });
+  
+        // Generar una respuesta más detallada que incluya los pasos
+        const stepsDescription = goalData.steps?.map((step, index) => 
+          `${index + 1}. **${step.title}**${step.description ? `\n   ${step.description}` : ''}`
+        ).join('\n') || '';
 
-Este plan se enfoca en ${plan.focus_areas.join(', ')} y tiene una duración de ${plan.duration_weeks} semanas.
+        const aiResponse = `¡Excelente! He creado una meta para **${goalData.title}**. 
+        
+He generado un plan personalizado con ${goalData.steps?.length || 0} pasos a seguir:
 
-Incluye:
-- ${plan.num_tasks} tareas
-- ${plan.num_habits} hábitos recomendados
-- ${plan.num_milestones} hitos principales
+${stepsDescription}
 
-El plan está diseñado considerando tu estilo de productividad ${plan.productivity_style} y tus preferencias de ${plan.preferences.join(', ')}.
-    `;
-    
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content: planSummary,
-      sender: 'assistant',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, newMessage]);
-    setShowPlanGenerator(false);
+¿Te gustaría que te ayude a establecer recordatorios para los pasos más importantes?`;
+  
+        const aiMessage: Message = {
+          id: `msg-${Date.now()}`,
+          content: aiResponse,
+          sender: 'assistant',
+          timestamp: new Date()
+        };
+  
+        setMessages(prevMessages => [...prevMessages, aiMessage]);
+      }
+    } catch (error) {
+      console.error('Error al crear la meta:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear la meta. Por favor, intenta de nuevo.",
+        variant: "destructive"
+      });
+    }
   };
   
-  // Manejador para cuando se completa el análisis de patrones
-  const handleAnalysisComplete = (analysis: Analysis) => {
-    const analysisMessage = `
-He completado el análisis de tus patrones:
-
-**Patrones Identificados:**
-${analysis.patterns.join('\n')}
-
-**Insights Clave:**
-${analysis.insights.join('\n')}
-
-**Factores de Mejora:**
-${analysis.improvement_factors.join('\n')}
-    `;
-    
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content: analysisMessage,
-      sender: 'assistant',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, newMessage]);
-    setShowPatternAnalyzer(false);
-  };
+  const handleCreateTask = async (taskTitle: string, goalId: string) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Debes iniciar sesión para crear una tarea",
+        variant: "destructive"
+      });
+      return;
+    }
   
-  // Manejador para cuando se actualizan los ajustes de IA
-  const handleSettingsUpdated = (newSettings: AISettings) => {
-    setAiSettings(newSettings);
-    
-    const settingsMessage = `
-He actualizado mis ajustes según tus preferencias:
-- Frecuencia de sugerencias: ${newSettings.suggestionsFrequency}
-- Nivel de detalle: ${newSettings.detailLevel}
-- Personalidad: ${newSettings.aiPersonality}
-    `;
-    
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content: settingsMessage,
-      sender: 'assistant',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, newMessage]);
-    setShowLearningSystem(false);
+    try {
+      // Preparar los datos de la tarea
+      const newTask = {
+        title: taskTitle,
+        description: '',
+        status: 'pending' as const,
+        priority: 'medium' as const,
+        related_goal_id: goalId,
+        tags: [],
+        user_id: user.id
+      };
+  
+      // Crear la tarea usando el servicio
+      const createdTask = await taskService.createTask(newTask);
+      
+      if (createdTask) {
+        toast({
+          title: "Tarea creada",
+          description: "La tarea se ha creado exitosamente"
+        });
+        
+        // Actualizar el estado local
+        setCreatedTasks(prev => [...prev, createdTask.title]);
+        
+        // Encontrar la meta relacionada
+        const relatedGoal = createdGoals.find(goal => goal.id === goalId);
+        
+        const aiResponse = `He creado una tarea para "${taskTitle}"${
+          relatedGoal ? ` relacionada con tu meta "${relatedGoal.title}"` : ''
+        }.
+        
+  Puedes ver y gestionar esta tarea en tu tablero de tareas. ¿Quieres que establezca una fecha límite para esta tarea?`;
+        
+        const aiMessage: Message = {
+          id: `msg-${Date.now()}`,
+          content: aiResponse,
+          sender: 'assistant',
+          timestamp: new Date()
+        };
+        
+        setMessages(prevMessages => [...prevMessages, aiMessage]);
+      }
+    } catch (error) {
+      console.error('Error al crear la tarea:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear la tarea. Por favor, intenta de nuevo.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleGoalDetection = (goalMetadata: any) => {
@@ -1046,6 +1089,7 @@ lines.forEach((line, index) => {
           title: stepTitle,
           order: stepOrder++,
           description: '',
+          completed: false,
           goalId: goal.id
         };
         goal.steps = goal.steps || [];
@@ -1067,6 +1111,7 @@ lines.forEach((line, index) => {
         title: stepTitle,
         order: stepOrder++,
         description: '',
+        completed: false,
         goalId: goal.id
       };
       goal.steps = goal.steps || [];
@@ -1088,10 +1133,13 @@ lines.forEach((line, index) => {
         const task: AITask = {
           id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           title,
-          description: description || currentDescription,
-          stepId: goal.steps?.[goal.steps.length - 1]?.id,
+          description: description || currentDescription || '',
+          status: 'pending',
+          priority: 'medium',
           goalId: goal.id,
-          order: stepOrder++
+          order: stepOrder++,
+          tags: [],
+          stepId: goal.steps?.[goal.steps.length - 1]?.id
         };
         processed.tasks.push(task);
       }
@@ -1108,10 +1156,13 @@ lines.forEach((line, index) => {
       const task: AITask = {
         id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         title: taskTitle,
-        description: currentDescription,
-        stepId: goal.steps?.[goal.steps.length - 1]?.id,
+        description: currentDescription || '',
+        status: 'pending',
+        priority: 'medium',
         goalId: goal.id,
-        order: stepOrder++
+        order: stepOrder++,
+        tags: [],
+        stepId: goal.steps?.[goal.steps.length - 1]?.id
       };
       processed.tasks.push(task);
     }
