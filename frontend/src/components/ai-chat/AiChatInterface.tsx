@@ -1395,7 +1395,7 @@ processed.goals.push(goal);
       </div>
 
       {/* Panel lateral derecho para objetivos y tareas detectados */}
-      <div className="w-80 border-l p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <div className="flex-[0_0_35%] border-l p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
         <div className="space-y-6">
           {/* Sección de Objetivos */}
           <div>

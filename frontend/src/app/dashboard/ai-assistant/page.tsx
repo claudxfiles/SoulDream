@@ -78,7 +78,7 @@ export default function AIAssistantPage() {
         </Card>
       </div>
 
-      <div className="h-[calc(100vh-16rem)]">
+      <div className="h-[calc(100vh-10rem)]">
         <AiChatInterface />
       </div>
     </div>
