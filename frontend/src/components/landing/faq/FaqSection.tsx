@@ -30,7 +30,7 @@ export function FaqSection() {
     },
     {
       question: '¿Puedo cancelar mi suscripción en cualquier momento?',
-      answer: 'Sí, puedes cancelar tu suscripción cuando quieras. No hay contratos a largo plazo ni penalizaciones. Si cancelas durante los primeros 14 días, te devolveremos el dinero sin hacer preguntas. Tras la cancelación, mantendrás acceso hasta el final del período pagado.'
+      answer: 'Sí, puedes cancelar tu suscripción cuando quieras. No hay contratos a largo plazo ni penalizaciones. Si cancelas durante los primeros 7 días, te devolveremos el dinero sin hacer preguntas. Tras la cancelación, mantendrás acceso hasta el final del período pagado.'
     },
     {
       question: '¿Mis datos están seguros?',
