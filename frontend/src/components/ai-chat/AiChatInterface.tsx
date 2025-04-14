@@ -52,6 +52,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { GoalsService } from '@/lib/services/goalsService';
 import { taskService, TaskService } from '@/services/tasks';
+import { useTasks } from '@/providers/TasksProvider';
 import { 
   Goal as DBGoal,
   GoalArea, 
@@ -371,6 +372,7 @@ const DetectedGoal: React.FC<{
 
 export function AiChatInterface() {
   const { user, signInWithGoogle } = useAuth();
+  const { createTask } = useTasks();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -857,39 +859,39 @@ ${stepsDescription}
         user_id: user.id
       };
 
-      // Crear la tarea usando Supabase directamente
-      const { data: createdTask, error } = await supabase
-        .from('tasks')
-        .insert([taskData])
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
+      // Usar el createTask del TasksProvider en lugar de Supabase directamente
+      await createTask(taskData);
       
-      if (createdTask) {
-        toast({
-          title: "Tarea creada",
-          description: "La tarea se ha creado exitosamente en tu tablero de tareas"
-        });
-        
-        // Actualizar el estado local
-        setCreatedTasks(prev => [...prev, createdTask.title]);
-        
-        const aiResponse = `He creado la tarea "${taskTitle}" en tu tablero de tareas. 
-        
-¿Te gustaría que establezca una fecha límite o agregue más detalles a esta tarea?`;
-        
-        const aiMessage: Message = {
-          id: `msg-${Date.now()}`,
-          content: aiResponse,
-          sender: 'assistant',
-          timestamp: new Date()
+      // Actualizar el estado local de las tareas creadas
+      setCreatedTasks(prev => [...prev, taskTitle]);
+      
+      // Actualizar el estado de processedContent para reflejar la tarea creada
+      setProcessedContent(prev => {
+        const updatedTasks = prev.tasks.filter(task => task.title !== taskTitle);
+        return {
+          ...prev,
+          tasks: updatedTasks
         };
-        
-        setMessages(prevMessages => [...prevMessages, aiMessage]);
-      }
+      });
+      
+      toast({
+        title: "Tarea creada",
+        description: "La tarea se ha creado exitosamente en tu tablero de tareas"
+      });
+      
+      const aiResponse = `He creado la tarea "${taskTitle}" en tu tablero de tareas. 
+      
+¿Te gustaría que establezca una fecha límite o agregue más detalles a esta tarea?`;
+      
+      const aiMessage: Message = {
+        id: `msg-${Date.now()}`,
+        content: aiResponse,
+        sender: 'assistant',
+        timestamp: new Date()
+      };
+      
+      setMessages(prevMessages => [...prevMessages, aiMessage]);
+      
     } catch (error) {
       console.error('Error al crear la tarea:', error);
       toast({
