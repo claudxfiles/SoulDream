@@ -192,8 +192,10 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <CardTitle className="line-clamp-2 prose dark:prose-invert">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{goal.title}</ReactMarkdown>
+            <CardTitle className="line-clamp-2">
+              <div className="prose dark:prose-invert">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{goal.title}</ReactMarkdown>
+              </div>
             </CardTitle>
             <Button
               variant="ghost"
@@ -205,8 +207,10 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
             </Button>
           </div>
           {goal.description && (
-            <CardDescription className="line-clamp-2 prose prose-sm dark:prose-invert">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{goal.description}</ReactMarkdown>
+            <CardDescription className="line-clamp-2">
+              <div className="prose prose-sm dark:prose-invert">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{goal.description}</ReactMarkdown>
+              </div>
             </CardDescription>
           )}
         </CardHeader>
@@ -294,13 +298,17 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium truncate prose dark:prose-invert">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.title}</ReactMarkdown>
+                        <h4 className="text-sm font-medium truncate">
+                          <div className="prose dark:prose-invert">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.title}</ReactMarkdown>
+                          </div>
                         </h4>
                         {step.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 prose prose-sm dark:prose-invert">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.description}</ReactMarkdown>
-                          </p>
+                          <div className="text-sm text-muted-foreground line-clamp-2">
+                            <div className="prose prose-sm dark:prose-invert">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.description}</ReactMarkdown>
+                            </div>
+                          </div>
                         )}
                         <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                           <span>{getStepStatusText(step.status)}</span>
