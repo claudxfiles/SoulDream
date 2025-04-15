@@ -13,7 +13,11 @@ import {
   Timer,
   Plus,
   MoreVertical,
-  Trash2
+  Trash2,
+  Maximize2,
+  Minimize2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -73,6 +77,8 @@ const STATUS_COLORS: Record<GoalStatus, string> = {
 
 export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isFullView, setIsFullView] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [isCreateStepDialogOpen, setIsCreateStepDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { steps, isLoading, updateStep } = useGoalSteps(goal.id);
@@ -143,6 +149,40 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
     }
   };
 
+  const toggleFullView = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevenir que el onClick de la Card se active
+    setIsFullView(!isFullView);
+  };
+
+  const toggleStepExpansion = (e: React.MouseEvent, stepId: string) => {
+    e.stopPropagation(); // Evitar la propagación del evento
+    setExpandedSteps(prevExpandedSteps => {
+      const newExpandedSteps = new Set(prevExpandedSteps);
+      if (newExpandedSteps.has(stepId)) {
+        newExpandedSteps.delete(stepId);
+      } else {
+        newExpandedSteps.add(stepId);
+      }
+      return newExpandedSteps;
+    });
+  };
+
+  const expandAllSteps = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!steps) return;
+    
+    if (expandedSteps.size === steps.length) {
+      // Si todos están expandidos, colapsar todos
+      setExpandedSteps(new Set());
+    } else {
+      // Expandir todos
+      setExpandedSteps(new Set(steps.map(step => step.id)));
+    }
+  };
+
+  const isStepExpanded = (stepId: string) => expandedSteps.has(stepId);
+  const areAllStepsExpanded = steps?.length ? expandedSteps.size === steps.length : false;
+
   return (
     <>
       <Card 
@@ -163,8 +203,19 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                 {goal.priority}
               </Badge>
               <Badge className={cn('h-5', STATUS_COLORS[goal.status])}>
-                {goal.status}
+                {goal.status === 'active' ? 'Activa' : goal.status === 'completed' ? 'Completada' : 'Archivada'}
               </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleFullView}
+                className="h-8 w-8 p-0"
+              >
+                {isFullView ? 
+                  <Minimize2 className="h-4 w-4" /> : 
+                  <Maximize2 className="h-4 w-4" />
+                }
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -192,7 +243,7 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <CardTitle className="line-clamp-2">
+            <CardTitle className={isFullView ? "" : "line-clamp-2"}>
               <div className="prose dark:prose-invert">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{goal.title}</ReactMarkdown>
               </div>
@@ -200,14 +251,17 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
               className="ml-2"
             >
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </div>
           {goal.description && (
-            <CardDescription className="line-clamp-2">
+            <CardDescription className={isFullView ? "" : "line-clamp-2"}>
               <div className="prose prose-sm dark:prose-invert">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{goal.description}</ReactMarkdown>
               </div>
@@ -241,14 +295,33 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
             </div>
           </div>
 
-          {isExpanded && (
+          {(isExpanded || isFullView) && (
             <div className="mt-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium">Pasos a seguir</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-medium">Pasos a seguir</h4>
+                  {steps && steps.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={expandAllSteps}
+                      className="h-8 p-1"
+                      title={areAllStepsExpanded ? "Colapsar todos los pasos" : "Expandir todos los pasos"}
+                    >
+                      {areAllStepsExpanded ? 
+                        <EyeOff className="h-4 w-4" /> : 
+                        <Eye className="h-4 w-4" />
+                      }
+                    </Button>
+                  )}
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsCreateStepDialogOpen(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCreateStepDialogOpen(true);
+                  }}
                   className="h-8"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -265,83 +338,111 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                   {steps.map((step) => (
                     <div
                       key={step.id}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
+                      className="rounded-lg bg-muted/50"
                     >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-8 w-8 p-0"
-                          >
-                            {getStepStatusIcon(step.status)}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          <DropdownMenuItem
-                            onClick={() => handleStepStatusChange(step.id, 'completed')}
-                          >
-                            <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                            <span>Completado</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleStepStatusChange(step.id, 'in_progress')}
-                          >
-                            <Timer className="mr-2 h-4 w-4 text-blue-500" />
-                            <span>En progreso</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleStepStatusChange(step.id, 'pending')}
-                          >
-                            <Circle className="mr-2 h-4 w-4 text-gray-400" />
-                            <span>Pendiente</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium truncate">
-                          <div className="prose dark:prose-invert">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.title}</ReactMarkdown>
+                      <div className="flex items-center gap-3 p-3">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {getStepStatusIcon(step.status)}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() => handleStepStatusChange(step.id, 'completed')}
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                              <span>Completado</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStepStatusChange(step.id, 'in_progress')}
+                            >
+                              <Timer className="mr-2 h-4 w-4 text-blue-500" />
+                              <span>En progreso</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStepStatusChange(step.id, 'pending')}
+                            >
+                              <Circle className="mr-2 h-4 w-4 text-gray-400" />
+                              <span>Pendiente</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className={cn("text-sm font-medium", isFullView || isStepExpanded(step.id) ? "" : "truncate")}>
+                              <div className="prose dark:prose-invert">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.title}</ReactMarkdown>
+                              </div>
+                            </h4>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => toggleStepExpansion(e, step.id)}
+                              className="h-6 w-6 p-0 ml-2"
+                              title={isStepExpanded(step.id) ? "Colapsar paso" : "Expandir paso"}
+                            >
+                              {isStepExpanded(step.id) ? 
+                                <ChevronUp className="h-3 w-3" /> : 
+                                <ChevronDown className="h-3 w-3" />
+                              }
+                            </Button>
                           </div>
-                        </h4>
-                        {step.description && (
-                          <div className="text-sm text-muted-foreground line-clamp-2">
-                            <div className="prose prose-sm dark:prose-invert">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.description}</ReactMarkdown>
+                          
+                          {(isFullView || isStepExpanded(step.id)) && step.description && (
+                            <div className="text-sm text-muted-foreground mt-2">
+                              <div className="prose prose-sm dark:prose-invert">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.description}</ReactMarkdown>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <span>{getStepStatusText(step.status)}</span>
-                          {step.due_date && (
-                            <>
-                              <span>•</span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(step.due_date), 'PPP', { locale: es })}
-                              </span>
-                            </>
                           )}
+                          
+                          {(!isFullView && !isStepExpanded(step.id)) && step.description && (
+                            <div className="text-sm text-muted-foreground line-clamp-1">
+                              <div className="prose prose-sm dark:prose-invert">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.description}</ReactMarkdown>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            <span>{getStepStatusText(step.status)}</span>
+                            {step.due_date && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(step.due_date), 'PPP', { locale: es })}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </div>
                   ))}
                 </div>
@@ -382,4 +483,4 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
       />
     </>
   );
-} 
+}
