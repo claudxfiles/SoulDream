@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFinance } from '@/hooks/useFinance';
 import { Transaction, incomeCategories, expenseCategories } from '@/lib/finance';
 import { Button } from '@/components/ui/button';
@@ -183,14 +183,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     initialData?.payment_method || ''
   );
   
-  const resetForm = () => {
-    setDate(new Date());
-    setType('expense');
-    setAmount('');
-    setDescription('');
-    setCategory('');
-    setPaymentMethod('');
-  };
+  // Efecto para actualizar el formulario cuando cambia initialData o se abre/cierra
+  useEffect(() => {
+    if (open) {
+      if (initialData) {
+        setDate(new Date(initialData.date));
+        setType(initialData.type);
+        setAmount(initialData.amount.toString());
+        setDescription(initialData.description);
+        setCategory(initialData.category);
+        setPaymentMethod(initialData.payment_method || '');
+      } else {
+        setDate(new Date());
+        setType('expense');
+        setAmount('');
+        setDescription('');
+        setCategory('');
+        setPaymentMethod('');
+      }
+    }
+  }, [open, initialData]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,9 +218,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     };
     
     await onSubmit(formData);
-    if (!isEditing) {
-      resetForm();
-    }
   };
   
   const categories = type === 'income' ? incomeCategories : expenseCategories;
@@ -382,6 +391,11 @@ export function TransactionManager() {
       await addTransaction(data);
     }
     
+    handleCloseForm();
+  };
+
+  // Función para cerrar el formulario y limpiar el estado
+  const handleCloseForm = () => {
     setIsFormOpen(false);
     setCurrentTransaction(undefined);
     setIsEditing(false);
@@ -562,7 +576,7 @@ export function TransactionManager() {
       {/* Formulario para crear/editar transacciones */}
       <TransactionForm
         open={isFormOpen}
-        onOpenChange={setIsFormOpen}
+        onOpenChange={handleCloseForm}
         initialData={currentTransaction}
         onSubmit={handleSubmitTransaction}
         isEditing={isEditing}
