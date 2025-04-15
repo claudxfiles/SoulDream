@@ -29,6 +29,8 @@ import { Button } from '@/components/ui/button';
 import { useGoalSteps } from '@/hooks/goals/useGoalSteps';
 import { useGoals } from '@/hooks/goals/useGoals';
 import { CreateGoalStepDialog } from './CreateGoalStepDialog';
+import { UpdateGoalDialog } from './UpdateGoalDialog';
+import { UpdateGoalStepDialog } from './UpdateGoalStepDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,8 +83,10 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [isCreateStepDialogOpen, setIsCreateStepDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const { steps, isLoading, updateStep } = useGoalSteps(goal.id);
-  const { deleteGoal } = useGoals();
+  const [isEditGoalDialogOpen, setIsEditGoalDialogOpen] = useState(false);
+  const [editingStep, setEditingStep] = useState<GoalStep | null>(null);
+  const { steps, isLoading, updateStep, deleteStep } = useGoalSteps(goal.id);
+  const { updateGoal, deleteGoal } = useGoals();
 
   const { progress, completedSteps, totalSteps } = useMemo(() => {
     if (!steps || steps.length === 0) {
@@ -227,7 +231,12 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditGoalDialogOpen(true);
+                    }}
+                  >
                     Editar
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -353,22 +362,21 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
                             <DropdownMenuItem
-                              onClick={() => handleStepStatusChange(step.id, 'completed')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingStep(step);
+                              }}
                             >
-                              <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                              <span>Completado</span>
+                              Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleStepStatusChange(step.id, 'in_progress')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteStep.mutate(step.id);
+                              }}
                             >
-                              <Timer className="mr-2 h-4 w-4 text-blue-500" />
-                              <span>En progreso</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleStepStatusChange(step.id, 'pending')}
-                            >
-                              <Circle className="mr-2 h-4 w-4 text-gray-400" />
-                              <span>Pendiente</span>
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Eliminar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -434,10 +442,22 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingStep(step);
+                              }}
+                            >
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteStep.mutate(step.id);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
                               Eliminar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -475,6 +495,26 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UpdateGoalDialog
+        goal={goal}
+        open={isEditGoalDialogOpen}
+        onOpenChange={setIsEditGoalDialogOpen}
+        onSubmit={(goalId, updates) => {
+          updateGoal.mutate({ id: goalId, updates });
+        }}
+      />
+
+      {editingStep && (
+        <UpdateGoalStepDialog
+          step={editingStep}
+          open={true}
+          onOpenChange={(open) => !open && setEditingStep(null)}
+          onSubmit={(stepId, updates) => {
+            updateStep.mutate({ id: stepId, updates });
+          }}
+        />
+      )}
 
       <CreateGoalStepDialog
         open={isCreateStepDialogOpen}
