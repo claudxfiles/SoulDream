@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
-import { User, Mail, Phone, MapPin, Calendar, Save, CreditCard, History, Settings, XCircle, Check, X } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Save, CreditCard, History, Settings, XCircle, Check, X, DollarSign } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { pauseSubscription, resumeSubscription } from '@/lib/paypal';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CURRENCIES } from '@/lib/constants/currencies';
 
 interface Profile {
   id: string;
@@ -28,6 +30,7 @@ interface Profile {
   subscription_price?: number;
   billing_cycle?: 'monthly' | 'annual';
   subscription_status?: 'active' | 'suspended' | null;
+  currency_code: string;
 }
 
 // Componente principal envuelto en QueryClientProvider
@@ -68,6 +71,7 @@ export default function UserProfile() {
           phone: data.phone || '',
           address: data.address || '',
           birth_date: data.birth_date || '',
+          currency_code: data.currency_code || 'USD',
         });
       }
     } catch (error: any) {
@@ -98,6 +102,7 @@ export default function UserProfile() {
           phone: formData.phone,
           address: formData.address,
           birth_date: formData.birth_date,
+          currency_code: formData.currency_code,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user?.id);
@@ -309,6 +314,30 @@ export default function UserProfile() {
                   onChange={(e) => handleInputChange('birth_date', e.target.value)}
                   className="pl-10 bg-white dark:bg-[#1e293b] border-gray-200 dark:border-[#4f46e5]/20 text-gray-900 dark:text-white focus:border-[#4f46e5] focus:ring-[#4f46e5] transition-all duration-200"
                 />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="currency" className="text-gray-700 dark:text-gray-300">Moneda local</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <DollarSign className="h-5 w-5 text-[#4f46e5]" />
+                </div>
+                <Select
+                  value={formData.currency_code || 'USD'}
+                  onValueChange={(value) => handleInputChange('currency_code', value)}
+                >
+                  <SelectTrigger className="pl-10 bg-white dark:bg-[#1e293b] border-gray-200 dark:border-[#4f46e5]/20 text-gray-900 dark:text-white">
+                    <SelectValue placeholder="Selecciona tu moneda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.name} ({currency.symbol})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
