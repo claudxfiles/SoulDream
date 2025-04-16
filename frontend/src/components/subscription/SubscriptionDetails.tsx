@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { supabase } from '@/lib/supabase';
 
 export const SubscriptionDetails = () => {
   const { data: subscription, isLoading, error, refetch } = useSubscription();
@@ -34,19 +35,29 @@ export const SubscriptionDetails = () => {
 
     try {
       setIsCancelling(true);
-      const response = await fetch('/api/subscriptions/cancel', {
+      
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('No autorizado');
+      }
+
+      // Call backend to cancel subscription
+      const response = await fetch('/api/v1/payments/cancel-subscription', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          userId: session.user.id,
           subscriptionId: subscription.paypal_subscription_id,
           reason: 'Cancelled by user',
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Error al cancelar la suscripción');
+        const error = await response.json();
+        throw new Error(error.message || 'Error al cancelar la suscripción');
       }
 
       toast({
@@ -60,7 +71,7 @@ export const SubscriptionDetails = () => {
       console.error('Error cancelling subscription:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo cancelar la suscripción. Por favor intenta nuevamente.',
+        description: error instanceof Error ? error.message : 'No se pudo cancelar la suscripción. Por favor intenta nuevamente.',
         variant: 'destructive',
       });
     } finally {
