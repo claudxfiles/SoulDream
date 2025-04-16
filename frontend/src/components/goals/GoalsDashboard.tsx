@@ -31,6 +31,7 @@ export function GoalsDashboard() {
 
   const activeGoals = goals?.filter(goal => goal.status === 'active') || [];
   const completedGoals = goals?.filter(goal => goal.status === 'completed') || [];
+  const archivedGoals = goals?.filter(goal => goal.status === 'archived') || [];
 
   const filteredActiveGoals = selectedArea === 'all' 
     ? activeGoals 
@@ -39,6 +40,10 @@ export function GoalsDashboard() {
   const filteredCompletedGoals = selectedArea === 'all'
     ? completedGoals
     : completedGoals.filter(goal => goal.area === selectedArea);
+
+  const filteredArchivedGoals = selectedArea === 'all'
+    ? archivedGoals
+    : archivedGoals.filter(goal => goal.area === selectedArea);
 
   const handleCreateGoal = async (data: Omit<Goal, 'id' | 'created_at' | 'updated_at'>) => {
     setIsCreateDialogOpen(false);
@@ -114,6 +119,23 @@ export function GoalsDashboard() {
                   </AccordionItem>
                 </Accordion>
               )}
+
+              {filteredArchivedGoals.length > 0 && (
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="archived-goals">
+                    <AccordionTrigger className="text-xl font-semibold">
+                      Metas Archivadas ({filteredArchivedGoals.length})
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+                        {filteredArchivedGoals.map((goal) => (
+                          <GoalCard key={goal.id} goal={goal} />
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )}
             </>
           )}
         </TabsContent>
@@ -149,6 +171,23 @@ export function GoalsDashboard() {
                       <AccordionContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
                           {filteredCompletedGoals.map((goal) => (
+                            <GoalCard key={goal.id} goal={goal} />
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+
+                {filteredArchivedGoals.length > 0 && (
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="archived-goals">
+                      <AccordionTrigger className="text-xl font-semibold">
+                        Metas Archivadas ({filteredArchivedGoals.length})
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+                          {filteredArchivedGoals.map((goal) => (
                             <GoalCard key={goal.id} goal={goal} />
                           ))}
                         </div>

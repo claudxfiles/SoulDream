@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { 
   ChevronDown, 
@@ -17,7 +17,9 @@ import {
   Maximize2,
   Minimize2,
   Eye,
-  EyeOff
+  EyeOff,
+  Archive,
+  Undo2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -50,6 +52,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface GoalCardProps {
   goal: Goal;
@@ -87,6 +97,7 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
   const [editingStep, setEditingStep] = useState<GoalStep | null>(null);
   const { steps, isLoading, updateStep, deleteStep } = useGoalSteps(goal.id);
   const { updateGoal, deleteGoal } = useGoals();
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
 
   const { progress, completedSteps, totalSteps } = useMemo(() => {
     if (!steps || steps.length === 0) {
@@ -106,6 +117,13 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
       totalSteps: total
     };
   }, [steps]);
+
+  // Detectar cuando una meta llega al 100%
+  useEffect(() => {
+    if (progress === 100 && goal.status === 'active') {
+      setShowCompleteDialog(true);
+    }
+  }, [progress, goal.status]);
 
   const getStepStatusIcon = (status: GoalStep['status']) => {
     switch (status) {
@@ -187,6 +205,18 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
   const isStepExpanded = (stepId: string) => expandedSteps.has(stepId);
   const areAllStepsExpanded = steps?.length ? expandedSteps.size === steps.length : false;
 
+  const handleMarkAsCompleted = async () => {
+    try {
+      await updateGoal.mutateAsync({
+        id: goal.id,
+        updates: { status: 'completed' }
+      });
+      setShowCompleteDialog(false);
+    } catch (error) {
+      console.error('Error al marcar meta como completada:', error);
+    }
+  };
+
   return (
     <>
       <Card 
@@ -239,6 +269,49 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                   >
                     Editar
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {goal.status === 'active' && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateGoal.mutate({
+                          id: goal.id,
+                          updates: { status: 'completed' }
+                        });
+                      }}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Marcar como completada
+                    </DropdownMenuItem>
+                  )}
+                  {goal.status === 'active' && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateGoal.mutate({
+                          id: goal.id,
+                          updates: { status: 'archived' }
+                        });
+                      }}
+                    >
+                      <Archive className="h-4 w-4 mr-2" />
+                      Archivar
+                    </DropdownMenuItem>
+                  )}
+                  {(goal.status === 'completed' || goal.status === 'archived') && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateGoal.mutate({
+                          id: goal.id,
+                          updates: { status: 'active' }
+                        });
+                      }}
+                    >
+                      <Undo2 className="h-4 w-4 mr-2" />
+                      Reactivar
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="text-destructive"
@@ -522,6 +595,26 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
         onOpenChange={setIsCreateStepDialogOpen}
         goalId={goal.id}
       />
+
+      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¡Meta completada!</DialogTitle>
+            <DialogDescription>
+              ¡Felicitaciones! Has completado todos los pasos de tu meta "{goal.title}". 
+              ¿Deseas marcarla como completada?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
+              Mantener activa
+            </Button>
+            <Button onClick={handleMarkAsCompleted}>
+              Marcar como completada
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
