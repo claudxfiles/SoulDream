@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle } from 'lucide-react';
+import { PayPalButtons } from '@paypal/react-paypal-js';
 
 const features = [
   'Gestión de tareas, metas y hábitos',
@@ -18,6 +19,7 @@ const features = [
 export function PricingSection() {
   const [mounted, setMounted] = useState(false);
   const [isAnnual, setIsAnnual] = useState(false);
+  const [showPayPal, setShowPayPal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -25,8 +27,14 @@ export function PricingSection() {
 
   if (!mounted) return null;
 
+  const handlePayment = () => {
+    setShowPayPal(true);
+  };
+
+  const price = isAnnual ? '120.00' : '14.99';
+
   return (
-    <section className="min-h-screen bg-[#0f172a] text-white py-12">
+    <section id="pricing" className="min-h-screen bg-[#0f172a] text-white py-12">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-indigo-500/20 text-indigo-400">
@@ -86,9 +94,43 @@ export function PricingSection() {
               ))}
             </ul>
 
-            <button className="w-full py-3 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">
-              Comenzar ahora
-            </button>
+            {!showPayPal ? (
+              <button 
+                onClick={handlePayment}
+                className="w-full py-3 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
+              >
+                Comenzar ahora
+              </button>
+            ) : (
+              <div className="mt-4">
+                <PayPalButtons
+                  createOrder={(data, actions) => {
+                    if (!actions.order) return Promise.reject('PayPal actions not available');
+                    return actions.order.create({
+                      intent: "CAPTURE",
+                      purchase_units: [
+                        {
+                          amount: {
+                            value: price,
+                            currency_code: "USD"
+                          },
+                          description: `SoulDream Pro ${isAnnual ? 'Anual' : 'Mensual'}`
+                        }
+                      ]
+                    });
+                  }}
+                  onApprove={(data, actions) => {
+                    if (!actions.order) return Promise.reject('PayPal actions not available');
+                    return actions.order.capture().then((details) => {
+                      // Aquí puedes implementar la lógica post-pago
+                      console.log('Pago completado:', details);
+                      // Redirigir al dashboard o mostrar mensaje de éxito
+                    });
+                  }}
+                  style={{ layout: "vertical" }}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

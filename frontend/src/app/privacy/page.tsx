@@ -168,10 +168,10 @@ export default function PrivacyPolicy() {
                   </p>
                   <ul className="list-disc pl-6 text-gray-700 dark:text-gray-300 mb-2 space-y-2">
                     <li>
-                      Correo electrónico: <a href="mailto:privacy@souldream.com" className="text-indigo-600 dark:text-indigo-400 hover:underline">privacy@souldream.com</a>
+                      Correo electrónico: <a href="mailto:claudio.alcaman@gmail.com" className="text-indigo-600 dark:text-indigo-400 hover:underline">claudio.alcaman@gmail.com</a>
                     </li>
                     <li>
-                      Sitio web: <a href="https://www.souldream.com" className="text-indigo-600 dark:text-indigo-400 hover:underline">www.souldream.com</a>
+                      Sitio web: <a href="https://www.presentandflow.cl" className="text-indigo-600 dark:text-indigo-400 hover:underline">www.presentandflow.cl</a>
                     </li>
                   </ul>
                 </div>

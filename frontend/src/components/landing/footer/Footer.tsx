@@ -141,7 +141,7 @@ export function Footer() {
 
     * Al acceder a nuestro servicio, usted acepta recibir comunicaciones de marketing y actualizaciones
     * Podemos enviarle materiales promocionales a través de correo electrónico, notificaciones en la aplicación, SMS u otros canales
-    * Puede optar por no recibir comunicaciones de marketing en cualquier momento enviándonos un correo electrónico a contact@souldream.com
+    * Puede optar por no recibir comunicaciones de marketing en cualquier momento enviándonos un correo electrónico a claudio.alcaman@gmail.com
     * Le enviaremos actualizaciones importantes del servicio e información relacionada con la cuenta para mantenerlo informado
 
     ## Sus derechos
@@ -153,7 +153,7 @@ export function Footer() {
     * Excluirse de las comunicaciones de marketing (manteniendo las comunicaciones esenciales del servicio)
     * Solicitar información sobre cómo se utiliza su información
 
-    Para ejercer estos derechos, contáctenos en contact@souldream.com
+    Para ejercer estos derechos, contáctenos en claudio.alcaman@gmail.com
 
     ## Servicios de terceros
 
@@ -174,8 +174,8 @@ export function Footer() {
 
     Si tiene preguntas sobre esta Política de Privacidad o nuestras prácticas de datos, contáctenos en:
 
-    * Correo electrónico: contact@souldream.com
-    * Sitio web: www.souldream.com
+    * Correo electrónico: claudio.alcaman@gmail.com
+    * Sitio web: www.presentandflow.com
 
     ## Política de cookies
 
@@ -283,21 +283,6 @@ export function Footer() {
                   <li>
                     <a href="/contact" className="text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
                       Contacto
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
-                      Centro de ayuda
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
-                      Comunidad
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
-                      Tutoriales
                     </a>
                   </li>
                 </ul>

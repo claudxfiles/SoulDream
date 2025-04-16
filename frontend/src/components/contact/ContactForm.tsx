@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -207,10 +208,10 @@ export function ContactForm() {
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel>
-                  Acepto los términos y condiciones
+                  Acepto los <Link href="/terms" className="text-indigo-600 dark:text-indigo-400 hover:underline">términos y condiciones</Link>
                 </FormLabel>
                 <FormDescription>
-                  Al enviar este formulario, aceptas nuestra política de privacidad.
+                  Al enviar este formulario, aceptas nuestra <Link href="/privacy" className="text-indigo-600 dark:text-indigo-400 hover:underline">política de privacidad</Link>.
                 </FormDescription>
               </div>
               <FormMessage />

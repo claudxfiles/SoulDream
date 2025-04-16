@@ -12,6 +12,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const [isActive, setIsActive] = useState('');
 
   // Detectar scroll para cambiar el estilo de la barra
   useEffect(() => {
@@ -29,6 +30,24 @@ export function Navbar() {
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = ['#features', '#pricing', '#faq'];
+      const current = sections.find(section => {
+        const element = document.querySelector(section);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          return rect.top <= 100 && rect.bottom >= 100;
+        }
+        return false;
+      });
+      setIsActive(current || '');
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // No renderizar en el servidor
@@ -63,9 +82,6 @@ export function Navbar() {
             </a>
             <a href="#pricing" className="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition">
               Precios
-            </a>
-            <a href="#testimonials" className="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition">
-              Testimonios
             </a>
             <a href="#faq" className="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition">
               FAQ
@@ -127,28 +143,21 @@ export function Navbar() {
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
             <a 
               href="#features" 
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+              className={`text-base font-medium ${isActive === '#features' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-300'} hover:text-gray-900 dark:hover:text-white transition`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Características
             </a>
             <a 
               href="#pricing" 
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+              className={`text-base font-medium ${isActive === '#pricing' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-300'} hover:text-gray-900 dark:hover:text-white transition`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Precios
             </a>
             <a 
-              href="#testimonials" 
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Testimonios
-            </a>
-            <a 
               href="#faq" 
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+              className={`text-base font-medium ${isActive === '#faq' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-300'} hover:text-gray-900 dark:hover:text-white transition`}
               onClick={() => setMobileMenuOpen(false)}
             >
               FAQ

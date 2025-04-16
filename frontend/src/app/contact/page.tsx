@@ -94,7 +94,7 @@ export default function ContactPage() {
                       </div>
                       <div className="ml-4">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">Teléfono</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">+34 912 345 678</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">+56956020860</p>
                       </div>
                     </div>
                     
@@ -105,8 +105,8 @@ export default function ContactPage() {
                       <div className="ml-4">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">Dirección</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Calle Innovación, 123<br />
-                          28001 Madrid, España
+                          Los Eucaliptos<br />
+                          Talagante, Chile
                         </p>
                       </div>
                     </div>
