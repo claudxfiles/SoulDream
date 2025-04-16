@@ -844,12 +844,13 @@ ${stepsDescription}
     }
   
     try {
+      // Encontrar la tarea en el processedContent para obtener la descripción original
+      const taskInfo = processedContent.tasks.find(task => task.title === taskTitle);
+      
       // Preparar los datos de la tarea
       const taskData = {
         title: taskTitle,
-        description: taskTitle.includes('(') ? 
-          taskTitle.split('(')[1].split(')')[0] : // Si hay texto entre paréntesis, usarlo como descripción
-          'Tarea generada por el asistente AI',
+        description: taskInfo?.description || 'Tarea generada por el asistente AI', // Usar la descripción original si existe
         status: 'pending' as const,
         priority: 'medium' as const,
         tags: ['AI_Assistant'],
