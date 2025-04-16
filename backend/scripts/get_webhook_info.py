@@ -10,7 +10,7 @@ def get_webhook_info():
     client_id = os.getenv('PAYPAL_CLIENT_ID')
     client_secret = os.getenv('PAYPAL_CLIENT_SECRET')
     mode = os.getenv('PAYPAL_MODE', 'sandbox')
-    webhook_id = "8CN77137TB885473L"  # ID correcto del webhook
+    webhook_id = os.getenv('PAYPAL_WEBHOOK_ID') # ID correcto del webhook
     
     # URL base según el modo
     base_url = "https://api-m.sandbox.paypal.com" if mode == "sandbox" else "https://api-m.paypal.com"
