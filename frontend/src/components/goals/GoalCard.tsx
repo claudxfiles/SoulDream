@@ -362,6 +362,25 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
                             <DropdownMenuItem
+                              onClick={() => handleStepStatusChange(step.id, 'completed')}
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                              <span>Completado</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStepStatusChange(step.id, 'in_progress')}
+                            >
+                              <Timer className="mr-2 h-4 w-4 text-blue-500" />
+                              <span>En progreso</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStepStatusChange(step.id, 'pending')}
+                            >
+                              <Circle className="mr-2 h-4 w-4 text-gray-400" />
+                              <span>Pendiente</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setEditingStep(step);
@@ -374,6 +393,7 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                                 e.stopPropagation();
                                 deleteStep.mutate(step.id);
                               }}
+                              className="text-destructive"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Eliminar
