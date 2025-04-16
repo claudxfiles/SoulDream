@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragEndEvent, useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -302,7 +302,7 @@ const Column = ({
     <div 
       ref={setNodeRef}
       className={`h-full bg-gray-100 dark:bg-gray-800 rounded-lg p-4 transition-colors ${
-        isOver ? 'bg-gray-200 dark:bg-gray-700' : ''
+        isOver ? 'bg-gray-200 dark:bg-gray-700 ring-2 ring-indigo-500/50' : ''
       }`}
     >
       <div className="flex justify-between items-center mb-4">
@@ -321,7 +321,7 @@ const Column = ({
       </div>
       
       <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-        <div className={`space-y-3 min-h-[200px] ${isOver ? 'bg-gray-200/50 dark:bg-gray-700/50 rounded-lg' : ''}`}>
+        <div className={`space-y-3 min-h-[200px] max-h-[calc(100vh-16rem)] overflow-y-auto pr-2`}>
           {tasks.map((task) => (
             <TaskCard 
               key={task.id} 
@@ -353,6 +353,11 @@ export function TaskBoard() {
   const [currentStatus, setCurrentStatus] = useState<Task['status']>('pending');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [orderedTasks, setOrderedTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    setOrderedTasks(tasks);
+  }, [tasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -374,16 +379,34 @@ export function TaskBoard() {
     const activeTask = tasks.find(t => t.id === active.id);
     if (!activeTask) return;
 
-    // Obtener el nuevo estado de la columna
-    const newStatus = over.id.toString().replace('column-', '') as Task['status'];
-    
-    // Si el estado es diferente, actualizar la tarea
-    if (activeTask.status !== newStatus) {
-      if (updateTask) {
+    const overId = over.id.toString();
+    const overTask = tasks.find(t => t.id === overId);
+    const newStatus = overId.startsWith('column-') 
+      ? overId.replace('column-', '') as Task['status']
+      : overTask?.status || activeTask.status;
+
+    try {
+      // Si estamos soltando en una tarea específica, reordenamos
+      if (overTask) {
+        const oldIndex = orderedTasks.findIndex(t => t.id === active.id);
+        const newIndex = orderedTasks.findIndex(t => t.id === over.id);
+        
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newOrderedTasks = arrayMove(orderedTasks, oldIndex, newIndex);
+          setOrderedTasks(newOrderedTasks);
+        }
+      }
+
+      // Actualizamos el estado de la tarea
+      if (activeTask.status !== newStatus && updateTask) {
         await updateTask(activeTask.id, {
+          ...activeTask,
           status: newStatus,
+          updated_at: new Date().toISOString()
         });
       }
+    } catch (error) {
+      console.error('Error updating task:', error);
     }
 
     setActiveId(null);
@@ -441,9 +464,9 @@ export function TaskBoard() {
   }
 
   // Filtrar tareas por estado
-  const pendingTasks = tasks.filter(task => task.status === 'pending');
-  const inProgressTasks = tasks.filter(task => task.status === 'in_progress');
-  const completedTasks = tasks.filter(task => task.status === 'completed');
+  const pendingTasks = orderedTasks.filter(task => task.status === 'pending');
+  const inProgressTasks = orderedTasks.filter(task => task.status === 'in_progress');
+  const completedTasks = orderedTasks.filter(task => task.status === 'completed');
 
   return (
     <DndContext

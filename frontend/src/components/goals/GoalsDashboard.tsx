@@ -64,8 +64,7 @@ export function GoalsDashboard() {
           <GoalAreaProgress
             key={area}
             area={area}
-            goals={activeGoals}
-            totalGoals={activeGoals.filter(g => g.area === area).length || 0}
+            goals={goals || []}
           />
         ))}
       </div>

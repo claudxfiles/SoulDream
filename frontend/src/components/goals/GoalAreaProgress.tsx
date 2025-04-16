@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 interface GoalAreaProgressProps {
   area: GoalArea;
   goals: Goal[];
-  totalGoals: number;
 }
 
 const AREA_COLORS: Record<GoalArea, { bg: string; text: string; border: string }> = {
@@ -38,12 +37,22 @@ const AREA_COLORS: Record<GoalArea, { bg: string; text: string; border: string }
   },
 } as const;
 
-export function GoalAreaProgress({ area, goals, totalGoals }: GoalAreaProgressProps) {
+export function GoalAreaProgress({ area, goals }: GoalAreaProgressProps) {
+  // Filtrar metas por área
   const areaGoals = goals.filter(goal => goal.area === area);
+  
+  // Calcular totales
+  const totalGoals = areaGoals.length;
   const completedGoals = areaGoals.filter(goal => goal.status === 'completed').length;
   const inProgressGoals = areaGoals.filter(goal => goal.status === 'active').length;
+  const archivedGoals = areaGoals.filter(goal => goal.status === 'archived').length;
   
-  const progress = Math.round(((completedGoals + (inProgressGoals * 0.5)) / Math.max(totalGoals, 1)) * 100);
+  // Calcular progreso considerando metas activas (50%) y completadas (100%)
+  const activeAndCompletedGoals = inProgressGoals + completedGoals;
+  const progress = activeAndCompletedGoals > 0
+    ? Math.round(((completedGoals + (inProgressGoals * 0.5)) / activeAndCompletedGoals) * 100)
+    : 0;
+  
   const colors = AREA_COLORS[area];
 
   return (
@@ -54,7 +63,7 @@ export function GoalAreaProgress({ area, goals, totalGoals }: GoalAreaProgressPr
       <div className="flex items-center justify-between mb-2">
         <h3 className={cn('font-medium', colors.text)}>{area}</h3>
         <span className={cn('text-sm', colors.text)}>
-          {areaGoals.length} {areaGoals.length === 1 ? 'meta' : 'metas'}
+          {totalGoals} {totalGoals === 1 ? 'meta' : 'metas'}
         </span>
       </div>
       <div className="space-y-2">
@@ -70,7 +79,7 @@ export function GoalAreaProgress({ area, goals, totalGoals }: GoalAreaProgressPr
         <div className="flex justify-between text-xs">
           <span className={colors.text}>{progress}% completado</span>
           <span className="text-muted-foreground">
-            {completedGoals} de {totalGoals} completadas
+            {completedGoals} de {activeAndCompletedGoals} completadas
           </span>
         </div>
       </div>
