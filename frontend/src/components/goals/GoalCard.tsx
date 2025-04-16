@@ -379,25 +379,6 @@ export function GoalCard({ goal, isSelected = false, onClick }: GoalCardProps) {
                               <Circle className="mr-2 h-4 w-4 text-gray-400" />
                               <span>Pendiente</span>
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingStep(step);
-                              }}
-                            >
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteStep.mutate(step.id);
-                              }}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                         <div className="flex-1 min-w-0">
