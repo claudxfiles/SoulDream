@@ -20,26 +20,21 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
   const [loading, setLoading] = useState(false);
   const supabase = createClientComponentClient();
 
-  // Obtenemos los IDs de los planes desde las variables de entorno
-  const MONTHLY_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID;
-  const ANNUAL_PLAN_ID = process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_YEAR_ID;
-
-  if (!MONTHLY_PLAN_ID || !ANNUAL_PLAN_ID) {
-    console.error('Los IDs de los planes de PayPal no están configurados');
-    return null;
-  }
+  console.log('SubscriptionButton rendered with planId:', planId);
 
   const createSubscriptionRecord = async (data: PayPalSubscriptionData, paypalPlanId: string) => {
+    console.log('Creating subscription record with data:', data);
     try {
       if (!data.subscriptionID) {
         throw new Error('ID de suscripción no proporcionado');
       }
 
-      // 1. Verificar si ya existe una suscripción activa para este usuario
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         throw new Error('Usuario no autenticado');
       }
+
+      console.log('Usuario autenticado:', user.id);
 
       const { data: existingSubscriptions, error: subscriptionCheckError } = await supabase
         .from('subscriptions')
@@ -48,6 +43,7 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
         .eq('status', 'active');
 
       if (subscriptionCheckError) {
+        console.error('Error checking existing subscriptions:', subscriptionCheckError);
         throw new Error('Error al verificar suscripciones existentes');
       }
 
@@ -55,20 +51,25 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
         throw new Error('Ya existe una suscripción activa para este usuario');
       }
 
-      // 2. Obtener el plan y crear la suscripción como 'pending'
+      console.log('Buscando plan con paypal_plan_id:', paypalPlanId);
       const { data: planData, error: planError } = await supabase
         .from('subscription_plans')
         .select('id, interval, features')
         .eq('paypal_plan_id', paypalPlanId)
         .single();
 
-      if (planError || !planData) {
+      if (planError) {
+        console.error('Error fetching plan:', planError);
         throw new Error('No se pudo encontrar el plan de suscripción');
       }
 
-      console.log('Plan data received:', planData);
+      if (!planData) {
+        console.error('Plan not found for paypal_plan_id:', paypalPlanId);
+        throw new Error('Plan no encontrado');
+      }
 
-      // 3. Calcular fechas
+      console.log('Plan encontrado:', planData);
+
       const now = new Date();
       const periodEnd = new Date(now);
       if (planData.interval === 'year') {
@@ -77,7 +78,6 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
         periodEnd.setMonth(periodEnd.getMonth() + 1);
       }
 
-      // 4. Crear el registro de suscripción
       const subscriptionData = {
         user_id: user.id,
         plan_id: planData.id,
@@ -88,22 +88,21 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
         current_period_ends_at: periodEnd.toISOString()
       };
 
-      console.log('Subscription data being inserted:', subscriptionData);
+      console.log('Creando registro de suscripción:', subscriptionData);
 
-      // 5. Insertar con manejo de errores detallado
       const { data: subscription, error: subscriptionError } = await supabase
         .from('subscriptions')
         .insert(subscriptionData)
         .select()
-        .single()
-        .throwOnError();
+        .single();
 
       if (subscriptionError) {
-        console.error('Error al crear la suscripción:', subscriptionError);
+        console.error('Error creating subscription:', subscriptionError);
         throw subscriptionError;
       }
 
-      // 6. Registrar el evento de suscripción (si existe la tabla)
+      console.log('Suscripción creada:', subscription);
+
       try {
         await supabase
           .from('subscription_events')
@@ -116,15 +115,14 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
               features: planData.features
             }
           });
+        console.log('Evento de suscripción registrado');
       } catch (eventError) {
-        // Si la tabla no existe, solo logueamos el error pero no interrumpimos el flujo
         console.warn('No se pudo registrar el evento de suscripción:', eventError);
       }
 
       return subscription;
     } catch (error) {
       console.error('Error en el proceso de suscripción:', error);
-      // Aquí podríamos agregar más lógica de rollback si es necesario
       throw error;
     }
   };
@@ -133,27 +131,39 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
     <div className="w-full max-w-sm mx-auto">
       <PayPalButtons
         createSubscription={(data, actions) => {
+          console.log('Iniciando creación de suscripción con planId:', planId);
           return actions.subscription.create({
-            plan_id: planId === ANNUAL_PLAN_ID ? ANNUAL_PLAN_ID : MONTHLY_PLAN_ID,
+            plan_id: planId,
             application_context: {
               shipping_preference: "NO_SHIPPING",
-              return_url: `${window.location.origin}/dashboard/profile/success`,
-              cancel_url: `${window.location.origin}/dashboard/profile/cancel`
+              user_action: "SUBSCRIBE_NOW",
+              return_url: `${window.location.origin}/dashboard/profile/subscription/success`,
+              cancel_url: `${window.location.origin}/dashboard/profile/subscription/cancel`
             }
+          }).then(orderId => {
+            console.log('Suscripción creada en PayPal:', orderId);
+            return orderId;
+          }).catch(err => {
+            console.error('Error creando suscripción en PayPal:', err);
+            throw err;
           });
         }}
         onApprove={async (data, actions) => {
+          console.log('Suscripción aprobada:', data);
           setLoading(true);
           try {
             if (data.subscriptionID) {
-              // Crear el registro de suscripción en Supabase
               await createSubscriptionRecord(data, planId);
               
               toast({
                 title: "¡Suscripción exitosa!",
                 description: "Tu suscripción ha sido activada correctamente.",
               });
-              onSuccess?.();
+              
+              window.location.href = '/dashboard/profile/subscription?success=true';
+            } else {
+              console.error('No se recibió ID de suscripción');
+              throw new Error('No se recibió ID de suscripción');
             }
           } catch (error) {
             console.error('Error al procesar la suscripción:', error);
@@ -172,6 +182,13 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
             title: "Error",
             description: "Hubo un error al procesar el pago. Por favor intenta de nuevo.",
             variant: "destructive",
+          });
+        }}
+        onCancel={() => {
+          console.log('Suscripción cancelada por el usuario');
+          toast({
+            title: "Suscripción Cancelada",
+            description: "Has cancelado el proceso de suscripción.",
           });
         }}
         style={{
