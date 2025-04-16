@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Plus, MoreVertical, Tag, Calendar, Trash2, Settings } from 'lucide-react';
 import { format } from 'date-fns';
@@ -47,7 +47,18 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
   onUpdateTask: (id: string, data: Partial<Task>) => Promise<void>;
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [needsExpansion, setNeedsExpansion] = useState(false);
+  const descriptionRef = useRef<HTMLParagraphElement>(null);
   const { user } = useAuthContext();
+
+  // Verificar si el texto necesita expansión
+  useEffect(() => {
+    if (descriptionRef.current) {
+      const element = descriptionRef.current;
+      setNeedsExpansion(element.scrollHeight > element.clientHeight);
+    }
+  }, [task.description]);
 
   // Crear el evento del calendario
   const calendarEvent: CalendarEventData = {
@@ -122,37 +133,61 @@ const TaskCard = ({ task, onDelete, onStatusChange, onEdit, onUpdateTask }: {
           <div className="flex-1 cursor-move" {...listeners}>
             <h3 className="font-medium text-gray-200">{task.title}</h3>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <button className="text-gray-400 hover:text-gray-200">
-                <MoreVertical size={16} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-[#1e293b] border-gray-700">
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                onEdit(task);
-              }} className="text-gray-200 hover:bg-gray-700/50">
-                <Settings className="mr-2 h-4 w-4" />
-                Configuración
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-gray-700" />
-              <DropdownMenuItem 
+          <div className="flex items-center gap-2">
+            {needsExpansion && (
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowDeleteDialog(true);
-                }} 
-                className="text-red-400 hover:bg-gray-700/50 hover:text-red-300"
+                  setIsExpanded(!isExpanded);
+                }}
+                className="text-gray-400 hover:text-gray-200 p-1 rounded-full hover:bg-gray-700/50"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {isExpanded ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m18 15-6-6-6 6"/>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                )}
+              </button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <button className="text-gray-400 hover:text-gray-200">
+                  <MoreVertical size={16} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-[#1e293b] border-gray-700">
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(task);
+                }} className="text-gray-200 hover:bg-gray-700/50">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configuración
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-gray-700" />
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteDialog(true);
+                  }} 
+                  className="text-red-400 hover:bg-gray-700/50 hover:text-red-300"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         
         {task.description && (
-          <p className="text-sm text-gray-400 line-clamp-2 mb-3">
+          <p 
+            ref={descriptionRef}
+            className={`text-sm text-gray-400 mb-3 ${isExpanded ? '' : 'line-clamp-2'}`}
+          >
             {task.description}
           </p>
         )}
