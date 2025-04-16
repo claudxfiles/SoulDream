@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Plus, CheckCircle2, Calendar, Check, CheckCheck, RefreshCw, Bug, Trash2 } from 'lucide-react';
 import { CreateHabitDialog } from '@/components/habits/CreateHabitDialog';
 import { HabitsList } from '@/components/habits/HabitsList';
 import { useHabits } from '@/hooks/useHabits';
+import { useHabitReset } from '@/hooks/useHabitReset';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +30,29 @@ import {
 // Componente interno que utiliza useHabits
 function HabitsPageContent() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const { habits, isLoading, error, refetch, createHabit, completeHabit, deleteHabit } = useHabits();
+  const { 
+    habits, 
+    isLoading, 
+    error, 
+    refetch,
+    createHabit,
+    completeHabit,
+    deleteHabit,
+    resetHabits 
+  } = useHabits();
+
+  // Memoizar la función de reinicio
+  const handleReset = useCallback(async () => {
+    try {
+      await resetHabits();
+      await refetch();
+    } catch (error) {
+      console.error('Error al reiniciar hábitos:', error);
+    }
+  }, [resetHabits, refetch]);
+
+  // Usar el hook de reinicio con la función memoizada
+  useHabitReset(handleReset);
 
   // Manejador para cuando se crea un nuevo hábito
   const handleCreateHabit = (habit: HabitCreate) => {

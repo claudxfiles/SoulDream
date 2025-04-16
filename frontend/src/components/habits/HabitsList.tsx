@@ -8,17 +8,17 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, ServerCrash } from "lucide-react";
 
 interface HabitsListProps {
-  habits: Habit[] | undefined;
   isLoading: boolean;
-  error?: any;
+  error?: Error | null;
+  habits: Habit[];
   onComplete: (params: { habitId: string }) => void;
   onDelete?: (habitId: string) => void;
 }
 
 export const HabitsList: React.FC<HabitsListProps> = ({
-  habits,
   isLoading,
   error,
+  habits,
   onComplete,
   onDelete,
 }) => {
@@ -44,7 +44,7 @@ export const HabitsList: React.FC<HabitsListProps> = ({
       </div>
     );
   }
-  
+
   // Estado de error
   if (error) {
     return (
@@ -57,7 +57,7 @@ export const HabitsList: React.FC<HabitsListProps> = ({
       </Alert>
     );
   }
-  
+
   // Sin hábitos
   if (!habits || habits.length === 0) {
     return (

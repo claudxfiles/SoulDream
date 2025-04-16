@@ -172,6 +172,33 @@ export const useHabits = (category?: string) => {
     }
   });
   
+  // Mutación para reiniciar todos los hábitos
+  const resetHabitsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await habitService.resetHabits();
+      return response;
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['habits'] });
+      const previousHabits = queryClient.getQueryData(['habits']);
+      
+      queryClient.setQueryData(['habits'], (old: Habit[] | undefined) => {
+        if (!old) return [];
+        return old.map(habit => ({ ...habit, isCompletedToday: false }));
+      });
+      
+      return { previousHabits };
+    },
+    onError: (err, _, context) => {
+      if (context?.previousHabits) {
+        queryClient.setQueryData(['habits'], context.previousHabits);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+    }
+  });
+  
   // Función para cambiar la categoría seleccionada
   const changeCategory = useCallback((newCategory?: string) => {
     setSelectedCategory(newCategory);
@@ -194,6 +221,7 @@ export const useHabits = (category?: string) => {
     updateHabit: updateHabitMutation.mutate,
     deleteHabit: deleteHabitMutation.mutate,
     completeHabit: completeHabitMutation.mutate,
+    resetHabits: resetHabitsMutation.mutate,
     changeCategory,
     selectedCategory
   };

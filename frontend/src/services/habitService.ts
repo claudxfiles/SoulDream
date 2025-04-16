@@ -279,5 +279,27 @@ export const habitService = {
       console.error('Error al obtener los logs de hábitos:', error);
       return [];
     }
+  },
+
+  async resetHabits(): Promise<void> {
+    try {
+      // Primero obtenemos los hábitos completados hoy
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data: todayLogs, error: logsError } = await supabase
+        .from('habit_logs')
+        .delete()
+        .eq('completed_date', today);
+
+      if (logsError) {
+        throw logsError;
+      }
+
+      // Notificar éxito silenciosamente
+      console.log('Hábitos reiniciados correctamente');
+    } catch (error) {
+      console.error('Error al reiniciar hábitos:', error);
+      throw error;
+    }
   }
 }; 
