@@ -91,6 +91,8 @@ export async function GET() {
 
     // Formateamos la respuesta
     const response = {
+      id: subscription.id,
+      paypal_subscription_id: subscription.paypal_subscription_id,
       plan_value: subscription.subscription_plans?.price || 0,
       member_since: profile.created_at,
       plan_type: subscription.subscription_plans?.name || 'Free',

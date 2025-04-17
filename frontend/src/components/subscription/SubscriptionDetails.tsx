@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Clock, X, Settings, CreditCard, CheckCircle2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/components/ui/use-toast';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -22,6 +22,19 @@ export const SubscriptionDetails = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
+  // Log subscription data when it changes
+  useEffect(() => {
+    if (subscription) {
+      console.log('[SubscriptionDetails] Datos de suscripción actuales:', {
+        id: subscription.id,
+        paypalId: subscription.paypal_subscription_id,
+        status: subscription.status,
+        planType: subscription.plan_type,
+        allData: subscription
+      });
+    }
+  }, [subscription]);
+
   const handleManageSubscription = () => {
     router.push('/dashboard/profile/subscription');
   };
@@ -31,11 +44,20 @@ export const SubscriptionDetails = () => {
   };
 
   const handleCancelSubscription = async () => {
-    if (!subscription?.paypal_subscription_id) {
-      console.error("No hay ID de suscripción de PayPal");
+    console.log('[SubscriptionDetails] Iniciando proceso de cancelación:', {
+      subscriptionId: subscription?.id,
+      paypalSubscriptionId: subscription?.paypal_subscription_id,
+      status: subscription?.status
+    });
+
+    if (!subscription?.id || !subscription?.paypal_subscription_id) {
+      console.error('[SubscriptionDetails] Faltan IDs necesarios:', {
+        id: subscription?.id,
+        paypalId: subscription?.paypal_subscription_id
+      });
       toast({
         title: 'Error',
-        description: 'No se encontró el ID de suscripción. Contacta a soporte.',
+        description: 'No se encontró la información de suscripción. Contacta a soporte.',
         variant: 'destructive',
       });
       return;
@@ -43,42 +65,33 @@ export const SubscriptionDetails = () => {
 
     try {
       setIsCancelling(true);
-      console.log("Iniciando cancelación para:", subscription.paypal_subscription_id);
+      console.log('[SubscriptionDetails] Enviando solicitud de cancelación:', {
+        subscriptionId: subscription.id,
+        paypalSubscriptionId: subscription.paypal_subscription_id
+      });
       
-      // Get current user
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session?.user) {
-        throw new Error('No autorizado: ' + (sessionError?.message || 'Usuario no encontrado'));
-      }
-
-      console.log("Usuario autenticado:", session.user.id);
-
-      // Call PayPal webhook
-      const response = await fetch('https://api.presentandflow.cl/api/payments/webhook', {
-        method: 'POST',
+      // Call our cancellation endpoint
+      const response = await fetch(`/api/v1/subscriptions/${subscription.id}`, {
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          event_type: 'BILLING.SUBSCRIPTION.CANCELLED',
-          resource: {
-            id: subscription.paypal_subscription_id,
-            subscriber: {
-              email_address: session.user.email,
-              payer_id: session.user.id
-            },
-            status: 'CANCELLED',
-            status_update_time: new Date().toISOString()
-          }
+          cancel_at_period_end: true,
+          cancellation_reason: 'User requested cancellation'
         }),
       });
 
-      console.log("Respuesta del servidor:", response.status);
+      console.log('[SubscriptionDetails] Respuesta del servidor:', {
+        status: response.status,
+        statusText: response.statusText
+      });
+      
       const responseData = await response.json();
-      console.log("Datos de respuesta:", responseData);
+      console.log('[SubscriptionDetails] Datos de respuesta:', responseData);
 
       if (!response.ok) {
-        throw new Error(responseData.message || 'Error al cancelar la suscripción');
+        throw new Error(responseData.detail || 'Error al cancelar la suscripción');
       }
 
       toast({
@@ -89,7 +102,10 @@ export const SubscriptionDetails = () => {
       setShowConfirmDialog(false);
       refetch();
     } catch (error) {
-      console.error('Error detallado al cancelar suscripción:', error);
+      console.error('[SubscriptionDetails] Error en cancelación:', {
+        error,
+        message: error instanceof Error ? error.message : 'Error desconocido'
+      });
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'No se pudo cancelar la suscripción. Por favor intenta nuevamente.',

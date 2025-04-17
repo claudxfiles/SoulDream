@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from 'sonner';
 import { ThemeScript } from './ThemeScript';
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { Suspense } from "react";
@@ -39,7 +39,7 @@ export default function RootLayout({
             </Providers>
           </QueryProvider>
         </Suspense>
-        <Toaster />
+        <Toaster richColors closeButton position="top-right" />
         <Analytics />
         <SpeedInsights />
       </body>
