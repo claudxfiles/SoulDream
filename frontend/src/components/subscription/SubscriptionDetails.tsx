@@ -53,16 +53,23 @@ export const SubscriptionDetails = () => {
 
       console.log("Usuario autenticado:", session.user.id);
 
-      // Call backend to cancel subscription
-      const response = await fetch('/api/v1/payments/cancel-subscription', {
+      // Call PayPal webhook
+      const response = await fetch('https://api.presentandflow.cl/api/payments/webhook', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: session.user.id,
-          subscriptionId: subscription.paypal_subscription_id,
-          reason: 'Cancelled by user',
+          event_type: 'BILLING.SUBSCRIPTION.CANCELLED',
+          resource: {
+            id: subscription.paypal_subscription_id,
+            subscriber: {
+              email_address: session.user.email,
+              payer_id: session.user.id
+            },
+            status: 'CANCELLED',
+            status_update_time: new Date().toISOString()
+          }
         }),
       });
 
