@@ -10,6 +10,7 @@ import { ThemeScript } from './ThemeScript';
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { Suspense } from "react";
 import { Analytics } from '@/components/Analytics';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -40,6 +41,7 @@ export default function RootLayout({
         </Suspense>
         <Toaster />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
