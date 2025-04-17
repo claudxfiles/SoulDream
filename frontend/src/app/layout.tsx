@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { ThemeScript } from './ThemeScript';
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { Suspense } from "react";
+import { Analytics } from '@/components/Analytics';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -38,6 +39,7 @@ export default function RootLayout({
           </QueryProvider>
         </Suspense>
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );
