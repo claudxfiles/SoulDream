@@ -83,9 +83,13 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
         plan_id: planData.id,
         plan_type: planData.interval === 'month' ? 'month' : 'year',
         status: 'active',
-        subscription_id: data.subscriptionID,
+        paypal_subscription_id: data.subscriptionID, // Corrección: Guardar en paypal_subscription_id
         current_period_starts_at: now.toISOString(),
-        current_period_ends_at: periodEnd.toISOString()
+        current_period_ends_at: periodEnd.toISOString(),
+        metadata: { 
+          paypal_order_id: data.orderID,
+          features: planData.features
+        }
       };
 
       console.log('Creando registro de suscripción:', subscriptionData);
@@ -140,12 +144,6 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
               return_url: `${window.location.origin}/dashboard/profile/subscription/success`,
               cancel_url: `${window.location.origin}/dashboard/profile/subscription/cancel`
             }
-          }).then(orderId => {
-            console.log('Suscripción creada en PayPal:', orderId);
-            return orderId;
-          }).catch(err => {
-            console.error('Error creando suscripción en PayPal:', err);
-            throw err;
           });
         }}
         onApprove={async (data, actions) => {
@@ -160,7 +158,12 @@ export function SubscriptionButton({ planId, amount, onSuccess }: SubscriptionBu
                 description: "Tu suscripción ha sido activada correctamente.",
               });
               
-              window.location.href = '/dashboard/profile/subscription?success=true';
+              // Redirigir después de un breve retraso para asegurar que los datos se han guardado
+              setTimeout(() => {
+                window.location.href = '/dashboard/profile/subscription?success=true';
+              }, 1500);
+              
+              onSuccess?.();
             } else {
               console.error('No se recibió ID de suscripción');
               throw new Error('No se recibió ID de suscripción');

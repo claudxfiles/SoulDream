@@ -70,15 +70,15 @@ export const SubscriptionDetails = () => {
         paypalSubscriptionId: subscription.paypal_subscription_id
       });
       
-      // Call our cancellation endpoint
-      const response = await fetch(`/api/v1/subscriptions/${subscription.id}`, {
-        method: 'DELETE',
+      // Llamar a nuestro endpoint de cancelación
+      const response = await fetch('/api/subscriptions/cancel', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          cancel_at_period_end: true,
-          cancellation_reason: 'User requested cancellation'
+          subscriptionId: subscription.paypal_subscription_id,
+          reason: 'User requested cancellation'
         }),
       });
 
@@ -91,7 +91,20 @@ export const SubscriptionDetails = () => {
       console.log('[SubscriptionDetails] Datos de respuesta:', responseData);
 
       if (!response.ok) {
-        throw new Error(responseData.detail || 'Error al cancelar la suscripción');
+        let errorMessage = 'Error al cancelar la suscripción';
+        
+        if (responseData.error) {
+          errorMessage = responseData.error;
+          if (responseData.details) {
+            if (typeof responseData.details === 'string' && responseData.details.includes('SUBSCRIPTION_STATUS_INVALID')) {
+              errorMessage = 'La suscripción no está en un estado válido para ser cancelada. Por favor, contacta a soporte.';
+            } else {
+              errorMessage = `${responseData.error}: ${responseData.details}`;
+            }
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       toast({
@@ -102,13 +115,10 @@ export const SubscriptionDetails = () => {
       setShowConfirmDialog(false);
       refetch();
     } catch (error) {
-      console.error('[SubscriptionDetails] Error en cancelación:', {
-        error,
-        message: error instanceof Error ? error.message : 'Error desconocido'
-      });
+      console.error('[SubscriptionDetails] Error en cancelación:', { error });
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'No se pudo cancelar la suscripción. Por favor intenta nuevamente.',
+        description: error instanceof Error ? error.message : 'Error al cancelar la suscripción. Por favor, intenta de nuevo.',
         variant: 'destructive',
       });
     } finally {

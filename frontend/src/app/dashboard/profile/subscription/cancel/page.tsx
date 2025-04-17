@@ -1,32 +1,42 @@
 'use client';
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ArrowLeft, XCircle } from "lucide-react";
-import Link from "next/link";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { XCircle } from 'lucide-react';
 
-export default function CancelPage() {
+export default function SubscriptionCancelPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirigir al dashboard después de 5 segundos
+    const timer = setTimeout(() => {
+      router.push('/dashboard/profile/subscription');
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [router]);
+
   return (
-    <div className="container max-w-2xl mx-auto py-12">
-      <Card className="p-8 text-center">
-        <div className="flex justify-center mb-6">
-          <XCircle className="w-16 h-16 text-red-500" />
-        </div>
-        
-        <h1 className="text-2xl font-bold mb-4">
-          Proceso de Suscripción Cancelado
-        </h1>
-        
-        <p className="text-muted-foreground mb-8">
-          Has cancelado el proceso de suscripción. No te preocupes, no se ha realizado ningún cargo.
-        </p>
-
-        <Link href="/dashboard/profile/subscription">
-          <Button className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Volver a Planes
+    <div className="container max-w-2xl mx-auto py-8">
+      <Card className="p-6 text-center">
+        <div className="flex flex-col items-center space-y-4">
+          <XCircle className="h-16 w-16 text-red-500" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Suscripción Cancelada
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Has cancelado el proceso de suscripción. Si tienes alguna pregunta o necesitas ayuda,
+            no dudes en contactarnos.
+          </p>
+          <Button
+            onClick={() => router.push('/dashboard/profile/subscription')}
+            className="mt-4"
+          >
+            Volver a Suscripciones
           </Button>
-        </Link>
+        </div>
       </Card>
     </div>
   );
