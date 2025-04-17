@@ -78,6 +78,7 @@
     "recharts": "^2.15.2",
     "remark-gfm": "^4.0.0",
     "resend": "^4.1.2",
+    "sonner": "^1.4.3",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "webpack": "^5.98.0",
