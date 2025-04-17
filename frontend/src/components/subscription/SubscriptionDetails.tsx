@@ -31,16 +31,27 @@ export const SubscriptionDetails = () => {
   };
 
   const handleCancelSubscription = async () => {
-    if (!subscription?.paypal_subscription_id) return;
+    if (!subscription?.paypal_subscription_id) {
+      console.error("No hay ID de suscripción de PayPal");
+      toast({
+        title: 'Error',
+        description: 'No se encontró el ID de suscripción. Contacta a soporte.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
       setIsCancelling(true);
+      console.log("Iniciando cancelación para:", subscription.paypal_subscription_id);
       
       // Get current user
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        throw new Error('No autorizado');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        throw new Error('No autorizado: ' + (sessionError?.message || 'Usuario no encontrado'));
       }
+
+      console.log("Usuario autenticado:", session.user.id);
 
       // Call backend to cancel subscription
       const response = await fetch('/api/v1/payments/cancel-subscription', {
@@ -55,9 +66,12 @@ export const SubscriptionDetails = () => {
         }),
       });
 
+      console.log("Respuesta del servidor:", response.status);
+      const responseData = await response.json();
+      console.log("Datos de respuesta:", responseData);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Error al cancelar la suscripción');
+        throw new Error(responseData.message || 'Error al cancelar la suscripción');
       }
 
       toast({
@@ -68,7 +82,7 @@ export const SubscriptionDetails = () => {
       setShowConfirmDialog(false);
       refetch();
     } catch (error) {
-      console.error('Error cancelling subscription:', error);
+      console.error('Error detallado al cancelar suscripción:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'No se pudo cancelar la suscripción. Por favor intenta nuevamente.',
