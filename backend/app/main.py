@@ -10,6 +10,7 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.logging_config import setup_logging
+from api.payments.webhook import router as webhook_router
 
 # Cargar variables de entorno
 load_dotenv()
@@ -118,6 +119,9 @@ app.include_router(
     api_router,
     prefix="/api/v1",
 )
+
+# Incluir router de webhook de PayPal
+app.include_router(webhook_router)
 
 # Servir archivos estáticos si existe la carpeta
 static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")

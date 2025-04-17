@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException
 import base64
 import json
 import requests
@@ -10,7 +10,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+router = APIRouter()
 
 PAYPAL_CLIENT_ID = "AcA-7lyAMhjSYYfW9KFSKIQTGqSHYXx-0KPt5UwAHB1Q_XLWRkvS33mM6caUqkDLn10lixwu4e1fT77m"
 PAYPAL_CLIENT_SECRET = "EHvW0SB1dMLboUOMzY3Rsqp9aooFySyPaM2r1jMRNPiBDQyeV-vd872BXWh8u5ko8FWjnvyZBFfTFymG"
@@ -86,7 +86,7 @@ async def verify_webhook_signature(headers: Dict, body: str) -> bool:
         logger.error(f"Error verificando webhook: {str(e)}")
         return False
 
-@app.post("/api/payments/webhook")
+@router.post("/api/payments/webhook")
 async def handle_webhook(request: Request):
     try:
         logger.info("Recibida notificación de webhook de PayPal")
