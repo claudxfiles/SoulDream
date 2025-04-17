@@ -28,7 +28,7 @@ console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(level
 logger.addHandler(console_handler)
 logger.setLevel(logging.INFO)
 
-@router.get("/webhook/test")
+@router.get("/api/payments/webhook/test")
 async def test_webhook():
     """
     Endpoint de prueba para verificar que la ruta del webhook está accesible
@@ -179,7 +179,7 @@ async def verify_paypal_webhook(request: Request) -> bool:
         print(traceback.format_exc())
         return False
 
-@router.post("/webhook")
+@router.post("/api/payments/webhook")
 async def handle_paypal_webhook(request: Request):
     """
     Maneja los eventos del webhook de PayPal.

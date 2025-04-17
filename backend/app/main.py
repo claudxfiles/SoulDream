@@ -10,7 +10,7 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.logging_config import setup_logging
-from api.payments.webhook import router as webhook_router
+from app.api.v1.payments.webhook import router as webhook_router
 
 # Cargar variables de entorno
 load_dotenv()
