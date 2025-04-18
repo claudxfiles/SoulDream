@@ -10,15 +10,44 @@ interface Feature {
   included: boolean;
 }
 
-const getPlanName = (subscription: any): string => {
-  const baseName = subscription.subscription_plans?.name || 'SoulDream Pro';
-  const isTrialActive = subscription.trial_ends_at && new Date(subscription.trial_ends_at) > new Date();
+const isSubscriptionActive = (subscription: any): boolean => {
+  if (!subscription) return false;
   
-  if (isTrialActive) {
-    return `${baseName} (Período de prueba)`;
+  const now = new Date();
+  const isInTrialPeriod = subscription.trial_ends_at && new Date(subscription.trial_ends_at) > now;
+  const isInPaidPeriod = subscription.current_period_ends_at && new Date(subscription.current_period_ends_at) > now;
+  
+  // Si está cancelada, verificamos si aún tiene acceso basado en el período correspondiente
+  if (subscription.status === 'cancelled') {
+    // Si está en período de prueba, solo tiene acceso hasta el fin del trial
+    if (isInTrialPeriod) {
+      return true;
+    }
+    // Si no está en trial, tiene acceso hasta el fin del período pagado
+    return isInPaidPeriod;
   }
   
-  return baseName;
+  // Si no está cancelada, verificamos si está activa y en algún período válido
+  return subscription.status === 'active' && (isInTrialPeriod || isInPaidPeriod);
+};
+
+const getPlanName = (subscription: any): string => {
+  const baseName = subscription.subscription_plans?.name || 'SoulDream Pro';
+  const now = new Date();
+  const isTrialActive = subscription.trial_ends_at && new Date(subscription.trial_ends_at) > now;
+  const isCancelled = subscription.status === 'cancelled';
+  
+  let name = baseName;
+  if (isTrialActive) {
+    name = `${baseName} (Período de prueba)`;
+    if (isCancelled) {
+      name = `${name} - Acceso hasta ${new Date(subscription.trial_ends_at).toLocaleDateString()}`;
+    }
+  } else if (isCancelled) {
+    name = `${name} (Cancelada - Acceso hasta ${new Date(subscription.current_period_ends_at).toLocaleDateString()})`;
+  }
+  
+  return name;
 };
 
 export async function GET() {
@@ -110,7 +139,7 @@ export async function GET() {
       plan_currency: subscription.subscription_plans?.currency || 'USD',
       plan_value: subscription.subscription_plans?.price || 0,
       plan_features: planFeatures,
-      status: subscription.status,
+      status: isSubscriptionActive(subscription) ? 'active' : subscription.status,
       payment_method: 'PayPal',
       current_period_starts_at: subscription.current_period_starts_at,
       current_period_ends_at: subscription.current_period_ends_at,

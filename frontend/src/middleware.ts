@@ -57,16 +57,22 @@ export async function middleware(req: NextRequest) {
         req.nextUrl.pathname.startsWith('/dashboard') && 
         !req.nextUrl.pathname.includes('/profile/subscription')) {
       
-      // Verificar si tiene suscripción activa
+      // Verificar suscripción considerando período de prueba y fechas de validez
       const { data: subscription } = await supabase
         .from('subscriptions')
-        .select('status')
+        .select('status, trial_end, current_period_end')
         .eq('user_id', session.user.id)
-        .eq('status', 'active')
         .single();
 
-      // Si no tiene suscripción activa, redirigir a la página de suscripción
-      if (!subscription) {
+      const now = new Date();
+      const hasValidSubscription = subscription && (
+        subscription.status === 'active' ||
+        (subscription.status === 'trialing' && new Date(subscription.trial_end) > now) ||
+        (subscription.status === 'cancelled' && new Date(subscription.current_period_end) > now)
+      );
+
+      // Si no tiene suscripción válida, redirigir a la página de suscripción
+      if (!hasValidSubscription) {
         return NextResponse.redirect(
           new URL('/dashboard/profile/subscription', req.url)
         );
