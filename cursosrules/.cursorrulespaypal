@@ -13,7 +13,7 @@
 2. Base de datos (Supabase)
     - Tabla `subscriptions`:
         - Requeridos: id, user_id, paypal_subscription_id, plan_id, status, current_period_starts_at, current_period_ends_at, trial_ends_at.
-    - (Opcional recomendado): Tabla `trial_usage`
+    - Tabla `trial_usage`
         - user_id, plan_id, trial_used (boolean), trial_start_date, trial_end_date.
         - Marca como `trial_used: true` cuando termine el trial (aunque ya lo controla también `subscriptions`).
     - Tabla `subscription_plans`:

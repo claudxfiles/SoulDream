@@ -2,20 +2,36 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkles, CheckCircle2 } from "lucide-react";
 import { SubscriptionButton } from "./SubscriptionButton";
 
 interface PricingCardProps {
   popular?: boolean;
   name: string;
-  price: string;
+  price: number;
   interval: string;
   description: string;
   features: string[];
   planId: string;
+  trial?: boolean;
+  trialDays?: number;
+  priceAfterTrial?: string;
+  callToAction?: string;
 }
 
-export function PricingCard({ popular, name, price, interval, description, features, planId }: PricingCardProps) {
+export function PricingCard({
+  popular = false,
+  name,
+  price,
+  interval,
+  description,
+  features,
+  planId,
+  trial = false,
+  trialDays,
+  priceAfterTrial,
+  callToAction = "Suscribirse ahora"
+}: PricingCardProps) {
   return (
     <Card className={`w-[420px] overflow-hidden ${popular ? 'border-primary/50 shadow-xl shadow-primary/20 bg-card/50 backdrop-blur-sm' : ''} relative`}>
       {popular && (
@@ -40,12 +56,19 @@ export function PricingCard({ popular, name, price, interval, description, featu
 
         <div className="flex items-baseline mb-10">
           <span className="text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
-            ${price}
+            ${price.toString()}
           </span>
           <span className="ml-2 text-lg text-muted-foreground">
             /{interval}
           </span>
         </div>
+
+        {trial && (
+          <div className="bg-primary/10 text-primary rounded-lg p-3 text-sm">
+            <p className="font-medium">Prueba gratuita de {trialDays} días</p>
+            <p className="text-xs mt-1 text-muted-foreground">{priceAfterTrial}</p>
+          </div>
+        )}
 
         <div className="relative mb-8">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -65,7 +88,13 @@ export function PricingCard({ popular, name, price, interval, description, featu
         </ul>
 
         <div className="mt-8">
-          <SubscriptionButton planId={planId} amount={price} />
+          <SubscriptionButton 
+            planId={planId} 
+            amount={price} 
+            className={`w-full ${popular ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
+          >
+            {callToAction}
+          </SubscriptionButton>
         </div>
       </div>
     </Card>

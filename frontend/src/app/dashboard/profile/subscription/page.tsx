@@ -17,18 +17,114 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 function SubscriptionContent() {
   const [isAnnual, setIsAnnual] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [hadPreviousTrial, setHadPreviousTrial] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const isSuccess = searchParams.get('success') === 'true';
   const { toast } = useToast();
   const supabase = createClientComponentClient();
 
-  // Verificar suscripción activa al cargar la página
+  // Verificar si es un usuario nuevo y si ya tuvo trial
   useEffect(() => {
-    async function checkSubscription() {
+    async function checkUserStatus() {
+      console.log('🔍 Iniciando verificación de estado del usuario...');
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
+          console.log('❌ No hay sesión activa');
+          setIsLoading(false);
+          return;
+        }
+        console.log('✅ Sesión encontrada:', session.user.id);
+
+        // Verificar TANTO en subscriptions como en trial_usage
+        const [subscriptionsResponse, trialUsageResponse] = await Promise.all([
+          supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .not('trial_ends_at', 'is', null),
+          supabase
+            .from('trial_usage')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .eq('trial_used', true)
+        ]);
+
+        console.log('🔍 Resultados de búsqueda:', {
+          subscriptions: subscriptionsResponse.data,
+          trialUsage: trialUsageResponse.data
+        });
+
+        const hadTrialInSubscriptions = subscriptionsResponse.data && subscriptionsResponse.data.length > 0;
+        const hadTrialInUsage = trialUsageResponse.data && trialUsageResponse.data.length > 0;
+        
+        const isNew = !hadTrialInSubscriptions && !hadTrialInUsage;
+        console.log('👤 Estado del usuario:', { isNew, hadTrialInSubscriptions, hadTrialInUsage });
+        setIsNewUser(isNew);
+        setHadPreviousTrial(!isNew);
+        
+        if (isNew) {
+          console.log('🎉 Usuario nuevo detectado, activando trial...');
+          const trialEndDate = new Date();
+          trialEndDate.setDate(trialEndDate.getDate() + 7);
+
+          // Insertar en ambas tablas
+          const [subscriptionInsert, trialUsageInsert] = await Promise.all([
+            supabase
+              .from('subscriptions')
+              .insert({
+                user_id: session.user.id,
+                status: 'active',
+                trial_ends_at: trialEndDate.toISOString(),
+                current_period_starts_at: new Date().toISOString(),
+                current_period_ends_at: trialEndDate.toISOString(),
+                plan_id: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID_FREE_TRIAL
+              }),
+            supabase
+              .from('trial_usage')
+              .insert({
+                user_id: session.user.id,
+                trial_used: false,
+                trial_start_date: new Date().toISOString(),
+                trial_end_date: trialEndDate.toISOString()
+              })
+          ]);
+
+          if (subscriptionInsert.error || trialUsageInsert.error) {
+            console.error('❌ Error al activar trial:', {
+              subscriptionError: subscriptionInsert.error,
+              trialUsageError: trialUsageInsert.error
+            });
+          } else {
+            console.log('✅ Trial activado correctamente');
+            toast({
+              title: "¡Bienvenido a SoulDream!",
+              description: "Tu período de prueba gratuito de 7 días ha sido activado.",
+            });
+            router.push('/dashboard');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error general al verificar estado:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    checkUserStatus();
+  }, [supabase, router, toast]);
+
+  // Verificar suscripción activa al cargar la página
+  useEffect(() => {
+    async function checkSubscription() {
+      console.log('🔍 Verificando suscripción activa...');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.log('❌ No hay sesión para verificar suscripción');
           setIsLoading(false);
           return;
         }
@@ -40,18 +136,21 @@ function SubscriptionContent() {
           .eq('user_id', session.user.id)
           .eq('status', 'active');
 
+        console.log('📊 Suscripciones activas encontradas:', { subscriptions, error });
+
         if (error) {
-          console.error('Error al consultar suscripciones:', error);
+          console.error('❌ Error al consultar suscripciones:', error);
           setIsLoading(false);
           return;
         }
 
         // Si tiene suscripción activa y no estamos en la página de éxito, redirigir
         if (subscriptions && subscriptions.length > 0 && !isSuccess) {
+          console.log('✅ Suscripción activa encontrada, redirigiendo...');
           router.push('/dashboard/profile/subscription?success=true');
         }
       } catch (error) {
-        console.error('Error al verificar suscripción:', error);
+        console.error('❌ Error al verificar suscripción:', error);
       } finally {
         setIsLoading(false);
       }
@@ -62,7 +161,7 @@ function SubscriptionContent() {
 
   const monthlyPlan = {
     name: "Pro",
-    price: "14.99",
+    price: 14.99,
     interval: "mes",
     description: "Desbloquea todo el potencial de SoulDream AI para transformar tu vida con gestión personal inteligente y automatizada",
     features: [
@@ -75,17 +174,33 @@ function SubscriptionContent() {
       "Integración con Google Calendar",
       "Soporte prioritario"
     ],
-    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID || 'P-1H048096T5545353AM7U2EQQ'
+    planId: isNewUser 
+      ? process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID_FREE_TRIAL 
+      : process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID
   };
 
   const annualPlan = {
     ...monthlyPlan,
-    price: "120",
+    price: 120,
     interval: "año",
-    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_ANNUAL_PLAN_ID || 'P-25P774007P7890240M7U2DTA'
+    planId: isNewUser 
+      ? process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_YEAR_ID_FREE_TRIAL 
+      : process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_YEAR_ID
   };
 
   const activePlan = isAnnual ? annualPlan : monthlyPlan;
+
+  // Modificar el plan si es usuario nuevo
+  const displayPlan = {
+    ...activePlan,
+    trial: isNewUser,
+    trialDays: isNewUser ? 7 : undefined,
+    description: isNewUser 
+      ? "Comienza tu prueba gratuita de 7 días. Sin compromiso, cancela cuando quieras."
+      : activePlan.description,
+    callToAction: isNewUser ? "Comenzar prueba gratis" : "Suscribirse ahora",
+    priceAfterTrial: isNewUser ? `$${activePlan.price}/${activePlan.interval} después del trial` : undefined
+  };
 
   useEffect(() => {
     if (isSuccess) {
@@ -182,10 +297,14 @@ function SubscriptionContent() {
               <Sparkles className="w-7 h-7 text-primary animate-pulse" />
             </div>
             <h1 className="text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary/80 to-primary/60">
-              Potencia tu Desarrollo Personal
+              {isNewUser ? '¡Bienvenido a SoulDream!' : (hadPreviousTrial ? 'Continúa tu experiencia premium' : 'Potencia tu Desarrollo Personal')}
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Unifica la gestión de todos los aspectos de tu vida en una sola plataforma potenciada por IA. Organiza tus metas, hábitos, finanzas y fitness de manera inteligente.
+              {isNewUser 
+                ? '¡Prueba todas las funciones premium gratis durante 7 días! Sin compromiso, cancela cuando quieras.'
+                : (hadPreviousTrial 
+                  ? 'Ya has disfrutado de tu período de prueba. Elige el plan que mejor se adapte a tus necesidades.'
+                  : 'Unifica la gestión de todos los aspectos de tu vida en una sola plataforma potenciada por IA.')}
             </p>
           </div>
 
@@ -222,12 +341,16 @@ function SubscriptionContent() {
             <div className="transform hover:scale-[1.02] transition-all duration-300 hover:shadow-2xl">
               <PricingCard
                 popular={true}
-                name={activePlan.name}
-                price={activePlan.price}
-                interval={activePlan.interval}
-                description={activePlan.description}
-                features={activePlan.features}
-                planId={activePlan.planId}
+                name={displayPlan.name}
+                price={displayPlan.price}
+                interval={displayPlan.interval}
+                description={displayPlan.description}
+                features={displayPlan.features}
+                planId={displayPlan.planId || ''}
+                trial={displayPlan.trial}
+                trialDays={displayPlan.trialDays}
+                priceAfterTrial={displayPlan.priceAfterTrial || ''}
+                callToAction={displayPlan.callToAction}
               />
             </div>
           </div>
