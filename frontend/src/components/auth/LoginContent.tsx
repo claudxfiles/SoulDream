@@ -21,10 +21,11 @@ export default function LoginContent() {
         try {
           const options: any = {
             redirectTo: `${window.location.origin}/auth/callback`,
-            scopes: 'email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
+            scopes: 'email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly',
             queryParams: {
               access_type: 'offline',
               include_granted_scopes: 'true',
+              prompt: 'consent'
             }
           };
           

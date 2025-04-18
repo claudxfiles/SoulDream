@@ -242,8 +242,9 @@ export async function getCalendarEvents(userId: string, startDate: Date, endDate
     const credentials = await getCalendarCredentials(userId);
     
     if (!credentials || !credentials.access_token) {
-      console.error('Error crítico: No hay credenciales de Google Calendar disponibles');
-      throw new Error('No estás conectado a Google Calendar');
+      // Redirigir directamente a la reconexión con todos los permisos necesarios
+      window.location.href = `/auth/reconnect?source=calendar_setup&forceConsent=true&userId=${userId}&scopes=${encodeURIComponent('https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly')}`;
+      throw new Error('Redirigiendo para obtener permisos de Google Calendar...');
     }
     
     // Asegurarse de que las fechas estén en formato ISO
@@ -255,53 +256,33 @@ export async function getCalendarEvents(userId: string, startDate: Date, endDate
     apiUrl.searchParams.append('timeMin', timeMin);
     apiUrl.searchParams.append('timeMax', timeMax);
     
-    // Usar console.debug para reducir el ruido en la consola
-    console.debug('GET', apiUrl.toString());
-    
     // Realizar la solicitud a nuestra API
     const response = await fetch(apiUrl);
     
     if (!response.ok) {
       const errorData = await response.json();
       
-      // Detectar errores de permisos insuficientes
-      if (response.status === 403 && errorData.errorCode === 'INSUFFICIENT_SCOPES') {
-        console.error('Error 403 Forbidden: Permisos insuficientes para acceder al calendario');
+      // Si hay error 403, intentar reparar una vez y si falla, redirigir a reconexión
+      if (response.status === 403) {
+        console.error('Error 403: Permisos insuficientes, intentando reparar...');
         
-        // Intentar reparar los tokens primero
-        const repairResult = await repairGoogleTokens(userId);
-        
-        if (repairResult.success) {
-          console.log('Tokens reparados exitosamente, reintentando...');
-          return getCalendarEvents(userId, startDate, endDate);
+        try {
+          const repairResult = await repairGoogleTokens(userId);
+          
+          if (repairResult.success) {
+            console.log('Tokens reparados exitosamente, reintentando...');
+            return getCalendarEvents(userId, startDate, endDate);
+          }
+        } catch (repairError) {
+          console.error('Error al reparar tokens:', repairError);
         }
         
-        // Si aún así falla, necesitamos reconexión con consentimiento forzado
-        if (errorData.forceConsent) {
-          // Redirigir a la página de reconexión con el parámetro forceConsent
-          window.location.href = `/auth/reconnect?source=calendar_insufficient_scopes&forceConsent=true&userId=${userId}`;
-          throw new Error('Redirigiendo para obtener permisos adicionales...');
-        }
-        
-        throw new Error('Permisos insuficientes. Por favor, reconecta tu cuenta de Google Calendar.');
+        // Si la reparación falla, redirigir a reconexión con todos los permisos
+        window.location.href = `/auth/reconnect?source=calendar_insufficient_scopes&forceConsent=true&userId=${userId}&scopes=${encodeURIComponent('https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly')}`;
+        throw new Error('Redirigiendo para obtener permisos adicionales...');
       }
       
       // Manejar otros tipos de errores
-      if (response.status === 401 || response.status === 403 || errorData.needsReconnect) {
-        console.error(`Error ${response.status}: ${errorData.error}`);
-        
-        // Intentar reparar los tokens primero
-        const repairResult = await repairGoogleTokens(userId);
-        
-        if (repairResult.success) {
-          console.log('Tokens reparados exitosamente, reintentando...');
-          return getCalendarEvents(userId, startDate, endDate);
-        }
-        
-        // Si la reparación falla, lanzar error para que la UI muestre mensaje de reconexión
-        throw new Error('Error de autenticación con Google Calendar. Por favor, reconecta tu cuenta.');
-      }
-      
       console.error('Error fetching calendar events:', errorData);
       throw new Error(errorData.error || `Error al obtener eventos (${response.status})`);
     }
@@ -324,8 +305,6 @@ export async function getCalendarEvents(userId: string, startDate: Date, endDate
     });
   } catch (error: any) {
     console.error('Error fetching calendar events:', error);
-    
-    // Propagar error para manejo en la UI
     throw error;
   }
 }
