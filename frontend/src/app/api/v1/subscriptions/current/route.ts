@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import type { Subscription } from '@/types/subscription';
 
 interface Feature {
   name: string;
@@ -24,29 +25,15 @@ export async function GET() {
 
     console.log('Session encontrada:', session.user.id);
 
-    // Primero verificamos si el usuario existe en la tabla de profiles
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-
-    if (profileError) {
-      console.error('Error al obtener el perfil:', profileError);
-      return NextResponse.json(
-        { error: 'Error al obtener el perfil' },
-        { status: 500 }
-      );
-    }
-
-    // Luego buscamos la suscripción
+    // Buscamos la suscripción activa del usuario
     const { data: subscription, error: subscriptionError } = await supabase
       .from('subscriptions')
       .select(`
         *,
         subscription_plans (
-          price,
+          id,
           name,
+          price,
           interval,
           currency,
           features
@@ -57,7 +44,7 @@ export async function GET() {
       .limit(1)
       .single();
 
-    if (subscriptionError) {
+    if (subscriptionError && subscriptionError.code !== 'PGRST116') {
       console.error('Error al obtener la suscripción:', subscriptionError);
       return NextResponse.json(
         { error: 'Error al obtener la suscripción' },
@@ -65,43 +52,62 @@ export async function GET() {
       );
     }
 
-    // Si no hay suscripción, devolvemos un plan por defecto
-    if (!subscription) {
-      return NextResponse.json({
-        plan_value: 0,
-        member_since: profile.created_at,
+    // Si no hay suscripción o hay error de "no encontrado", devolvemos una suscripción gratuita
+    if (!subscription || subscriptionError?.code === 'PGRST116') {
+      const freePlan: Subscription = {
+        id: 'free',
+        user_id: session.user.id,
+        paypal_subscription_id: null,
         plan_type: 'Free',
-        plan_interval: 'month',
+        plan_interval: 'monthly',
         plan_currency: 'USD',
-        plan_status: 'active',
-        subscription_date: profile.created_at,
-        plan_validity_end: null,
-        plan_features: ['Acceso básico']
-      });
+        plan_value: 0,
+        plan_features: ['Acceso básico'],
+        status: 'expired',
+        payment_method: 'none',
+        current_period_starts_at: new Date().toISOString(),
+        current_period_ends_at: new Date().toISOString(),
+        trial_ends_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        cancel_at_period_end: false,
+        metadata: {}
+      };
+      return NextResponse.json(freePlan);
     }
 
-    // Procesamos los features para asegurarnos de que sean strings
-    const features = subscription.subscription_plans?.features || [];
-    const processedFeatures = Array.isArray(features) 
-      ? features.map((feature: Feature | string) => {
-          if (typeof feature === 'string') return feature;
-          return feature.name;
-        })
-      : ['Acceso básico'];
+    // Procesamos los features
+    let planFeatures = ['Acceso básico'];
+    if (subscription.metadata?.features) {
+      planFeatures = subscription.metadata.features;
+    } else if (subscription.subscription_plans?.features) {
+      planFeatures = Array.isArray(subscription.subscription_plans.features)
+        ? subscription.subscription_plans.features.map((feature: Feature | string) => {
+            if (typeof feature === 'string') return feature;
+            return feature.name;
+          })
+        : ['Acceso básico'];
+    }
 
-    // Formateamos la respuesta
-    const response = {
+    // Formateamos la respuesta según el tipo Subscription
+    const response: Subscription = {
       id: subscription.id,
+      user_id: subscription.user_id,
       paypal_subscription_id: subscription.paypal_subscription_id,
-      plan_value: subscription.subscription_plans?.price || 0,
-      member_since: profile.created_at,
-      plan_type: subscription.subscription_plans?.name || 'Free',
-      plan_interval: subscription.subscription_plans?.interval || 'month',
+      plan_type: subscription.plan_type || subscription.subscription_plans?.name || 'Unknown',
+      plan_interval: subscription.subscription_plans?.interval || 'monthly',
       plan_currency: subscription.subscription_plans?.currency || 'USD',
-      plan_status: subscription.status || 'active',
-      subscription_date: subscription.created_at,
-      plan_validity_end: subscription.current_period_ends_at,
-      plan_features: processedFeatures
+      plan_value: subscription.subscription_plans?.price || 0,
+      plan_features: planFeatures,
+      status: subscription.status,
+      payment_method: 'PayPal',
+      current_period_starts_at: subscription.current_period_starts_at,
+      current_period_ends_at: subscription.current_period_ends_at,
+      trial_ends_at: subscription.trial_ends_at,
+      created_at: subscription.created_at,
+      updated_at: subscription.updated_at,
+      cancel_at_period_end: subscription.cancel_at_period_end || false,
+      metadata: subscription.metadata || {}
     };
 
     return NextResponse.json(response);

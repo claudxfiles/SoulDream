@@ -22,17 +22,21 @@ export interface SubscriptionPlan {
 export interface Subscription {
   id: string;
   user_id: string;
-  plan_id: string;
+  paypal_subscription_id: string | null;
+  plan_type: string;
+  plan_interval: string;
+  plan_currency: string;
+  plan_value: number;
+  plan_features: string[];
   status: SubscriptionStatus;
-  paypal_subscription_id?: string;
-  current_period_start: string;
-  current_period_end: string;
-  cancel_at_period_end: boolean;
-  cancelled_at?: string;
-  cancellation_reason?: string;
+  payment_method?: string;
+  current_period_starts_at: string;
+  current_period_ends_at: string;
+  trial_ends_at: string | null;
   created_at: string;
   updated_at: string;
-  plan: SubscriptionPlan;
+  cancel_at_period_end: boolean;
+  metadata?: Record<string, any>;
 }
 
 export interface SubscriptionDetails {

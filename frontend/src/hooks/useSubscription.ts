@@ -1,21 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-
-interface Subscription {
-  id: string;
-  paypal_subscription_id: string | null;
-  plan_value: number;
-  member_since: string;
-  plan_type: string;
-  plan_interval: string;
-  plan_currency: string;
-  plan_status: string;
-  subscription_date: string;
-  plan_validity_end: string | null;
-  plan_features: string[];
-  status: string;
-  payment_method?: string;
-}
+import type { Subscription } from '@/types/subscription';
 
 export const useSubscription = () => {
   const fetchSubscription = async (): Promise<Subscription> => {
@@ -71,7 +56,7 @@ export const useSubscription = () => {
             const { error: updateError } = await supabase
               .from('subscriptions')
               .update({
-                status: 'not_found',
+                status: 'expired',
                 updated_at: new Date().toISOString()
               })
               .eq('id', currentSub.id);
@@ -81,54 +66,53 @@ export const useSubscription = () => {
             });
           }
 
-          console.log('[useSubscription] Retornando plan gratuito');
+          // Retornar una suscripción gratuita con el tipo correcto
           return {
             id: currentSub?.id || 'free',
+            user_id: session.user.id,
             paypal_subscription_id: null,
-            status: 'not_found',
             plan_type: 'free',
             plan_interval: 'monthly',
             plan_currency: 'USD',
             plan_value: 0,
-            plan_status: 'active',
-            member_since: new Date().toISOString(),
-            subscription_date: new Date().toISOString(),
-            plan_validity_end: null,
             plan_features: ['Plan Gratuito'],
-            payment_method: 'none'
+            status: 'expired',
+            payment_method: 'none',
+            current_period_starts_at: new Date().toISOString(),
+            current_period_ends_at: new Date().toISOString(),
+            trial_ends_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            cancel_at_period_end: false,
+            metadata: {}
           };
         }
         
         throw new Error(responseData.detail || 'Error al obtener la información de suscripción');
       }
 
-      // Aquí está el problema: la respuesta del servidor no está enviando los campos correctamente
-      // Modificamos para asegurar que todos los campos estén disponibles, usando valores por defecto si es necesario
+      // Convertir la respuesta al tipo Subscription correcto
       const subscription: Subscription = {
-        // Si estos campos no están presentes o son undefined, usamos valores por defecto
-        id: responseData.id || `temp-${new Date().getTime()}`,
+        id: responseData.id,
+        user_id: responseData.user_id,
         paypal_subscription_id: responseData.paypal_subscription_id || null,
+        plan_type: responseData.plan_type,
+        plan_interval: responseData.plan_interval,
+        plan_currency: responseData.plan_currency,
         plan_value: Number(responseData.plan_value || 0),
-        member_since: responseData.member_since || new Date().toISOString(),
-        plan_type: responseData.plan_type || 'Unknown',
-        plan_interval: responseData.plan_interval || 'monthly',
-        plan_currency: responseData.plan_currency || 'USD',
-        plan_status: responseData.plan_status || 'unknown',
-        subscription_date: responseData.subscription_date || new Date().toISOString(),
-        plan_validity_end: responseData.plan_validity_end || null,
         plan_features: Array.isArray(responseData.plan_features) ? responseData.plan_features : [],
-        // Usar status o plan_status como fallback
-        status: responseData.status || responseData.plan_status || 'unknown',
-        payment_method: responseData.payment_method || 'PayPal'
+        status: responseData.status,
+        payment_method: responseData.payment_method || 'PayPal',
+        current_period_starts_at: responseData.current_period_starts_at,
+        current_period_ends_at: responseData.current_period_ends_at,
+        trial_ends_at: responseData.trial_ends_at || null,
+        created_at: responseData.created_at,
+        updated_at: responseData.updated_at,
+        cancel_at_period_end: responseData.cancel_at_period_end || false,
+        metadata: responseData.metadata || {}
       };
 
-      console.log('[useSubscription] Datos de suscripción procesados:', {
-        id: subscription.id,
-        paypalId: subscription.paypal_subscription_id,
-        status: subscription.status,
-        planType: subscription.plan_type,
-        allData: subscription
-      });
+      console.log('[useSubscription] Datos de suscripción procesados:', subscription);
 
       return subscription;
     } catch (error) {
