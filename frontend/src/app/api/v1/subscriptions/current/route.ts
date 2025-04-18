@@ -10,6 +10,17 @@ interface Feature {
   included: boolean;
 }
 
+const getPlanName = (subscription: any): string => {
+  const baseName = subscription.subscription_plans?.name || 'SoulDream Pro';
+  const isTrialActive = subscription.trial_ends_at && new Date(subscription.trial_ends_at) > new Date();
+  
+  if (isTrialActive) {
+    return `${baseName} (Período de prueba)`;
+  }
+  
+  return baseName;
+};
+
 export async function GET() {
   try {
     const supabase = createRouteHandlerClient({ cookies });
@@ -58,7 +69,7 @@ export async function GET() {
         id: 'free',
         user_id: session.user.id,
         paypal_subscription_id: null,
-        plan_type: 'Free',
+        plan_type: 'SoulDream Free',
         plan_interval: 'monthly',
         plan_currency: 'USD',
         plan_value: 0,
@@ -94,7 +105,7 @@ export async function GET() {
       id: subscription.id,
       user_id: subscription.user_id,
       paypal_subscription_id: subscription.paypal_subscription_id,
-      plan_type: subscription.plan_type || subscription.subscription_plans?.name || 'Unknown',
+      plan_type: getPlanName(subscription),
       plan_interval: subscription.subscription_plans?.interval || 'monthly',
       plan_currency: subscription.subscription_plans?.currency || 'USD',
       plan_value: subscription.subscription_plans?.price || 0,
