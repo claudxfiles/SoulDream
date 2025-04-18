@@ -1,0 +1,111 @@
+## Suscripciones PayPal SoulDream
+
+1. Control de Período de Prueba
+    - Cada usuario SOLO PUEDE tener un trial de 7 días por plan.
+    - Si es la PRIMERA vez que se suscribe:
+        -`trial_ends_at = fecha actual + 7 días`
+    - Si ya usó el trial en ese plan:
+        -`trial_ends_at = null` en nuevas suscripciones.
+    - Antes de crear cualquier nueva suscripción, verifica si existe alguna anterior de ese usuario y plan donde trial_ends_at IS NOT NULL.
+    - Cuando termina el trial, el usuario sigue "activo" si no cancela.
+
+
+2. Base de datos (Supabase)
+    - Tabla `subscriptions`:
+        - Requeridos: id, user_id, paypal_subscription_id, plan_id, status, current_period_starts_at, current_period_ends_at, trial_ends_at.
+    - (Opcional recomendado): Tabla `trial_usage`
+        - user_id, plan_id, trial_used (boolean), trial_start_date, trial_end_date.
+        - Marca como `trial_used: true` cuando termine el trial (aunque ya lo controla también `subscriptions`).
+    - Tabla `subscription_plans`:
+        - Añade columna `trial_days integer default 7;`
+
+3. Al Crear una Nueva Suscripción
+  - Consulta si YA tuvo trial para ese plan (busca en `subscriptions` o `trial_usage` por user+plan_id y `trial_ends_at not null`).
+  - Si no ha tenido, configura `trial_ends_at = fecha_actual + trial_days`.
+  - Si ya lo tuvo, `trial_ends_at = null`, y NO le activas periodo de prueba en PayPal al crear la suscripción.
+  - Guarda siempre: inicio y fin de periodo (`current_period_starts_at` y `current_period_ends_at`).
+
+
+4. Al Cancelar la Suscripción
+  - Cambia `status` a "cancelled", pero no borres el registro.
+  - El usuario mantiene acceso hasta `current_period_ends_at` (incluso si está en período de prueba).
+  
+5. Reactivar Suscripción
+  - Permite reactivar sólo si la suscripción estaba cancelada y sigue vigente el período actual (`current_period_ends_at > fecha_actual`).
+  - Si reactiva DENTRO del trial, sigue teniendo trial hasta `trial_ends_at`.
+  - Reactivar NUNCA debe otorgar un nuevo periodo de prueba.
+  - Si usas el API de PayPal:
+    - Primero reactiva vía API (PATCH `/v1/billing/subscriptions/{id}/activate`).
+    - Luego actualiza el estado en Supabase.
+
+6. UI
+  - Si `status` es "active" o "cancelled" y periodo actual no ha expirado:
+    - Mostrar botón "Reactivar suscripción" y la fecha final próxima.
+  - Si está en trial, mostrar exactamente cuántos días de trial le quedan.
+  - Si ya tuvo trial, mostrar explícitamente "No disponible periodo de prueba nuevamente" en la opción de nueva suscripción.
+
+7. Seguridad y Control Anti-abuso
+  - Nunca otorgues trial si existe un `trial_ends_at` no null en `subscriptions` (de ese user+plan), aunque la suscripción esté cancelada o vencida.
+  - Haz la validación en backend y también sincroniza el frontend.
+
+
+Agregar columna trial_days:
+```
+ALTER TABLE subscription_plans ADD COLUMN trial_days integer DEFAULT 7;
+```
+
+Chequeo antes de permitir trial:
+
+```
+SELECT COUNT(*) FROM subscriptions WHERE user_id = '{USER_ID}' AND plan_id = '{PLAN_ID}' AND trial_ends_at IS NOT NULL;
+```
+Si resultado > 0, NO DAR trial.
+
+## A. Crear suscripción: código Next.js / Supabase
+```tsx
+const { data: prevTrial } = await supabase
+  .from('subscriptions')
+  .select('trial_ends_at')
+  .eq('user_id', userId)
+  .eq('plan_id', planData.id)
+  .not('trial_ends_at', 'is', null)
+  .limit(1);
+
+let giveTrial = !(prevTrial && prevTrial.length > 0);
+let trialEndsAt = null;
+if (giveTrial) {
+  trialEndsAt = new Date();
+  trialEndsAt.setDate(trialEndsAt.getDate() + (planData.trial_days ?? 7));
+}
+const subscriptionData = {
+  ...,
+  trial_ends_at: trialEndsAt ? trialEndsAt.toISOString() : null,
+  ...
+};
+```
+## B. Botón Reactivar Suscripción: lógica
+```tsx 
+if (
+  subscription.status === "cancelled" &&
+  new Date(subscription.current_period_ends_at) > new Date()
+) {
+  // Mostrar botón "Reactivar Suscripción"
+}
+```
+
+## Al reactivar:
+
+```tsx 
+await supabase
+  .from('subscriptions')
+  .update({ status: "active" })
+  .eq('id', subscription.id);
+// Si usas PayPal API, reactiva ahí primero.
+```
+
+Guía de pasos
+1. Consulta si puede tener trial (sql/código).
+2. Crea la suscripción: trial sólo si corresponde.
+3. Cancelar: solo status = cancelled.
+4. Reactivar: sólo si vigente y "cancelled".
+5. NO reinicies trial nunca después de usado.
