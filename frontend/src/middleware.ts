@@ -73,15 +73,21 @@ export async function middleware(req: NextRequest) {
       };
 
       const hasValidSubscription = subscription && (
-        // Suscripción activa
-        (subscription.status === 'active') ||
+        // Suscripción activa (no cancelada al final del período)
+        (subscription.status === 'active' && !subscription.cancel_at_period_end) ||
+        
+        // Suscripción activa pero cancelada al final del período
+        (subscription.status === 'active' && 
+         subscription.cancel_at_period_end && 
+         isDateValid(subscription.current_period_ends_at)) ||
         
         // En período de prueba
-        (subscription.status === 'active' && subscription.trial_ends_at && isDateValid(subscription.trial_ends_at)) ||
+        (subscription.status === 'active' && 
+         subscription.trial_ends_at && 
+         isDateValid(subscription.trial_ends_at)) ||
         
-        // Suscripción cancelada pero aún en período pagado
-        (subscription.status === 'cancelled' && 
-         !subscription.cancel_at_period_end && 
+        // Suscripción suspendida pero aún en período pagado
+        (subscription.status === 'suspended' && 
          isDateValid(subscription.current_period_ends_at))
       );
 

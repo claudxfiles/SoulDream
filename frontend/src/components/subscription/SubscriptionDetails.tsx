@@ -1,6 +1,6 @@
 import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
-import { Loader2, Clock, X, Settings, CreditCard, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Loader2, Clock, X, Settings, CreditCard, CheckCircle2, RefreshCw, PauseCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/components/ui/use-toast';
 import { useState, useEffect } from 'react';
@@ -21,7 +21,7 @@ import { supabase } from '@/lib/supabase';
 const formatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return 'No disponible';
   const date = new Date(dateString);
-  return isValid(date) ? format(date, 'PP', { locale: es }) : 'Fecha inválida';
+  return isValid(date) ? format(date, 'dd/MM/yyyy', { locale: es }) : 'Fecha inválida';
 };
 
 // Función para calcular días restantes de manera segura
@@ -36,17 +36,25 @@ export const SubscriptionDetails = () => {
   const router = useRouter();
   const [isCancelling, setIsCancelling] = useState(false);
   const [isReactivating, setIsReactivating] = useState(false);
+  const [isSuspending, setIsSuspending] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showReactivateDialog, setShowReactivateDialog] = useState(false);
+  const [showNewSubscriptionDialog, setShowNewSubscriptionDialog] = useState(false);
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
 
-  const isTrialActive = subscription?.trial_ends_at && new Date(subscription.trial_ends_at) > new Date();
+  const now = new Date();
+  const isTrialActive = subscription?.trial_ends_at && new Date(subscription.trial_ends_at) > now;
   const isSubscriptionActive = subscription?.status === 'active';
-  const isCancelled = subscription?.status === 'cancelled';
-  const canReactivate = isCancelled && subscription?.current_period_ends_at && 
-    new Date(subscription.current_period_ends_at) > new Date();
+  const isCancelled = subscription?.cancel_at_period_end === true;
+  const isSuspended = subscription?.status === 'suspended';
+  const canReactivate = (isSuspended) && 
+    subscription?.current_period_ends_at && 
+    new Date(subscription.current_period_ends_at) > now;
   
   const trialDaysLeft = subscription?.trial_ends_at ? 
     calculateDaysLeft(subscription.trial_ends_at) : 0;
+
+  const periodEndsAt = subscription?.current_period_ends_at || subscription?.trial_ends_at;
 
   // Log subscription data when it changes
   useEffect(() => {
@@ -56,6 +64,8 @@ export const SubscriptionDetails = () => {
         paypalId: subscription.paypal_subscription_id,
         status: subscription.status,
         planType: subscription.plan_type,
+        trialEndsAt: subscription.trial_ends_at,
+        currentPeriodEndsAt: subscription.current_period_ends_at,
         allData: subscription
       });
     }
@@ -66,7 +76,7 @@ export const SubscriptionDetails = () => {
   };
 
   const handleViewHistory = () => {
-    router.push('/dashboard/profile/subscription/history');
+    router.push('/dashboard/profile/history');
   };
 
   const handleReactivateSubscription = async () => {
@@ -92,6 +102,12 @@ export const SubscriptionDetails = () => {
       });
 
       const data = await response.json();
+
+      if (data.action === 'CREATE_NEW') {
+        setShowReactivateDialog(false);
+        setShowNewSubscriptionDialog(true);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Error al reactivar la suscripción');
@@ -161,6 +177,57 @@ export const SubscriptionDetails = () => {
       });
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleSuspendSubscription = async () => {
+    if (!subscription?.paypal_subscription_id) {
+      toast({
+        title: 'Error',
+        description: 'No se encontró la información de suscripción.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsSuspending(true);
+      const response = await fetch('/api/subscriptions/suspend', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscriptionId: subscription.paypal_subscription_id,
+          reason: 'User requested suspension'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.status && data.status !== 'active') {
+          throw new Error(`No se puede suspender la suscripción porque está en estado: ${data.status}`);
+        }
+        throw new Error(data.error || 'Error al suspender la suscripción');
+      }
+
+      toast({
+        title: 'Suscripción Suspendida',
+        description: 'Tu suscripción ha sido suspendida exitosamente. Puedes reactivarla cuando lo desees.',
+      });
+
+      setShowSuspendDialog(false);
+      refetch();
+    } catch (error) {
+      console.error('[SubscriptionDetails] Error en suspensión:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Error al suspender la suscripción',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSuspending(false);
     }
   };
 
@@ -284,18 +351,7 @@ export const SubscriptionDetails = () => {
                 Historial
               </Button>
 
-              {isSubscriptionActive && (
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowConfirmDialog(true)}
-                  className="w-full text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
-                  disabled={isCancelling}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  {isCancelling ? 'Cancelando...' : 'Cancelar Suscripción'}
-                </Button>
-              )}
-
+              {/* Botón de Reactivar si está suspendida o cancelada */}
               {canReactivate && (
                 <Button
                   variant="outline"
@@ -305,6 +361,32 @@ export const SubscriptionDetails = () => {
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   {isReactivating ? 'Reactivando...' : 'Reactivar Suscripción'}
+                </Button>
+              )}
+
+              {/* Botón de Suspender solo si está activa y no cancelada */}
+              {isSubscriptionActive && !isCancelled && !isSuspended && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSuspendDialog(true)}
+                  className="w-full border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                  disabled={isSuspending}
+                >
+                  <PauseCircle className="h-4 w-4 mr-2" />
+                  {isSuspending ? 'Suspendiendo...' : 'Suspender Suscripción'}
+                </Button>
+              )}
+
+              {/* Botón de Cancelar solo si está activa y no cancelada */}
+              {isSubscriptionActive && !isCancelled && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowConfirmDialog(true)}
+                  className="w-full text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                  disabled={isCancelling}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  {isCancelling ? 'Cancelando...' : 'Cancelar Suscripción'}
                 </Button>
               )}
             </div>
@@ -318,7 +400,7 @@ export const SubscriptionDetails = () => {
           <DialogHeader>
             <DialogTitle>¿Estás seguro de que deseas cancelar tu suscripción?</DialogTitle>
             <DialogDescription>
-              Tu suscripción permanecerá activa hasta el {formatDate(subscription?.current_period_ends_at)}.
+              Tu suscripción permanecerá activa hasta el {formatDate(periodEndsAt)}.
               Después de eso, perderás acceso a todas las funciones premium.
             </DialogDescription>
           </DialogHeader>
@@ -347,8 +429,7 @@ export const SubscriptionDetails = () => {
           <DialogHeader>
             <DialogTitle>¿Deseas reactivar tu suscripción?</DialogTitle>
             <DialogDescription>
-              Tu suscripción se reactivará inmediatamente y continuará después del período actual.
-              {isTrialActive && ` Tu período de prueba continuará hasta el ${formatDate(subscription?.trial_ends_at)}.`}
+              Tu suscripción se reactivará inmediatamente y continuará con la facturación normal.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -363,9 +444,69 @@ export const SubscriptionDetails = () => {
               variant="default"
               onClick={handleReactivateSubscription}
               disabled={isReactivating}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-emerald-500 hover:bg-emerald-600"
             >
               {isReactivating ? 'Reactivando...' : 'Sí, reactivar suscripción'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para Nueva Suscripción */}
+      <Dialog open={showNewSubscriptionDialog} onOpenChange={setShowNewSubscriptionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear Nueva Suscripción</DialogTitle>
+            <DialogDescription>
+              Tu suscripción anterior fue cancelada. Necesitas crear una nueva suscripción para continuar.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowNewSubscriptionDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                setShowNewSubscriptionDialog(false);
+                router.push('/dashboard/profile/subscription');
+              }}
+              className="bg-[#4f46e5] hover:bg-[#4f46e5]/90"
+            >
+              Crear Nueva Suscripción
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Suspensión */}
+      <Dialog open={showSuspendDialog} onOpenChange={setShowSuspendDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Deseas suspender tu suscripción?</DialogTitle>
+            <DialogDescription>
+              Tu suscripción será suspendida temporalmente. Podrás reactivarla en cualquier momento.
+              Durante la suspensión, no tendrás acceso a las funciones premium.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSuspendDialog(false)}
+              disabled={isSuspending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleSuspendSubscription}
+              disabled={isSuspending}
+              className="bg-yellow-500 hover:bg-yellow-600"
+            >
+              {isSuspending ? 'Suspendiendo...' : 'Sí, suspender suscripción'}
             </Button>
           </DialogFooter>
         </DialogContent>
