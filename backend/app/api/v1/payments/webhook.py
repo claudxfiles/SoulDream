@@ -624,6 +624,26 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
     """Maneja el evento de suscripción cancelada"""
     try:
         print("[PayPal Debug] Iniciando handle_subscription_cancelled")
+        
+        # Verificar conexión a la base de datos
+        print("[PayPal Debug] Verificando conexión a la base de datos...")
+        try:
+            # Intentar una consulta simple para verificar la conexión
+            test_query = supabase.table("subscriptions").select("count").execute()
+            print(f"[PayPal Debug] Prueba de conexión exitosa: {json.dumps(test_query.data if test_query else 'No data', indent=2)}")
+            
+            # Verificar si hay datos en la tabla
+            all_subs = supabase.table("subscriptions").select("*").execute()
+            print(f"[PayPal Debug] Total de suscripciones en la base de datos: {len(all_subs.data) if all_subs.data else 0}")
+            if all_subs.data:
+                print("[PayPal Debug] Muestra de IDs encontrados:")
+                for sub in all_subs.data[:5]:  # Mostrar solo los primeros 5
+                    print(f"- {sub.get('paypal_subscription_id', 'No ID')}")
+        except Exception as conn_error:
+            print(f"[PayPal Debug] Error verificando la conexión: {str(conn_error)}")
+            print(traceback.format_exc())
+            raise
+
         subscription_id = resource.get("id")
         print(f"[PayPal Debug] ID de suscripción a cancelar: {subscription_id}")
         print(f"[PayPal Debug] Longitud del ID: {len(subscription_id)}")
