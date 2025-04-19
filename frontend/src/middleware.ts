@@ -4,13 +4,11 @@ import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
   // 1. Forzar HTTPS en producción
-  if (process.env.NODE_ENV === 'production') {
-    if (req.url.startsWith('http://')) {
-      const url = new URL(req.url);
-      url.protocol = 'https:';
-      console.log('Redirigiendo a HTTPS:', url.toString());
-      return NextResponse.redirect(url);
-    }
+  if (process.env.NODE_ENV === 'production' && req.url.startsWith('http://')) {
+    const url = new URL(req.url);
+    url.protocol = 'https:';
+    console.log('Redirigiendo a HTTPS:', url.toString());
+    return NextResponse.redirect(url);
   }
 
   // 2. Configurar cliente de Supabase
@@ -47,17 +45,25 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
     
-    // 7. Permitir acceso a la ruta de reconexión de calendario incluso si el usuario está autenticado
-    if (req.nextUrl.pathname === '/auth/reconnect') {
+    // 7. Permitir acceso a rutas específicas sin verificación adicional
+    if (req.nextUrl.pathname === '/auth/reconnect' || 
+        req.nextUrl.pathname === '/dashboard/profile/subscription') {
+      // Evitar bucle de redirección para la página de suscripción
+      return res;
+    }
+
+    // Verificar si estamos en la página de suscripción con parámetro success
+    if (req.nextUrl.pathname === '/dashboard/profile/subscription' && 
+        req.nextUrl.searchParams.get('success') === 'true') {
+      // Permitir acceso sin verificar suscripción para evitar bucles
       return res;
     }
 
     // 8. Verificar suscripción para rutas del dashboard (excepto la página de suscripción)
-    if (session && 
-        req.nextUrl.pathname.startsWith('/dashboard') && 
+    if (session && req.nextUrl.pathname.startsWith('/dashboard') && 
         !req.nextUrl.pathname.includes('/profile/subscription')) {
       
-      // Verificar suscripción considerando período de prueba y fechas de validez
+      // Combinar ambos enfoques de verificación de suscripción
       const { data: subscription } = await supabase
         .from('subscriptions')
         .select('status, trial_ends_at, current_period_ends_at, plan_type, cancel_at_period_end')
@@ -93,15 +99,18 @@ export async function middleware(req: NextRequest) {
 
       // Si no tiene suscripción válida, redirigir a la página de suscripción
       if (!hasValidSubscription) {
-        console.log('Subscription invalid:', {
+        console.log('Suscripción inválida:', {
           status: subscription?.status,
           trial_ends_at: subscription?.trial_ends_at,
           current_period_ends_at: subscription?.current_period_ends_at,
           cancel_at_period_end: subscription?.cancel_at_period_end
         });
-        return NextResponse.redirect(
-          new URL('/dashboard/profile/subscription', req.url)
-        );
+        
+        // Evitamos redirecciones en bucle verificando si ya estamos en la ruta de destino
+        const subscriptionUrl = new URL('/dashboard/profile/subscription', req.url);
+        if (req.nextUrl.pathname !== subscriptionUrl.pathname) {
+          return NextResponse.redirect(subscriptionUrl);
+        }
       }
     }
 
