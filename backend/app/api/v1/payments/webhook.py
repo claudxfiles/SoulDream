@@ -181,45 +181,27 @@ async def verify_paypal_webhook(request: Request) -> bool:
 
 @router.post("/api/payments/webhook")
 async def handle_paypal_webhook(request: Request):
-    """
-    Maneja los eventos del webhook de PayPal.
-    
-    PayPal reintentará hasta 25 veces durante 3 días si no recibe un código 2xx.
-    Por lo tanto:
-    1. Siempre devolvemos 200 si recibimos el webhook (incluso si hay error de verificación)
-    2. Solo procesamos el webhook si la verificación es exitosa
-    """
     try:
-        print("[PayPal Debug] ====== INICIO DE PROCESAMIENTO DE WEBHOOK ======")
-        print("[PayPal Debug] Verificando configuración de Supabase...")
-        
-        # Verificar configuración de Supabase
-        supabase_url = os.getenv("SUPABASE_URL", "")
-        # Solo mostrar los primeros caracteres de la key por seguridad
-        supabase_key = os.getenv("SUPABASE_KEY", "")[:10] + "..." if os.getenv("SUPABASE_KEY") else ""
-        
-        print(f"[PayPal Debug] URL de Supabase: {supabase_url}")
-        print(f"[PayPal Debug] Key de Supabase (primeros caracteres): {supabase_key}")
-        
-        # Obtener el payload primero para asegurar que podemos leerlo
-        try:
-            payload = await request.json()
-            print(f"[PayPal Debug] Payload recibido: {json.dumps(payload, indent=2)}")
-        except json.JSONDecodeError as e:
-            print(f"[PayPal Debug] Error decodificando JSON: {str(e)}")
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "status": "error",
-                    "message": "Invalid JSON payload",
-                    "error": str(e),
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            )
-
-        # Procesar el evento directamente sin verificación por ahora
+        # Obtener el payload
+        payload = await request.json()
         event_type = payload.get("event_type")
-        print(f"[PayPal Debug] Tipo de evento recibido: {event_type}")
+        
+        # Registrar TODOS los eventos recibidos, independientemente del procesamiento
+        try:
+            event_record = {
+                "event_type": event_type,
+                "subscription_id": payload.get("resource", {}).get("id"),
+                "plan_id": payload.get("resource", {}).get("plan_id"),
+                "status": payload.get("resource", {}).get("status"),
+                "processed_at": datetime.utcnow().isoformat(),
+                "raw_data": json.dumps(payload)
+            }
+            
+            supabase = get_supabase_client()
+            await supabase.table("paypal_events").insert(event_record).execute()
+            print(f"[PayPal Debug] Evento {event_type} registrado en la tabla de eventos")
+        except Exception as e:
+            print(f"[PayPal Debug] Error al registrar evento en tabla de eventos: {str(e)}")
 
         # Obtener cliente de Supabase
         try:
@@ -633,6 +615,35 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
     try:
         print("[PayPal Debug] Iniciando handle_subscription_cancelled")
         
+        # Obtener detalles del evento
+        subscription_id = resource.get("id")
+        now = datetime.utcnow().isoformat()
+        plan_id = resource.get("plan_id")
+        status = resource.get("status")
+        
+        # Información detallada sobre el evento
+        print(f"[PayPal Debug] Detalles del webhook: ID={subscription_id}, Plan={plan_id}, Status={status}")
+        
+        # Si el evento ya indica que la suscripción está cancelada, simplemente registramos el evento
+        # pero no intentamos cancelar nada en nuestra base de datos
+        is_already_cancelled = status == "CANCELLED"
+        if is_already_cancelled:
+            print(f"[PayPal Debug] La suscripción {subscription_id} ya está cancelada en PayPal")
+            
+            # Registrar el evento en payment_history o en una tabla de eventos sin asociar a una suscripción
+            event_data = {
+                "event_type": "SUBSCRIPTION_CANCELLED_NOTIFICATION",
+                "subscription_id": subscription_id,
+                "plan_id": plan_id,
+                "status": status,
+                "processed_at": now,
+                "raw_data": json.dumps(resource)
+            }
+            
+            # Guardar en una tabla de eventos para tener registro 
+            await supabase.table("paypal_events").insert(event_data).execute()
+            print(f"[PayPal Debug] Evento registrado para suscripción ya cancelada: {subscription_id}")
+            return
         # Verificar conexión a la base de datos
         print("[PayPal Debug] Verificando conexión a la base de datos...")
         try:
