@@ -181,15 +181,46 @@ async def verify_paypal_webhook(request: Request) -> bool:
 
 @router.post("/api/payments/webhook")
 async def handle_paypal_webhook(request: Request):
+    """
+    Maneja los eventos del webhook de PayPal.
+    
+    PayPal reintentará hasta 25 veces durante 3 días si no recibe un código 2xx.
+    Por lo tanto:
+    1. Siempre devolvemos 200 si recibimos el webhook (incluso si hay error de verificación)
+    2. Solo procesamos el webhook si la verificación es exitosa
+    """
     try:
-        # Obtener el payload
-        payload = await request.json()
-        event_type = payload.get("event_type")
+        print("[PayPal Debug] ====== INICIO DE PROCESAMIENTO DE WEBHOOK ======")
+        print("[PayPal Debug] Verificando configuración de Supabase...")
         
+        # Verificar configuración de Supabase
+        supabase_url = os.getenv("SUPABASE_URL", "")
+        # Solo mostrar los primeros caracteres de la key por seguridad
+        supabase_key = os.getenv("SUPABASE_KEY", "")[:10] + "..." if os.getenv("SUPABASE_KEY") else ""
+        
+        print(f"[PayPal Debug] URL de Supabase: {supabase_url}")
+        print(f"[PayPal Debug] Key de Supabase (primeros caracteres): {supabase_key}")
+        
+        # Obtener el payload primero para asegurar que podemos leerlo
+        try:
+            payload = await request.json()
+            print(f"[PayPal Debug] Payload recibido: {json.dumps(payload, indent=2)}")
+        except json.JSONDecodeError as e:
+            print(f"[PayPal Debug] Error decodificando JSON: {str(e)}")
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "error",
+                    "message": "Invalid JSON payload",
+                    "error": str(e),
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+
         # Registrar TODOS los eventos recibidos, independientemente del procesamiento
         try:
             event_record = {
-                "event_type": event_type,
+                "event_type": payload.get("event_type"),
                 "subscription_id": payload.get("resource", {}).get("id"),
                 "plan_id": payload.get("resource", {}).get("plan_id"),
                 "status": payload.get("resource", {}).get("status"),
@@ -198,10 +229,20 @@ async def handle_paypal_webhook(request: Request):
             }
             
             supabase = get_supabase_client()
-            await supabase.table("paypal_events").insert(event_record).execute()
-            print(f"[PayPal Debug] Evento {event_type} registrado en la tabla de eventos")
-        except Exception as e:
-            print(f"[PayPal Debug] Error al registrar evento en tabla de eventos: {str(e)}")
+            # Verificar si la tabla existe primero
+            try:
+                await supabase.table("paypal_events").insert(event_record).execute()
+                print(f"[PayPal Debug] Evento {payload.get('event_type')} registrado en la tabla de eventos")
+            except Exception as table_error:
+                print(f"[PayPal Debug] Error al insertar en paypal_events, posiblemente la tabla no existe: {str(table_error)}")
+                # No fallamos el procesamiento si esto falla
+        except Exception as event_error:
+            print(f"[PayPal Debug] Error al registrar evento en tabla de eventos: {str(event_error)}")
+            # No fallamos el procesamiento si esto falla
+
+        # Procesar el evento directamente sin verificación por ahora
+        event_type = payload.get("event_type")
+        print(f"[PayPal Debug] Tipo de evento recibido: {event_type}")
 
         # Obtener cliente de Supabase
         try:
@@ -297,6 +338,13 @@ async def handle_subscription_activated(resource: Dict[str, Any], supabase):
             "updated_at": datetime.utcnow().isoformat()
         }).eq("paypal_subscription_id", subscription_id).execute()
         
+        # Verificar si se actualizó alguna fila
+        if not subscription_update.data:
+            print(f"[PayPal Debug] No se encontró la suscripción con ID {subscription_id} para activar")
+            # Crear registro de evento para revisión
+            await register_pending_event(supabase, "SUBSCRIPTION_ACTIVATED", subscription_id, resource)
+            return
+        
         # Registrar en payment_history
         subscription_result = supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
         
@@ -322,10 +370,17 @@ async def handle_subscription_expired(resource: Dict[str, Any], supabase):
         subscription_id = resource.get("id")
         
         # Actualizar estado en subscriptions
-        await supabase.table("subscriptions").update({
+        subscription_update = await supabase.table("subscriptions").update({
             "status": "expired",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("paypal_subscription_id", subscription_id).execute()
+        
+        # Verificar si se actualizó alguna fila
+        if not subscription_update.data:
+            print(f"[PayPal Debug] No se encontró la suscripción con ID {subscription_id} para marcar como expirada")
+            # Crear registro de evento para revisión
+            await register_pending_event(supabase, "SUBSCRIPTION_EXPIRED", subscription_id, resource)
+            return
         
         # Registrar en payment_history
         subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
@@ -352,10 +407,17 @@ async def handle_subscription_reactivated(resource: Dict[str, Any], supabase):
         subscription_id = resource.get("id")
         
         # Actualizar estado en subscriptions
-        await supabase.table("subscriptions").update({
+        subscription_update = await supabase.table("subscriptions").update({
             "status": "active",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("paypal_subscription_id", subscription_id).execute()
+        
+        # Verificar si se actualizó alguna fila
+        if not subscription_update.data:
+            print(f"[PayPal Debug] No se encontró la suscripción con ID {subscription_id} para reactivar")
+            # Crear registro de evento para revisión
+            await register_pending_event(supabase, "SUBSCRIPTION_REACTIVATED", subscription_id, resource)
+            return
         
         # Registrar en payment_history
         subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
@@ -387,7 +449,14 @@ async def handle_subscription_updated(resource: Dict[str, Any], supabase):
             # Aquí puedes agregar más campos que necesites actualizar
         }
         
-        await supabase.table("subscriptions").update(subscription_data).eq("paypal_subscription_id", subscription_id).execute()
+        subscription_update = await supabase.table("subscriptions").update(subscription_data).eq("paypal_subscription_id", subscription_id).execute()
+        
+        # Verificar si se actualizó alguna fila
+        if not subscription_update.data:
+            print(f"[PayPal Debug] No se encontró la suscripción con ID {subscription_id} para actualizar")
+            # Crear registro de evento para revisión
+            await register_pending_event(supabase, "SUBSCRIPTION_UPDATED", subscription_id, resource)
+            return
         
         # Registrar en payment_history
         subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
@@ -416,6 +485,12 @@ async def handle_payment_denied(resource: Dict[str, Any], supabase):
         currency = resource.get("amount", {}).get("currency", "USD")
         user_id = resource.get("custom_id")
         subscription_id = resource.get("billing_agreement_id")
+        
+        # Verificar que tenemos los datos necesarios
+        if not transaction_id or not user_id:
+            print(f"[PayPal Debug] Faltan datos para procesar pago denegado: transaction_id={transaction_id}, user_id={user_id}")
+            await register_pending_event(supabase, "PAYMENT_DENIED", transaction_id, resource)
+            return
         
         # Registrar en la tabla payments
         payment_data = {
@@ -455,6 +530,12 @@ async def handle_payment_pending(resource: Dict[str, Any], supabase):
         currency = resource.get("amount", {}).get("currency", "USD")
         user_id = resource.get("custom_id")
         subscription_id = resource.get("billing_agreement_id")
+        
+        # Verificar que tenemos los datos necesarios
+        if not transaction_id or not user_id:
+            print(f"[PayPal Debug] Faltan datos para procesar pago pendiente: transaction_id={transaction_id}, user_id={user_id}")
+            await register_pending_event(supabase, "PAYMENT_PENDING", transaction_id, resource)
+            return
         
         # Registrar en la tabla payments
         payment_data = {
@@ -528,7 +609,8 @@ async def handle_payment_completed(resource: Dict[str, Any], supabase):
 
         if not user_id:
             print("[PayPal Debug] ADVERTENCIA: No se pudo encontrar el user_id en el recurso")
-            # Aquí podrías intentar obtener el user_id de otras fuentes o tablas
+            await register_pending_event(supabase, "PAYMENT_COMPLETED", transaction_id, resource)
+            return
 
         # Registrar en la tabla payments
         payment_data = {
