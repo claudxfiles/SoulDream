@@ -703,82 +703,14 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
         plan_id = resource.get("plan_id")
         status = resource.get("status")
         
-        # Información detallada sobre el evento
         print(f"[PayPal Debug] Detalles del webhook: ID={subscription_id}, Plan={plan_id}, Status={status}")
         
-        # Si el evento ya indica que la suscripción está cancelada, simplemente registramos el evento
-        # pero no intentamos cancelar nada en nuestra base de datos
-        is_already_cancelled = status == "CANCELLED"
-        if is_already_cancelled:
-            print(f"[PayPal Debug] La suscripción {subscription_id} ya está cancelada en PayPal")
-            
-            # Registrar el evento en payment_history o en una tabla de eventos sin asociar a una suscripción
-            event_data = {
-                "event_type": "SUBSCRIPTION_CANCELLED_NOTIFICATION",
-                "subscription_id": subscription_id,
-                "plan_id": plan_id,
-                "status": status,
-                "processed_at": now,
-                "raw_data": json.dumps(resource)
-            }
-            
-            # Guardar en una tabla de eventos para tener registro 
-            await supabase.table("paypal_events").insert(event_data).execute()
-            print(f"[PayPal Debug] Evento registrado para suscripción ya cancelada: {subscription_id}")
-            return
-        # Verificar conexión a la base de datos
-        print("[PayPal Debug] Verificando conexión a la base de datos...")
-        try:
-            # Intentar una consulta simple para verificar la conexión
-            test_query = supabase.table("subscriptions").select("count").execute()
-            print(f"[PayPal Debug] Prueba de conexión exitosa: {json.dumps(test_query.data if test_query else 'No data', indent=2)}")
-            
-            # Verificar si hay datos en la tabla
-            all_subs = supabase.table("subscriptions").select("*").execute()
-            print(f"[PayPal Debug] Total de suscripciones en la base de datos: {len(all_subs.data) if all_subs.data else 0}")
-            if all_subs.data:
-                print("[PayPal Debug] Muestra de IDs encontrados:")
-                for sub in all_subs.data[:5]:  # Mostrar solo los primeros 5
-                    print(f"- {sub.get('paypal_subscription_id', 'No ID')}")
-        except Exception as conn_error:
-            print(f"[PayPal Debug] Error verificando la conexión: {str(conn_error)}")
-            print(traceback.format_exc())
-            raise
-
-        subscription_id = resource.get("id")
-        print(f"[PayPal Debug] ID de suscripción a cancelar: {subscription_id}")
-        print(f"[PayPal Debug] Longitud del ID: {len(subscription_id)}")
-        print(f"[PayPal Debug] ID en mayúsculas: {subscription_id.upper()}")
-        now = datetime.utcnow().isoformat()
-        
-        # Obtener la suscripción actual
+        # Buscar la suscripción en la base de datos
         print("[PayPal Debug] Buscando suscripción en la base de datos...")
-        try:
-            # Intentar búsqueda directa
-            subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
-            print(f"[PayPal Debug] Query realizado: SELECT * FROM subscriptions WHERE paypal_subscription_id = '{subscription_id}'")
-            print(f"[PayPal Debug] Resultado de búsqueda directa: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
-            
-            # Si no se encuentra, intentar con el ID en mayúsculas
-            if not subscription_result.data:
-                print("[PayPal Debug] Intentando búsqueda con ID en mayúsculas...")
-                subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id.upper()).execute()
-                print(f"[PayPal Debug] Resultado de búsqueda en mayúsculas: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
-            
-            # Si aún no se encuentra, intentar con ilike
-            if not subscription_result.data:
-                print("[PayPal Debug] Intentando búsqueda con ILIKE...")
-                subscription_result = supabase.table("subscriptions").select("*").ilike("paypal_subscription_id", f"%{subscription_id}%").execute()
-                print(f"[PayPal Debug] Resultado de búsqueda con ILIKE: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
-            
-            if not subscription_result.data:
-                print(f"[PayPal Debug] No se encontró la suscripción con ID: {subscription_id}")
-                # Hacer una búsqueda general para debug
-                all_subs = supabase.table("subscriptions").select("paypal_subscription_id").execute()
-                print("[PayPal Debug] IDs de suscripción en la base de datos:")
-                print(json.dumps(all_subs.data if all_subs else 'No data', indent=2))
-                return
-            
+        subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
+        print(f"[PayPal Debug] Resultado de búsqueda: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
+        
+        if subscription_result.data:
             subscription_data = subscription_result.data[0]
             print(f"[PayPal Debug] Datos de suscripción encontrados: {json.dumps(subscription_data, indent=2)}")
             
@@ -790,15 +722,14 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
                 "cancel_at_period_end": True
             }
             
-            # Ejecutar la actualización
             update_result = supabase.table("subscriptions").update(update_data).eq("paypal_subscription_id", subscription_id).execute()
             print(f"[PayPal Debug] Resultado de la actualización: {json.dumps(update_result.data if update_result else 'No data', indent=2)}")
             
             # Registrar en payment_history
             print("[PayPal Debug] Registrando en payment_history...")
             history_data = {
-                "user_id": subscription_data["user_id"],
-                "subscription_id": subscription_data["id"],
+                "user_id": subscription_data.get("user_id"),
+                "subscription_id": subscription_id,
                 "amount": 0,
                 "currency": "USD",
                 "status": "subscription_cancelled",
@@ -816,13 +747,20 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
             print(f"[PayPal Debug] Resultado del registro en historial: {json.dumps(history_result.data if history_result else 'No data', indent=2)}")
             
             print(f"[PayPal Debug] Suscripción {subscription_id} cancelada exitosamente")
+        else:
+            print(f"[PayPal Debug] No se encontró la suscripción con ID: {subscription_id}")
+            # Registrar el evento para procesamiento posterior
+            event_data = {
+                "event_type": "SUBSCRIPTION_CANCELLED_UNMATCHED",
+                "subscription_id": subscription_id,
+                "plan_id": plan_id,
+                "status": status,
+                "processed_at": now,
+                "raw_data": json.dumps(resource)
+            }
+            supabase.table("paypal_events").insert(event_data).execute()
+            print(f"[PayPal Debug] Evento registrado para procesamiento posterior: {subscription_id}")
             
-        except Exception as db_error:
-            print(f"[PayPal Debug] Error en operación de base de datos: {str(db_error)}")
-            print("[PayPal Debug] Stacktrace de error de DB:")
-            print(traceback.format_exc())
-            raise
-        
     except Exception as e:
         print(f"[PayPal Debug] Error procesando cancelación de suscripción: {str(e)}")
         print("[PayPal Debug] Stacktrace completo:")
