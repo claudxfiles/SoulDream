@@ -19,6 +19,7 @@ import hashlib
 import logging
 import traceback
 from fastapi.responses import JSONResponse
+import uuid
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -181,149 +182,164 @@ async def verify_paypal_webhook(request: Request) -> bool:
 
 @router.post("/api/payments/webhook")
 async def handle_paypal_webhook(request: Request):
-    """
-    Maneja los eventos del webhook de PayPal.
-    
-    PayPal reintentará hasta 25 veces durante 3 días si no recibe un código 2xx.
-    Por lo tanto:
-    1. Siempre devolvemos 200 si recibimos el webhook (incluso si hay error de verificación)
-    2. Solo procesamos el webhook si la verificación es exitosa
-    """
     try:
         print("[PayPal Debug] ====== INICIO DE PROCESAMIENTO DE WEBHOOK ======")
         print("[PayPal Debug] Verificando configuración de Supabase...")
         
         # Verificar configuración de Supabase
         supabase_url = os.getenv("SUPABASE_URL", "")
-        # Solo mostrar los primeros caracteres de la key por seguridad
         supabase_key = os.getenv("SUPABASE_KEY", "")[:10] + "..." if os.getenv("SUPABASE_KEY") else ""
         
         print(f"[PayPal Debug] URL de Supabase: {supabase_url}")
         print(f"[PayPal Debug] Key de Supabase (primeros caracteres): {supabase_key}")
         
-        # Obtener el payload primero para asegurar que podemos leerlo
+        # Obtener el payload y validar su estructura
         try:
             payload = await request.json()
             print(f"[PayPal Debug] Payload recibido: {json.dumps(payload, indent=2)}")
-        except json.JSONDecodeError as e:
-            print(f"[PayPal Debug] Error decodificando JSON: {str(e)}")
+            
+            # Validar campos requeridos
+            if not isinstance(payload, dict):
+                raise ValueError("Payload must be a JSON object")
+                
+            event_type = payload.get("event_type")
+            if not event_type:
+                raise ValueError("Missing event_type in payload")
+                
+            resource = payload.get("resource")
+            if not isinstance(resource, dict):
+                raise ValueError("Missing or invalid resource object in payload")
+                
+            # Extraer subscription_id con validación
+            subscription_id = resource.get("id")
+            if not subscription_id:
+                # Intentar encontrar subscription_id en otros lugares del payload
+                subscription_id = (
+                    resource.get("subscription_id") or 
+                    resource.get("billing_agreement_id") or 
+                    f"temp_{datetime.utcnow().timestamp()}"  # ID temporal si no se encuentra
+                )
+            
+            print(f"[PayPal Debug] Subscription ID extraído: {subscription_id}")
+            
+            # Preparar datos para inserción
+            event_record = {
+                "id": str(uuid.uuid4()),  # Generar UUID explícitamente
+                "event_type": event_type,
+                "subscription_id": subscription_id,
+                "plan_id": resource.get("plan_id"),
+                "status": resource.get("status") or "unknown",
+                "processed_at": datetime.utcnow().isoformat(),
+                "raw_data": json.dumps(payload),
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            print(f"[PayPal Debug] Datos a insertar en paypal_events: {json.dumps(event_record, indent=2)}")
+            
+            # Obtener cliente de Supabase
+            supabase = get_supabase_client()
+            print("[PayPal Debug] Cliente Supabase obtenido correctamente")
+            
+            # Insertar en paypal_events
+            try:
+                print("[PayPal Debug] Intentando insertar en paypal_events...")
+                insert_result = supabase.table("paypal_events").insert(event_record).execute()
+                print(f"[PayPal Debug] Resultado de inserción en paypal_events: {json.dumps(insert_result.data if insert_result else 'No data', indent=2)}")
+                
+                # Verificar que se insertó correctamente
+                verify_result = supabase.table("paypal_events").select("*").eq("id", event_record["id"]).execute()
+                print(f"[PayPal Debug] Verificación de inserción: {json.dumps(verify_result.data if verify_result else 'No data', indent=2)}")
+                
+                # Verificar si se creó el registro en paypal_events_log
+                log_result = supabase.table("paypal_events_log").select("*").eq("event_id", event_record["id"]).execute()
+                print(f"[PayPal Debug] Verificación de log: {json.dumps(log_result.data if log_result else 'No data', indent=2)}")
+                
+            except Exception as insert_error:
+                print(f"[PayPal Debug] Error insertando en paypal_events: {str(insert_error)}")
+                print("[PayPal Debug] Stacktrace completo:")
+                print(traceback.format_exc())
+                # Intentar inserción directa en la base de datos
+                try:
+                    print("[PayPal Debug] Intentando inserción directa via SQL...")
+                    sql_result = supabase.raw("""
+                        INSERT INTO paypal_events (
+                            id, event_type, subscription_id, plan_id, status, 
+                            processed_at, raw_data, created_at, updated_at
+                        ) VALUES (
+                            :id, :event_type, :subscription_id, :plan_id, :status,
+                            :processed_at, :raw_data::jsonb, :created_at, :updated_at
+                        ) RETURNING *
+                    """, {
+                        "id": event_record["id"],
+                        "event_type": event_record["event_type"],
+                        "subscription_id": event_record["subscription_id"],
+                        "plan_id": event_record["plan_id"],
+                        "status": event_record["status"],
+                        "processed_at": event_record["processed_at"],
+                        "raw_data": event_record["raw_data"],
+                        "created_at": event_record["created_at"],
+                        "updated_at": event_record["updated_at"]
+                    }).execute()
+                    print(f"[PayPal Debug] Resultado de inserción SQL: {json.dumps(sql_result.data if sql_result else 'No data', indent=2)}")
+                except Exception as sql_error:
+                    print(f"[PayPal Debug] Error en inserción SQL: {str(sql_error)}")
+                    print(traceback.format_exc())
+                    raise
+            
+            # Procesar el evento según su tipo
+            event_handlers = {
+                "BILLING.SUBSCRIPTION.ACTIVATED": handle_subscription_activated,
+                "BILLING.SUBSCRIPTION.CANCELLED": handle_subscription_cancelled,
+                "BILLING.SUBSCRIPTION.CREATED": handle_subscription_created,
+                "BILLING.SUBSCRIPTION.EXPIRED": handle_subscription_expired,
+                "BILLING.SUBSCRIPTION.REACTIVATED": handle_subscription_reactivated,
+                "BILLING.SUBSCRIPTION.UPDATED": handle_subscription_updated,
+                "PAYMENT.SALE.COMPLETED": handle_payment_completed,
+                "PAYMENT.SALE.DENIED": handle_payment_denied,
+                "PAYMENT.SALE.PENDING": handle_payment_pending
+            }
+
+            if event_type in event_handlers:
+                try:
+                    await event_handlers[event_type](resource, supabase)
+                    print(f"[PayPal Debug] Evento {event_type} procesado exitosamente")
+                except Exception as handler_error:
+                    print(f"[PayPal Debug] Error en el manejador del evento {event_type}: {str(handler_error)}")
+                    print(traceback.format_exc())
+            
+            print("[PayPal Debug] ====== FIN DE PROCESAMIENTO DE WEBHOOK ======")
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "success",
+                    "message": "Webhook processed",
+                    "event_type": event_type,
+                    "subscription_id": subscription_id,
+                    "event_id": event_record["id"]
+                }
+            )
+            
+        except json.JSONDecodeError as json_error:
+            print(f"[PayPal Debug] Error decodificando JSON: {str(json_error)}")
+            print(f"[PayPal Debug] Body recibido: {await request.body()}")
             return JSONResponse(
                 status_code=200,
                 content={
                     "status": "error",
                     "message": "Invalid JSON payload",
-                    "error": str(e),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "error": str(json_error)
                 }
             )
-
-        # Registrar TODOS los eventos recibidos, independientemente del procesamiento
-        try:
-            event_record = {
-                "event_type": payload.get("event_type"),
-                "subscription_id": payload.get("resource", {}).get("id"),
-                "plan_id": payload.get("resource", {}).get("plan_id"),
-                "status": payload.get("resource", {}).get("status"),
-                "processed_at": datetime.utcnow().isoformat(),
-                "raw_data": json.dumps(payload)
-            }
             
-            supabase = get_supabase_client()
-            # Verificar si la tabla existe primero
-            try:
-                await supabase.table("paypal_events").insert(event_record).execute()
-                print(f"[PayPal Debug] Evento {payload.get('event_type')} registrado en la tabla de eventos")
-            except Exception as table_error:
-                print(f"[PayPal Debug] Error al insertar en paypal_events, posiblemente la tabla no existe: {str(table_error)}")
-                # No fallamos el procesamiento si esto falla
-        except Exception as event_error:
-            print(f"[PayPal Debug] Error al registrar evento en tabla de eventos: {str(event_error)}")
-            # No fallamos el procesamiento si esto falla
-
-        # Procesar el evento directamente sin verificación por ahora
-        event_type = payload.get("event_type")
-        print(f"[PayPal Debug] Tipo de evento recibido: {event_type}")
-
-        # Obtener cliente de Supabase
-        try:
-            supabase = get_supabase_client()
-            print("[PayPal Debug] Cliente Supabase obtenido")
-        except Exception as e:
-            print(f"[PayPal Debug] Error obteniendo cliente Supabase: {str(e)}")
-            return JSONResponse(
-                status_code=200,  # Aún retornamos 200
-                content={
-                    "status": "error",
-                    "message": "Database connection error",
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            )
-
-        # Manejar diferentes tipos de eventos
-        event_handlers = {
-            "BILLING.SUBSCRIPTION.ACTIVATED": handle_subscription_activated,
-            "BILLING.SUBSCRIPTION.CANCELLED": handle_subscription_cancelled,
-            "BILLING.SUBSCRIPTION.CREATED": handle_subscription_created,
-            "BILLING.SUBSCRIPTION.EXPIRED": handle_subscription_expired,
-            "BILLING.SUBSCRIPTION.REACTIVATED": handle_subscription_reactivated,
-            "BILLING.SUBSCRIPTION.UPDATED": handle_subscription_updated,
-            "PAYMENT.SALE.COMPLETED": handle_payment_completed,
-            "PAYMENT.SALE.DENIED": handle_payment_denied,
-            "PAYMENT.SALE.PENDING": handle_payment_pending
-        }
-
-        if event_type in event_handlers:
-            print(f"[PayPal Debug] Procesando evento {event_type}...")
-            try:
-                await event_handlers[event_type](payload.get("resource", {}), supabase)
-                print(f"[PayPal Debug] Evento {event_type} procesado exitosamente")
-            except Exception as e:
-                print(f"[PayPal Debug] Error procesando evento {event_type}: {str(e)}")
-                print("[PayPal Debug] Stacktrace completo:")
-                print(traceback.format_exc())
-                return JSONResponse(
-                    status_code=200,  # Aún retornamos 200
-                    content={
-                        "status": "error",
-                        "message": f"Error processing event {event_type}",
-                        "error": str(e),
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
-                )
-        else:
-            print(f"[PayPal Debug] Evento no manejado: {event_type}")
-            return JSONResponse(
-                status_code=200,  # Aún retornamos 200
-                content={
-                    "status": "warning",
-                    "message": f"Unhandled event type: {event_type}",
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            )
-
-        # Si todo salió bien, retornamos éxito
-        print("[PayPal Debug] ====== FIN DE PROCESAMIENTO DE WEBHOOK ======")
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "success",
-                "message": "Webhook processed successfully",
-                "event_type": event_type,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-        )
-
     except Exception as e:
-        print(f"[PayPal Debug] Error general procesando webhook: {str(e)}")
-        print("[PayPal Debug] Stacktrace completo:")
+        print(f"[PayPal Debug] Error general en webhook: {str(e)}")
         print(traceback.format_exc())
-        # Incluso en caso de error general, retornamos 200
         return JSONResponse(
             status_code=200,
             content={
                 "status": "error",
-                "message": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "message": str(e)
             }
         )
 
@@ -703,12 +719,28 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
         plan_id = resource.get("plan_id")
         status = resource.get("status")
         
+        if not subscription_id:
+            print("[PayPal Debug] Error: No se proporcionó ID de suscripción en el webhook")
+            return
+            
         print(f"[PayPal Debug] Detalles del webhook: ID={subscription_id}, Plan={plan_id}, Status={status}")
         
-        # Buscar la suscripción en la base de datos
+        # Buscar la suscripción en la base de datos con más detalle
         print("[PayPal Debug] Buscando suscripción en la base de datos...")
-        subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
-        print(f"[PayPal Debug] Resultado de búsqueda: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
+        try:
+            subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
+            print(f"[PayPal Debug] Query ejecutado correctamente")
+            print(f"[PayPal Debug] Resultado de búsqueda: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
+            
+            if not subscription_result.data:
+                # Intentar una búsqueda case-insensitive
+                print("[PayPal Debug] Intentando búsqueda case-insensitive...")
+                subscription_result = supabase.table("subscriptions").select("*").ilike("paypal_subscription_id", subscription_id).execute()
+                print(f"[PayPal Debug] Resultado de búsqueda case-insensitive: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
+        except Exception as search_error:
+            print(f"[PayPal Debug] Error en la búsqueda de suscripción: {str(search_error)}")
+            print(traceback.format_exc())
+            raise
         
         if subscription_result.data:
             subscription_data = subscription_result.data[0]
@@ -752,9 +784,9 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
             # Registrar el evento para procesamiento posterior
             event_data = {
                 "event_type": "SUBSCRIPTION_CANCELLED_UNMATCHED",
-                "subscription_id": subscription_id,
+                "subscription_id": subscription_id,  # Aseguramos que subscription_id esté presente
                 "plan_id": plan_id,
-                "status": status,
+                "status": "cancelled",  # Establecemos un estado explícito
                 "processed_at": now,
                 "raw_data": json.dumps(resource)
             }
