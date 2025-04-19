@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { addDays, startOfTomorrow, isAfter } from 'date-fns';
+import { addDays, startOfTomorrow, isAfter, differenceInMilliseconds } from 'date-fns';
 
 export const useHabitReset = (onReset: () => void) => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -16,25 +16,33 @@ export const useHabitReset = (onReset: () => void) => {
       const now = new Date();
       const tomorrow = startOfTomorrow();
       
-      // Si no se ha hecho reset hoy
-      const todayDate = now.toISOString().split('T')[0];
-      if (lastResetDateRef.current !== todayDate) {
+      // Verificar si necesitamos hacer reset ahora
+      const todayDate = now.toLocaleDateString('es-ES', { timeZone: 'America/Santiago' });
+      const storedLastReset = localStorage.getItem('lastHabitReset');
+      
+      if (storedLastReset !== todayDate) {
         // Si es después de medianoche y no se ha hecho reset, hacerlo ahora
         if (isAfter(now, tomorrow)) {
+          console.log('Ejecutando reset inmediato de hábitos');
           onReset();
+          localStorage.setItem('lastHabitReset', todayDate);
           lastResetDateRef.current = todayDate;
         }
       }
 
-      // Calcular el tiempo hasta la próxima medianoche
-      const msUntilNextReset = tomorrow.getTime() - now.getTime();
+      // Calcular el tiempo exacto hasta la próxima medianoche
+      const msUntilNextReset = differenceInMilliseconds(tomorrow, now);
+      console.log('Próximo reset programado en (ms):', msUntilNextReset);
       
       // Programar el próximo reset
       timeoutRef.current = setTimeout(() => {
+        console.log('Ejecutando reset programado de hábitos');
         onReset();
-        lastResetDateRef.current = new Date().toISOString().split('T')[0];
+        const nextResetDate = new Date().toLocaleDateString('es-ES', { timeZone: 'America/Santiago' });
+        localStorage.setItem('lastHabitReset', nextResetDate);
+        lastResetDateRef.current = nextResetDate;
         scheduleNextReset();
-      }, msUntilNextReset);
+      }, msUntilNextReset + 1000); // Agregamos 1 segundo para asegurar que estamos en el nuevo día
     };
 
     // Iniciar el programador
