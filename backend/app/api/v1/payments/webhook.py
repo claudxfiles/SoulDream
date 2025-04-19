@@ -17,6 +17,7 @@ from app.db.database import get_supabase_client
 import hmac
 import hashlib
 import logging
+import traceback
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
@@ -175,7 +176,6 @@ async def verify_paypal_webhook(request: Request) -> bool:
     except Exception as e:
         print(f"[PayPal Debug] Error en verificación: {str(e)}")
         print("[PayPal Debug] Stacktrace completo:")
-        import traceback
         print(traceback.format_exc())
         return False
 
@@ -249,7 +249,6 @@ async def handle_paypal_webhook(request: Request):
             except Exception as e:
                 print(f"[PayPal Debug] Error procesando evento {event_type}: {str(e)}")
                 print("[PayPal Debug] Stacktrace completo:")
-                import traceback
                 print(traceback.format_exc())
                 return JSONResponse(
                     status_code=200,  # Aún retornamos 200
@@ -286,7 +285,6 @@ async def handle_paypal_webhook(request: Request):
     except Exception as e:
         print(f"[PayPal Debug] Error general procesando webhook: {str(e)}")
         print("[PayPal Debug] Stacktrace completo:")
-        import traceback
         print(traceback.format_exc())
         # Incluso en caso de error general, retornamos 200
         return JSONResponse(
@@ -633,7 +631,8 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
         # Obtener la suscripción actual
         print("[PayPal Debug] Buscando suscripción en la base de datos...")
         try:
-            subscription_result = await supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
+            # No usar await aquí ya que supabase.table().execute() ya retorna el resultado
+            subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
             print(f"[PayPal Debug] Resultado de búsqueda raw: {subscription_result}")
             
             if not subscription_result.data or len(subscription_result.data) == 0:
@@ -648,11 +647,12 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
             update_data = {
                 "status": "cancelled",
                 "updated_at": now,
-                "cancel_at_period_end": True,
+                "cancel_at_period_end": True
             }
             print(f"[PayPal Debug] Datos a actualizar: {json.dumps(update_data, indent=2)}")
             
-            update_result = await supabase.table("subscriptions").update(update_data).eq("paypal_subscription_id", subscription_id).execute()
+            # No usar await aquí tampoco
+            update_result = supabase.table("subscriptions").update(update_data).eq("paypal_subscription_id", subscription_id).execute()
             print(f"[PayPal Debug] Resultado de actualización raw: {update_result}")
             
             # Registrar en payment_history
@@ -673,7 +673,8 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
             }
             print(f"[PayPal Debug] Datos de historial a insertar: {json.dumps(history_data, indent=2)}")
             
-            history_result = await supabase.table("payment_history").insert(history_data).execute()
+            # No usar await aquí tampoco
+            history_result = supabase.table("payment_history").insert(history_data).execute()
             print(f"[PayPal Debug] Resultado de inserción en history raw: {history_result}")
             
             print(f"[PayPal Debug] Suscripción {subscription_id} cancelada exitosamente")
