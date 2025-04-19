@@ -5,18 +5,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
-interface Feature {
-  name: string;
-  included: boolean;
-}
-
 interface Plan {
   id: string;
   name: string;
   description: string;
   price: number;
   interval: string;
-  features: Feature[];
+  features: string[];
   buttonText: string;
   popular?: boolean;
 }
@@ -74,14 +69,8 @@ export function PricingPlan({
           <ul className="space-y-3">
             {plan.features.map((feature, index) => (
               <li key={index} className="flex items-center gap-3">
-                {feature.included ? (
-                  <Check className="h-5 w-5 flex-shrink-0 text-primary" />
-                ) : (
-                  <X className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                )}
-                <span className={feature.included ? '' : 'text-muted-foreground'}>
-                  {feature.name}
-                </span>
+                <Check className="h-5 w-5 flex-shrink-0 text-primary" />
+                <span>{feature}</span>
               </li>
             ))}
           </ul>

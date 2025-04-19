@@ -118,28 +118,28 @@ INSERT INTO subscription_plans (name, description, price, currency, interval, fe
 VALUES 
   ('Pro Monthly', 'Desbloquea todo el potencial de SoulDream con funciones ilimitadas y prueba gratuita de 7 días', 14.99, 'USD', 'month', 
    '[
-     {"name": "Tareas, metas y hábitos ilimitados", "included": true},
-     {"name": "Asistente IA personalizado 24/7", "included": true},
-     {"name": "Gestión financiera completa", "included": true},
-     {"name": "Integración con Google Calendar", "included": true},
-     {"name": "Analítica avanzada y reportes", "included": true},
-     {"name": "Plan de activos financieros", "included": true},
-     {"name": "Workout personalizado con IA", "included": true},
-     {"name": "Soporte prioritario", "included": true}
+     "Tareas, metas y hábitos ilimitados",
+     "Asistente IA personalizado 24/7",
+     "Gestión financiera completa",
+     "Integración con Google Calendar",
+     "Analítica avanzada y reportes",
+     "Plan de activos financieros",
+     "Workout personalizado con IA",
+     "Soporte prioritario"
    ]'::jsonb,
    true,
    'P-1H048096T5545353AM7U2EQQ'),
   
   ('Pro Annual', 'Desbloquea todo el potencial de SoulDream con funciones ilimitadas y prueba gratuita de 7 días', 120.00, 'USD', 'year', 
    '[
-     {"name": "Tareas, metas y hábitos ilimitados", "included": true},
-     {"name": "Asistente IA personalizado 24/7", "included": true},
-     {"name": "Gestión financiera completa", "included": true},
-     {"name": "Integración con Google Calendar", "included": true},
-     {"name": "Analítica avanzada y reportes", "included": true},
-     {"name": "Plan de activos financieros", "included": true},
-     {"name": "Workout personalizado con IA", "included": true},
-     {"name": "Soporte prioritario", "included": true}
+     "Tareas, metas y hábitos ilimitados",
+     "Asistente IA personalizado 24/7",
+     "Gestión financiera completa",
+     "Integración con Google Calendar",
+     "Analítica avanzada y reportes",
+     "Plan de activos financieros",
+     "Workout personalizado con IA",
+     "Soporte prioritario"
    ]'::jsonb,
    true,
    'P-25P774007P7890240M7U2DTA');

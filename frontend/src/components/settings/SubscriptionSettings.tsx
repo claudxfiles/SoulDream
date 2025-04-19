@@ -10,11 +10,6 @@ import { toast } from '@/components/ui/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-interface Feature {
-  name: string;
-  included: boolean;
-}
-
 interface Plan {
   id: string;
   name: string;
@@ -22,7 +17,7 @@ interface Plan {
   price: number;
   currency: string;
   interval: string;
-  features: (string | Feature)[];
+  features: string[];
   paypal_plan_id: string | null;
   highlighted?: boolean;
   badge?: string;
@@ -62,15 +57,7 @@ export function SubscriptionSettings() {
           ...plan,
           highlighted: plan.name === 'Pro',
           badge: plan.name === 'Pro' ? 'Popular' : undefined,
-          features: Array.isArray(plan.features) 
-            ? plan.features.map((feature: any) => {
-                if (typeof feature === 'string') return feature;
-                if (typeof feature === 'object' && feature !== null) {
-                  return feature.name;
-                }
-                return '';
-              }).filter(Boolean)
-            : []
+          features: Array.isArray(plan.features) ? plan.features : []
         }));
 
         setPlans(formattedPlans);

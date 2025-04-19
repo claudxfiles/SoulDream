@@ -117,14 +117,20 @@ export async function GET() {
     }
 
     // Procesamos los features
-    let planFeatures = ['Acceso básico'];
+    let planFeatures: string[] = ['Acceso básico'];
+    
     if (subscription.metadata?.features) {
-      planFeatures = subscription.metadata.features;
+      planFeatures = Array.isArray(subscription.metadata.features)
+        ? subscription.metadata.features.map((feature: any) => {
+            if (typeof feature === 'string') return feature;
+            return feature.name || 'Característica no especificada';
+          })
+        : ['Acceso básico'];
     } else if (subscription.subscription_plans?.features) {
       planFeatures = Array.isArray(subscription.subscription_plans.features)
-        ? subscription.subscription_plans.features.map((feature: Feature | string) => {
+        ? subscription.subscription_plans.features.map((feature: any) => {
             if (typeof feature === 'string') return feature;
-            return feature.name;
+            return feature.name || 'Característica no especificada';
           })
         : ['Acceso básico'];
     }

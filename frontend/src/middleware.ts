@@ -60,19 +60,39 @@ export async function middleware(req: NextRequest) {
       // Verificar suscripción considerando período de prueba y fechas de validez
       const { data: subscription } = await supabase
         .from('subscriptions')
-        .select('status, trial_end, current_period_end')
+        .select('status, trial_ends_at, current_period_ends_at, plan_type, cancel_at_period_end')
         .eq('user_id', session.user.id)
         .single();
 
       const now = new Date();
+      
+      // Función helper para comparar fechas considerando zonas horarias
+      const isDateValid = (date: string | null) => {
+        if (!date) return false;
+        return new Date(date) > now;
+      };
+
       const hasValidSubscription = subscription && (
-        subscription.status === 'active' ||
-        (subscription.status === 'trialing' && new Date(subscription.trial_end) > now) ||
-        (subscription.status === 'cancelled' && new Date(subscription.current_period_end) > now)
+        // Suscripción activa
+        (subscription.status === 'active') ||
+        
+        // En período de prueba
+        (subscription.status === 'active' && subscription.trial_ends_at && isDateValid(subscription.trial_ends_at)) ||
+        
+        // Suscripción cancelada pero aún en período pagado
+        (subscription.status === 'cancelled' && 
+         !subscription.cancel_at_period_end && 
+         isDateValid(subscription.current_period_ends_at))
       );
 
       // Si no tiene suscripción válida, redirigir a la página de suscripción
       if (!hasValidSubscription) {
+        console.log('Subscription invalid:', {
+          status: subscription?.status,
+          trial_ends_at: subscription?.trial_ends_at,
+          current_period_ends_at: subscription?.current_period_ends_at,
+          cancel_at_period_end: subscription?.cancel_at_period_end
+        });
         return NextResponse.redirect(
           new URL('/dashboard/profile/subscription', req.url)
         );
