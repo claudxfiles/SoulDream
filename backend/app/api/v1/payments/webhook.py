@@ -626,17 +626,36 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
         print("[PayPal Debug] Iniciando handle_subscription_cancelled")
         subscription_id = resource.get("id")
         print(f"[PayPal Debug] ID de suscripción a cancelar: {subscription_id}")
+        print(f"[PayPal Debug] Longitud del ID: {len(subscription_id)}")
+        print(f"[PayPal Debug] ID en mayúsculas: {subscription_id.upper()}")
         now = datetime.utcnow().isoformat()
         
         # Obtener la suscripción actual
         print("[PayPal Debug] Buscando suscripción en la base de datos...")
         try:
-            # Buscar la suscripción
+            # Intentar búsqueda directa
             subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
-            print(f"[PayPal Debug] Resultado de búsqueda: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
+            print(f"[PayPal Debug] Query realizado: SELECT * FROM subscriptions WHERE paypal_subscription_id = '{subscription_id}'")
+            print(f"[PayPal Debug] Resultado de búsqueda directa: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
+            
+            # Si no se encuentra, intentar con el ID en mayúsculas
+            if not subscription_result.data:
+                print("[PayPal Debug] Intentando búsqueda con ID en mayúsculas...")
+                subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id.upper()).execute()
+                print(f"[PayPal Debug] Resultado de búsqueda en mayúsculas: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
+            
+            # Si aún no se encuentra, intentar con ilike
+            if not subscription_result.data:
+                print("[PayPal Debug] Intentando búsqueda con ILIKE...")
+                subscription_result = supabase.table("subscriptions").select("*").ilike("paypal_subscription_id", f"%{subscription_id}%").execute()
+                print(f"[PayPal Debug] Resultado de búsqueda con ILIKE: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
             
             if not subscription_result.data:
                 print(f"[PayPal Debug] No se encontró la suscripción con ID: {subscription_id}")
+                # Hacer una búsqueda general para debug
+                all_subs = supabase.table("subscriptions").select("paypal_subscription_id").execute()
+                print("[PayPal Debug] IDs de suscripción en la base de datos:")
+                print(json.dumps(all_subs.data if all_subs else 'No data', indent=2))
                 return
             
             subscription_data = subscription_result.data[0]
