@@ -630,54 +630,63 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
         print(f"[PayPal Debug] ID de suscripción a cancelar: {subscription_id}")
         now = datetime.utcnow().isoformat()
         
-        # Obtener la suscripción actual - usando .execute() sin .single()
+        # Obtener la suscripción actual
         print("[PayPal Debug] Buscando suscripción en la base de datos...")
-        subscription_result = await supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
-        print(f"[PayPal Debug] Resultado de búsqueda: {json.dumps(subscription_result, indent=2)}")
-        
-        if not subscription_result.data or len(subscription_result.data) == 0:
-            print(f"[PayPal Debug] Suscripción no encontrada para ID: {subscription_id}")
-            return
+        try:
+            subscription_result = await supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
+            print(f"[PayPal Debug] Resultado de búsqueda raw: {subscription_result}")
             
-        subscription_data = subscription_result.data[0]
-        print(f"[PayPal Debug] Datos de suscripción encontrados: {json.dumps(subscription_data, indent=2)}")
-            
-        # Actualizar estado en subscriptions
-        print("[PayPal Debug] Actualizando estado de la suscripción...")
-        update_result = await supabase.table("subscriptions").update({
-            "status": "cancelled",
-            "updated_at": now,
-            "cancel_at_period_end": True,
-            "cancellation_reason": resource.get("status_update_reason", "Cancelled via PayPal")
-        }).eq("paypal_subscription_id", subscription_id).execute()
-        print(f"[PayPal Debug] Resultado de actualización: {json.dumps(update_result, indent=2)}")
-        
-        # Registrar en payment_history
-        print("[PayPal Debug] Registrando en payment_history...")
-        history_data = {
-            "user_id": subscription_data["user_id"],
-            "subscription_id": subscription_data["id"],
-            "amount": 0,
-            "currency": "USD",
-            "status": "subscription_cancelled",
-            "payment_id": f"cancel_{subscription_id}",
-            "payment_method": "paypal",
-            "payment_details": {
-                "event": "subscription_cancelled",
-                "cancelled_at": now,
-                "paypal_data": resource
+            if not subscription_result.data or len(subscription_result.data) == 0:
+                print(f"[PayPal Debug] Suscripción no encontrada para ID: {subscription_id}")
+                return
+                
+            subscription_data = subscription_result.data[0]
+            print(f"[PayPal Debug] Datos de suscripción encontrados: {json.dumps(subscription_data, indent=2)}")
+                
+            # Actualizar estado en subscriptions
+            print("[PayPal Debug] Actualizando estado de la suscripción...")
+            update_data = {
+                "status": "cancelled",
+                "updated_at": now,
+                "cancel_at_period_end": True,
             }
-        }
-        
-        history_result = await supabase.table("payment_history").insert(history_data).execute()
-        print(f"[PayPal Debug] Resultado de inserción en history: {json.dumps(history_result, indent=2)}")
-        
-        print(f"[PayPal Debug] Suscripción {subscription_id} cancelada exitosamente")
+            print(f"[PayPal Debug] Datos a actualizar: {json.dumps(update_data, indent=2)}")
+            
+            update_result = await supabase.table("subscriptions").update(update_data).eq("paypal_subscription_id", subscription_id).execute()
+            print(f"[PayPal Debug] Resultado de actualización raw: {update_result}")
+            
+            # Registrar en payment_history
+            print("[PayPal Debug] Registrando en payment_history...")
+            history_data = {
+                "user_id": subscription_data["user_id"],
+                "subscription_id": subscription_data["id"],
+                "amount": 0,
+                "currency": "USD",
+                "status": "subscription_cancelled",
+                "payment_id": f"cancel_{subscription_id}",
+                "payment_method": "paypal",
+                "payment_details": {
+                    "event": "subscription_cancelled",
+                    "cancelled_at": now,
+                    "paypal_data": resource
+                }
+            }
+            print(f"[PayPal Debug] Datos de historial a insertar: {json.dumps(history_data, indent=2)}")
+            
+            history_result = await supabase.table("payment_history").insert(history_data).execute()
+            print(f"[PayPal Debug] Resultado de inserción en history raw: {history_result}")
+            
+            print(f"[PayPal Debug] Suscripción {subscription_id} cancelada exitosamente")
+            
+        except Exception as db_error:
+            print(f"[PayPal Debug] Error en operación de base de datos: {str(db_error)}")
+            print("[PayPal Debug] Stacktrace de error de DB:")
+            print(traceback.format_exc())
+            raise
         
     except Exception as e:
         print(f"[PayPal Debug] Error procesando cancelación de suscripción: {str(e)}")
         print("[PayPal Debug] Stacktrace completo:")
-        import traceback
         print(traceback.format_exc())
         raise
 
