@@ -632,7 +632,7 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
         print("[PayPal Debug] Buscando suscripción en la base de datos...")
         try:
             # Buscar la suscripción
-            subscription_result = await supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
+            subscription_result = supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
             print(f"[PayPal Debug] Resultado de búsqueda: {json.dumps(subscription_result.data if subscription_result else 'No data', indent=2)}")
             
             if not subscription_result.data:
@@ -651,7 +651,7 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
             }
             
             # Ejecutar la actualización
-            update_result = await supabase.table("subscriptions").update(update_data).eq("paypal_subscription_id", subscription_id).execute()
+            update_result = supabase.table("subscriptions").update(update_data).eq("paypal_subscription_id", subscription_id).execute()
             print(f"[PayPal Debug] Resultado de la actualización: {json.dumps(update_result.data if update_result else 'No data', indent=2)}")
             
             # Registrar en payment_history
@@ -672,7 +672,7 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
                 })
             }
             
-            history_result = await supabase.table("payment_history").insert(history_data).execute()
+            history_result = supabase.table("payment_history").insert(history_data).execute()
             print(f"[PayPal Debug] Resultado del registro en historial: {json.dumps(history_result.data if history_result else 'No data', indent=2)}")
             
             print(f"[PayPal Debug] Suscripción {subscription_id} cancelada exitosamente")
