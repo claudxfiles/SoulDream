@@ -630,14 +630,17 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
         print(f"[PayPal Debug] ID de suscripción a cancelar: {subscription_id}")
         now = datetime.utcnow().isoformat()
         
-        # Obtener la suscripción actual
+        # Obtener la suscripción actual - usando .execute() sin .single()
         print("[PayPal Debug] Buscando suscripción en la base de datos...")
-        subscription_result = await supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).single().execute()
+        subscription_result = await supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).execute()
         print(f"[PayPal Debug] Resultado de búsqueda: {json.dumps(subscription_result, indent=2)}")
         
-        if not subscription_result or not subscription_result.data:
+        if not subscription_result.data or len(subscription_result.data) == 0:
             print(f"[PayPal Debug] Suscripción no encontrada para ID: {subscription_id}")
             return
+            
+        subscription_data = subscription_result.data[0]
+        print(f"[PayPal Debug] Datos de suscripción encontrados: {json.dumps(subscription_data, indent=2)}")
             
         # Actualizar estado en subscriptions
         print("[PayPal Debug] Actualizando estado de la suscripción...")
@@ -652,8 +655,8 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
         # Registrar en payment_history
         print("[PayPal Debug] Registrando en payment_history...")
         history_data = {
-            "user_id": subscription_result.data["user_id"],
-            "subscription_id": subscription_result.data["id"],
+            "user_id": subscription_data["user_id"],
+            "subscription_id": subscription_data["id"],
             "amount": 0,
             "currency": "USD",
             "status": "subscription_cancelled",
