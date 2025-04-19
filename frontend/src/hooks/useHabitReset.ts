@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { addDays, startOfTomorrow, isAfter, differenceInMilliseconds } from 'date-fns';
+import { addDays, startOfTomorrow, isAfter, differenceInMilliseconds, startOfToday, isSameDay } from 'date-fns';
 
 export const useHabitReset = (onReset: () => void) => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -12,37 +12,46 @@ export const useHabitReset = (onReset: () => void) => {
         clearTimeout(timeoutRef.current);
       }
 
-      // Obtener la fecha actual y la próxima medianoche
       const now = new Date();
+      const todayStart = startOfToday();
       const tomorrow = startOfTomorrow();
       
-      // Verificar si necesitamos hacer reset ahora
-      const todayDate = now.toLocaleDateString('es-ES', { timeZone: 'America/Santiago' });
+      // Formatear fechas para comparación
+      const todayDate = now.toISOString().split('T')[0];
       const storedLastReset = localStorage.getItem('lastHabitReset');
       
-      if (storedLastReset !== todayDate) {
-        // Si es después de medianoche y no se ha hecho reset, hacerlo ahora
-        if (isAfter(now, tomorrow)) {
-          console.log('Ejecutando reset inmediato de hábitos');
-          onReset();
-          localStorage.setItem('lastHabitReset', todayDate);
-          lastResetDateRef.current = todayDate;
-        }
+      console.log('Verificando reset:', {
+        now: now.toISOString(),
+        todayDate,
+        storedLastReset,
+        isAfterMidnight: isAfter(now, todayStart),
+        needsReset: !storedLastReset || !isSameDay(new Date(storedLastReset), now)
+      });
+
+      // Forzar reset si:
+      // 1. No hay fecha de último reset O
+      // 2. El último reset no fue hoy
+      if (!storedLastReset || !isSameDay(new Date(storedLastReset), now)) {
+        console.log('Ejecutando reset forzado de hábitos');
+        onReset();
+        localStorage.setItem('lastHabitReset', todayDate);
+        lastResetDateRef.current = todayDate;
       }
 
-      // Calcular el tiempo exacto hasta la próxima medianoche
+      // Calcular el tiempo hasta la próxima medianoche
       const msUntilNextReset = differenceInMilliseconds(tomorrow, now);
-      console.log('Próximo reset programado en (ms):', msUntilNextReset);
+      console.log('Próximo reset programado en (ms):', msUntilNextReset, 'aprox.', Math.round(msUntilNextReset/3600000), 'horas');
       
       // Programar el próximo reset
       timeoutRef.current = setTimeout(() => {
-        console.log('Ejecutando reset programado de hábitos');
+        const resetTime = new Date();
+        const resetDate = resetTime.toISOString().split('T')[0];
+        console.log('Ejecutando reset programado de hábitos:', resetDate);
         onReset();
-        const nextResetDate = new Date().toLocaleDateString('es-ES', { timeZone: 'America/Santiago' });
-        localStorage.setItem('lastHabitReset', nextResetDate);
-        lastResetDateRef.current = nextResetDate;
+        localStorage.setItem('lastHabitReset', resetDate);
+        lastResetDateRef.current = resetDate;
         scheduleNextReset();
-      }, msUntilNextReset + 1000); // Agregamos 1 segundo para asegurar que estamos en el nuevo día
+      }, msUntilNextReset + 1000);
     };
 
     // Iniciar el programador

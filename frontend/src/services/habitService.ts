@@ -283,13 +283,15 @@ export const habitService = {
 
   async resetHabits(): Promise<void> {
     try {
-      // Usar la fecha local del usuario
+      // Usar formato ISO para las fechas
       const now = new Date();
-      const today = now.toLocaleDateString('es-ES', { timeZone: 'America/Santiago' });
+      const today = now.toISOString().split('T')[0];
       const yesterday = new Date(now.setDate(now.getDate() - 1))
-        .toLocaleDateString('es-ES', { timeZone: 'America/Santiago' });
+        .toISOString().split('T')[0];
       
-      // Eliminar los logs de hoy y ayer que puedan estar causando problemas
+      console.log('Intentando reiniciar hábitos', { today, yesterday });
+      
+      // Eliminar los logs de hoy y ayer
       const { data: todayLogs, error: logsError } = await supabase
         .from('habit_logs')
         .delete()
@@ -297,10 +299,11 @@ export const habitService = {
         .lte('completed_date', today);
 
       if (logsError) {
+        console.error('Error al reiniciar hábitos:', logsError);
         throw logsError;
       }
 
-      // Notificar éxito silenciosamente
+      // Notificar éxito
       console.log('Hábitos reiniciados correctamente', { today, yesterday });
     } catch (error) {
       console.error('Error al reiniciar hábitos:', error);
