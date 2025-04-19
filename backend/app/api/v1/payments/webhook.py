@@ -325,10 +325,10 @@ async def handle_subscription_activated(resource: Dict[str, Any], supabase):
         await supabase.table("subscriptions").update({
             "status": "active",
             "updated_at": datetime.utcnow().isoformat()
-        }).eq("id", subscription_id).execute()
+        }).eq("paypal_subscription_id", subscription_id).execute()
         
         # Registrar en payment_history
-        subscription = await supabase.table("subscriptions").select("user_id").eq("id", subscription_id).single().execute()
+        subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
         
         if subscription and subscription.data:
             history_data = {
@@ -355,10 +355,10 @@ async def handle_subscription_expired(resource: Dict[str, Any], supabase):
         await supabase.table("subscriptions").update({
             "status": "expired",
             "updated_at": datetime.utcnow().isoformat()
-        }).eq("id", subscription_id).execute()
+        }).eq("paypal_subscription_id", subscription_id).execute()
         
         # Registrar en payment_history
-        subscription = await supabase.table("subscriptions").select("user_id").eq("id", subscription_id).single().execute()
+        subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
         
         if subscription and subscription.data:
             history_data = {
@@ -385,10 +385,10 @@ async def handle_subscription_reactivated(resource: Dict[str, Any], supabase):
         await supabase.table("subscriptions").update({
             "status": "active",
             "updated_at": datetime.utcnow().isoformat()
-        }).eq("id", subscription_id).execute()
+        }).eq("paypal_subscription_id", subscription_id).execute()
         
         # Registrar en payment_history
-        subscription = await supabase.table("subscriptions").select("user_id").eq("id", subscription_id).single().execute()
+        subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
         
         if subscription and subscription.data:
             history_data = {
@@ -417,10 +417,10 @@ async def handle_subscription_updated(resource: Dict[str, Any], supabase):
             # Aquí puedes agregar más campos que necesites actualizar
         }
         
-        await supabase.table("subscriptions").update(subscription_data).eq("id", subscription_id).execute()
+        await supabase.table("subscriptions").update(subscription_data).eq("paypal_subscription_id", subscription_id).execute()
         
         # Registrar en payment_history
-        subscription = await supabase.table("subscriptions").select("user_id").eq("id", subscription_id).single().execute()
+        subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
         
         if subscription and subscription.data:
             history_data = {
@@ -621,7 +621,7 @@ async def handle_subscription_created(resource: Dict[str, Any], supabase):
             "updated_at": datetime.utcnow().isoformat()
         }
         
-        await supabase.table("subscriptions").update(subscription_data).eq("id", subscription_id).execute()
+        await supabase.table("subscriptions").update(subscription_data).eq("paypal_subscription_id", subscription_id).execute()
         
         # Registrar en payment_history
         history_data = {
@@ -644,31 +644,52 @@ async def handle_subscription_cancelled(resource: Dict[str, Any], supabase):
     """Maneja el evento de suscripción cancelada"""
     try:
         subscription_id = resource.get("id")
+        now = datetime.utcnow().isoformat()
         
+        # Obtener la suscripción actual
+        subscription = await supabase.table("subscriptions").select("*").eq("paypal_subscription_id", subscription_id).single().execute()
+        
+        if not subscription or not subscription.data:
+            print(f"[PayPal Debug] Suscripción no encontrada para ID: {subscription_id}")
+            return
+            
         # Actualizar estado en subscriptions
         await supabase.table("subscriptions").update({
             "status": "cancelled",
-            "updated_at": datetime.utcnow().isoformat()
-        }).eq("id", subscription_id).execute()
+            "cancelled_at": now,
+            "updated_at": now,
+            "cancel_at_period_end": True,
+            "cancellation_reason": resource.get("status_update_reason", "Cancelled via PayPal")
+        }).eq("paypal_subscription_id", subscription_id).execute()
         
         # Registrar en payment_history
-        subscription = await supabase.table("subscriptions").select("user_id").eq("id", subscription_id).single().execute()
-        
-        if subscription and subscription.data:
-            history_data = {
-                "user_id": subscription.data["user_id"],
-                "subscription_id": subscription_id,
-                "amount": 0,
-                "currency": "USD",
-                "status": "subscription_cancelled",
-                "payment_id": f"cancel_{subscription_id}",
-                "payment_method": "paypal"
+        history_data = {
+            "user_id": subscription.data["user_id"],
+            "subscription_id": subscription.data["id"],
+            "amount": 0,
+            "currency": "USD",
+            "status": "subscription_cancelled",
+            "payment_id": f"cancel_{subscription_id}",
+            "payment_method": "paypal",
+            "payment_details": {
+                "event": "subscription_cancelled",
+                "cancelled_at": now,
+                "paypal_data": resource
             }
-            
-            await supabase.table("payment_history").insert(history_data).execute()
+        }
+        
+        await supabase.table("payment_history").insert(history_data).execute()
+        
+        # Actualizar el perfil del usuario a free
+        await supabase.table("profiles").update({
+            "subscription_tier": "free",
+            "updated_at": now
+        }).eq("id", subscription.data["user_id"]).execute()
+        
+        print(f"[PayPal Debug] Suscripción {subscription_id} cancelada exitosamente")
         
     except Exception as e:
-        print(f"[PayPal Debug] Error procesando suscripción cancelada: {str(e)}")
+        print(f"[PayPal Debug] Error procesando cancelación de suscripción: {str(e)}")
         raise
 
 async def handle_subscription_suspended(resource: Dict[str, Any], supabase):
@@ -680,10 +701,10 @@ async def handle_subscription_suspended(resource: Dict[str, Any], supabase):
         await supabase.table("subscriptions").update({
             "status": "suspended",
             "updated_at": datetime.utcnow().isoformat()
-        }).eq("id", subscription_id).execute()
+        }).eq("paypal_subscription_id", subscription_id).execute()
         
         # Registrar en payment_history
-        subscription = await supabase.table("subscriptions").select("user_id").eq("id", subscription_id).single().execute()
+        subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
         
         if subscription and subscription.data:
             history_data = {
