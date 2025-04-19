@@ -63,11 +63,13 @@ export async function middleware(req: NextRequest) {
     if (session && req.nextUrl.pathname.startsWith('/dashboard') && 
         !req.nextUrl.pathname.includes('/profile/subscription')) {
       
-      // Combinar ambos enfoques de verificación de suscripción
+      // CAMBIO: Obtener la suscripción más reciente del usuario utilizando ORDER BY y LIMIT
       const { data: subscription } = await supabase
         .from('subscriptions')
-        .select('status, trial_ends_at, current_period_ends_at, plan_type, cancel_at_period_end')
+        .select('status, trial_ends_at, current_period_ends_at, plan_type, cancel_at_period_end, created_at')
         .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single();
 
       const now = new Date();
@@ -78,32 +80,27 @@ export async function middleware(req: NextRequest) {
         return new Date(date) > now;
       };
 
+      // Simplificar la lógica de verificación de suscripción
       const hasValidSubscription = subscription && (
-        // Suscripción activa (no cancelada al final del período)
-        (subscription.status === 'active' && !subscription.cancel_at_period_end) ||
-        
-        // Suscripción activa pero cancelada al final del período
-        (subscription.status === 'active' && 
-         subscription.cancel_at_period_end && 
-         isDateValid(subscription.current_period_ends_at)) ||
+        // Suscripción activa (independiente de si está marcada para cancelación)
+        (subscription.status === 'active') ||
         
         // En período de prueba
-        (subscription.status === 'active' && 
-         subscription.trial_ends_at && 
-         isDateValid(subscription.trial_ends_at)) ||
+        (subscription.trial_ends_at && isDateValid(subscription.trial_ends_at)) ||
         
         // Suscripción suspendida pero aún en período pagado
-        (subscription.status === 'suspended' && 
-         isDateValid(subscription.current_period_ends_at))
+        (subscription.status === 'suspended' && isDateValid(subscription.current_period_ends_at))
       );
 
       // Si no tiene suscripción válida, redirigir a la página de suscripción
       if (!hasValidSubscription) {
-        console.log('Suscripción inválida:', {
+        console.log('Estado de suscripción:', {
+          subscription_exists: !!subscription,
           status: subscription?.status,
           trial_ends_at: subscription?.trial_ends_at,
           current_period_ends_at: subscription?.current_period_ends_at,
-          cancel_at_period_end: subscription?.cancel_at_period_end
+          cancel_at_period_end: subscription?.cancel_at_period_end,
+          created_at: subscription?.created_at
         });
         
         // Evitamos redirecciones en bucle verificando si ya estamos en la ruta de destino
