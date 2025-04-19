@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Subscription } from '@/types/subscription';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/use-toast';
 
 // Función de utilidad para formatear fechas de manera segura
 const formatDate = (dateString: string | null | undefined): string => {
@@ -24,37 +25,35 @@ const formatDate = (dateString: string | null | undefined): string => {
   return isValid(date) ? format(date, 'dd/MM/yyyy', { locale: es }) : 'Fecha inválida';
 };
 
-// Función para calcular días restantes de manera segura
+// Función para calcular días restantes
 const calculateDaysLeft = (endDate: string | null | undefined): number => {
   if (!endDate) return 0;
-  const date = new Date(endDate);
-  return isValid(date) ? Math.max(0, differenceInDays(date, new Date())) : 0;
+  const end = new Date(endDate);
+  if (!isValid(end)) return 0;
+  return Math.max(0, differenceInDays(end, new Date()));
 };
 
 export const SubscriptionDetails = () => {
-  const { data: subscription, isLoading, error, refetch } = useSubscription();
   const router = useRouter();
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [isReactivating, setIsReactivating] = useState(false);
-  const [isSuspending, setIsSuspending] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const { toast } = useToast();
+  const { data: subscription, isLoading, error, refetch } = useSubscription();
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [showReactivateDialog, setShowReactivateDialog] = useState(false);
   const [showNewSubscriptionDialog, setShowNewSubscriptionDialog] = useState(false);
-  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [isSuspending, setIsSuspending] = useState(false);
+  const [isReactivating, setIsReactivating] = useState(false);
+
+  const isSubscriptionActive = subscription?.status === 'active';
+  const isSuspended = subscription?.status === 'suspended';
+  const isCancelled = subscription?.status === 'cancelled' || subscription?.cancel_at_period_end;
+  const canReactivate = isSuspended || isCancelled;
+  const periodEndsAt = subscription?.current_period_ends_at;
 
   const now = new Date();
   const isTrialActive = subscription?.trial_ends_at && new Date(subscription.trial_ends_at) > now;
-  const isSubscriptionActive = subscription?.status === 'active';
-  const isCancelled = subscription?.cancel_at_period_end === true;
-  const isSuspended = subscription?.status === 'suspended';
-  const canReactivate = (isSuspended) && 
-    subscription?.current_period_ends_at && 
-    new Date(subscription.current_period_ends_at) > now;
   
   const trialDaysLeft = subscription?.trial_ends_at ? 
     calculateDaysLeft(subscription.trial_ends_at) : 0;
-
-  const periodEndsAt = subscription?.current_period_ends_at || subscription?.trial_ends_at;
 
   // Log subscription data when it changes
   useEffect(() => {
@@ -129,54 +128,6 @@ export const SubscriptionDetails = () => {
       });
     } finally {
       setIsReactivating(false);
-    }
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!subscription?.paypal_subscription_id) {
-      toast({
-        title: 'Error',
-        description: 'No se encontró la información de suscripción.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setIsCancelling(true);
-      const response = await fetch('/api/subscriptions/cancel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscriptionId: subscription.paypal_subscription_id,
-          reason: 'User requested cancellation'
-        }),
-      });
-      
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al cancelar la suscripción');
-      }
-
-      toast({
-        title: 'Suscripción Cancelada',
-        description: 'Tu suscripción se cancelará al final del período actual.',
-      });
-
-      setShowConfirmDialog(false);
-      refetch();
-    } catch (error) {
-      console.error('[SubscriptionDetails] Error en cancelación:', error);
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Error al cancelar la suscripción',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsCancelling(false);
     }
   };
 
@@ -376,52 +327,10 @@ export const SubscriptionDetails = () => {
                   {isSuspending ? 'Suspendiendo...' : 'Suspender Suscripción'}
                 </Button>
               )}
-
-              {/* Botón de Cancelar solo si está activa y no cancelada */}
-              {isSubscriptionActive && !isCancelled && (
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowConfirmDialog(true)}
-                  className="w-full text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
-                  disabled={isCancelling}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  {isCancelling ? 'Cancelando...' : 'Cancelar Suscripción'}
-                </Button>
-              )}
             </div>
           </div>
         </div>
       </div>
-
-      {/* Dialog de Cancelación */}
-      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>¿Estás seguro de que deseas cancelar tu suscripción?</DialogTitle>
-            <DialogDescription>
-              Tu suscripción permanecerá activa hasta el {formatDate(periodEndsAt)}.
-              Después de eso, perderás acceso a todas las funciones premium.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirmDialog(false)}
-              disabled={isCancelling}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleCancelSubscription}
-              disabled={isCancelling}
-            >
-              {isCancelling ? 'Cancelando...' : 'Sí, cancelar suscripción'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Dialog de Reactivación */}
       <Dialog open={showReactivateDialog} onOpenChange={setShowReactivateDialog}>
@@ -489,7 +398,7 @@ export const SubscriptionDetails = () => {
             <DialogTitle>¿Deseas suspender tu suscripción?</DialogTitle>
             <DialogDescription>
               Tu suscripción será suspendida temporalmente. Podrás reactivarla en cualquier momento.
-              Durante la suspensión, no tendrás acceso a las funciones premium.
+              Durante la suspensión, tu suscripción permanecerá activa hasta el final del período actual.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
