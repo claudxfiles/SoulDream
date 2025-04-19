@@ -191,6 +191,15 @@ async def handle_paypal_webhook(request: Request):
     """
     try:
         print("[PayPal Debug] ====== INICIO DE PROCESAMIENTO DE WEBHOOK ======")
+        print("[PayPal Debug] Verificando configuración de Supabase...")
+        
+        # Verificar configuración de Supabase
+        supabase_url = os.getenv("SUPABASE_URL", "")
+        # Solo mostrar los primeros caracteres de la key por seguridad
+        supabase_key = os.getenv("SUPABASE_KEY", "")[:10] + "..." if os.getenv("SUPABASE_KEY") else ""
+        
+        print(f"[PayPal Debug] URL de Supabase: {supabase_url}")
+        print(f"[PayPal Debug] Key de Supabase (primeros caracteres): {supabase_key}")
         
         # Obtener el payload primero para asegurar que podemos leerlo
         try:
@@ -198,7 +207,6 @@ async def handle_paypal_webhook(request: Request):
             print(f"[PayPal Debug] Payload recibido: {json.dumps(payload, indent=2)}")
         except json.JSONDecodeError as e:
             print(f"[PayPal Debug] Error decodificando JSON: {str(e)}")
-            # Retornamos 200 pero con error en el contenido
             return JSONResponse(
                 status_code=200,
                 content={
@@ -302,17 +310,17 @@ async def handle_subscription_activated(resource: Dict[str, Any], supabase):
         subscription_id = resource.get("id")
         
         # Actualizar estado en subscriptions
-        await supabase.table("subscriptions").update({
+        subscription_update = supabase.table("subscriptions").update({
             "status": "active",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("paypal_subscription_id", subscription_id).execute()
         
         # Registrar en payment_history
-        subscription = await supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
+        subscription_result = supabase.table("subscriptions").select("user_id").eq("paypal_subscription_id", subscription_id).single().execute()
         
-        if subscription and subscription.data:
+        if subscription_result and subscription_result.data:
             history_data = {
-                "user_id": subscription.data["user_id"],
+                "user_id": subscription_result.data["user_id"],
                 "subscription_id": subscription_id,
                 "amount": resource.get("billing_info", {}).get("last_payment", {}).get("amount", {}).get("value", 0),
                 "currency": resource.get("billing_info", {}).get("last_payment", {}).get("amount", {}).get("currency_code", "USD"),
@@ -321,7 +329,7 @@ async def handle_subscription_activated(resource: Dict[str, Any], supabase):
                 "payment_method": "paypal"
             }
             
-            await supabase.table("payment_history").insert(history_data).execute()
+            history_result = supabase.table("payment_history").insert(history_data).execute()
     except Exception as e:
         print(f"[PayPal Debug] Error procesando activación de suscripción: {str(e)}")
         raise
